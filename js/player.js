@@ -20,6 +20,7 @@
     tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '',
     phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
     panel: 'map',
+    badges: { action: 0, ranking: 0, profile: 0, map: 0 },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   let boardModeActive = false;
@@ -160,6 +161,7 @@
 
   Net.on('board:yourTurn', m => {
     showScreen('board');
+    setPlayerBoardBadge('action', 0);
     switchPlayerBoardPanel('action');
     if (m.action === 'roll') {
       showBoardPrompt(m.message || 'Du bist dran! Würfeln?', [
@@ -171,6 +173,7 @@
 
   Net.on('board:decision', m => {
     showScreen('board');
+    setPlayerBoardBadge('action', 0);
     switchPlayerBoardPanel('action');
     if (m.kind === 'buy') {
       showBoardPrompt(m.message || 'Feld kaufen?', [
@@ -225,6 +228,7 @@
     showBoardPrompt(`📊 Runden-Scoreboard: ${top || 'keine Punkte'}`);
     const status = $('#board-status');
     if (status) status.textContent = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
+    bumpPlayerBoardBadge('ranking');
     showScreen('board');
     switchPlayerBoardPanel('ranking');
   });
@@ -451,6 +455,7 @@
     if (prompt) prompt.textContent = text || 'Warte auf deinen Zug…';
     if (!panel) return;
     panel.innerHTML = '';
+    if (actions.length > 0 && board.panel !== 'action') bumpPlayerBoardBadge('action');
     actions.forEach(a => {
       const b = el('button', 'btn btn-primary', a.label);
       b.type = 'button';
@@ -560,11 +565,31 @@
 
   function switchPlayerBoardPanel(panel) {
     board.panel = panel;
+    setPlayerBoardBadge(panel, 0);
     document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.panel === panel);
     });
     document.querySelectorAll('.screen[data-screen="board"] .board-panel').forEach(p => {
       p.classList.toggle('active', p.dataset.panel === panel);
+    });
+  }
+
+  function bumpPlayerBoardBadge(panel) {
+    board.badges[panel] = (board.badges[panel] || 0) + 1;
+    renderPlayerBoardBadges();
+  }
+
+  function setPlayerBoardBadge(panel, value) {
+    board.badges[panel] = Math.max(0, Number(value) || 0);
+    renderPlayerBoardBadges();
+  }
+
+  function renderPlayerBoardBadges() {
+    document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
+      const panel = b.dataset.panel;
+      const n = board.badges[panel] || 0;
+      b.dataset.badge = n > 0 ? String(n) : '';
+      b.classList.toggle('has-badge', n > 0);
     });
   }
 

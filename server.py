@@ -172,6 +172,8 @@ class Room:
         self.live_handle = None
         self.mode = "classic"
         self.board = None
+        self.host_participates = False
+        self.host_pid = "__host__"
 
     def cancel_host_reconnect_timeout(self):
         if self.host_reconnect_handle:
@@ -198,6 +200,8 @@ class Room:
     def attach_host(self, client):
         self.cancel_host_reconnect_timeout()
         self.host = client
+        if self.host_participates and self.host_pid in self.players:
+            self.players[self.host_pid]["connected"] = True
         client.role = "host"
         client.room = self
         client.send({
@@ -212,6 +216,29 @@ class Room:
             client.send(self.board_payload())
 
     # ---- Helfer ----
+    def _ensure_host_player(self):
+        if self.host_participates:
+            if self.host_pid not in self.players:
+                self.players[self.host_pid] = {
+                    "name": "Host",
+                    "color": "#ffd34e",
+                    "stars": 0,
+                    "totalPoints": 0,
+                    "position": 0,
+                    "figure": "🎩",
+                    "client": None,
+                    "connected": self.host is not None,
+                }
+                self.order.append(self.host_pid)
+            else:
+                p = self.players[self.host_pid]
+                p["connected"] = self.host is not None
+                p["client"] = None
+        else:
+            if self.host_pid in self.players:
+                self.players.pop(self.host_pid, None)
+                self.order = [pid for pid in self.order if pid != self.host_pid]
+
     def public_players(self):
         out = []
         for pid in self.order:
@@ -239,13 +266,24 @@ class Room:
                 p["client"].send(obj)
 
     def send_lobby(self):
+        self._ensure_host_player()
+        required = 1 if self.host_participates else 2
         self.broadcast({
             "type": "lobby",
             "code": self.code,
             "players": self.public_players(),
             "canStart": len(self.connected_players()) >= 2,
+            "requiredPlayers": required,
+            "hostParticipates": self.host_participates,
             "state": self.state,
         })
+
+    def set_host_participates(self, enabled):
+        if self.state != "lobby":
+            return
+        self.host_participates = bool(enabled)
+        self._ensure_host_player()
+        self.send_lobby()
 
     # ---- Spieler-Verwaltung ----
     def add_player(self, client, name, pid=None, figure=None):
@@ -328,6 +366,8 @@ class Room:
         if client is self.host:
             # Host weg -> Grace-Phase für Reconnect
             self.host = None
+            if self.host_participates and self.host_pid in self.players:
+                self.players[self.host_pid]["connected"] = False
             self.broadcast({"type": "hostDisconnected", "graceSeconds": HOST_RECONNECT_GRACE}, include_host=False)
             self.schedule_host_reconnect_timeout()
             return
@@ -468,7 +508,9 @@ class Room:
         p = self.players[pid]
         self.board["lastLog"] = f"{p['name']} ist am Zug und würfelt."
         self.send_board_update()
-        if p.get("client"):
+        if pid == self.host_pid and self.host_participates:
+            loop.call_later(0.9, lambda: self.board_roll(pid))
+        elif p.get("client"):
             p["client"].send({"type": "board:yourTurn", "action": "roll", "message": "Du bist dran. Würfle jetzt!"})
 
     def board_roll(self, pid):
@@ -553,6 +595,9 @@ class Room:
                     "cost": 1,
                     "message": f"Dieses Feld ist frei. Für 1 Stern kaufen?",
                 })
+            if pid == self.host_pid and self.host_participates:
+                action = "buy" if p.get("stars", 0) >= 2 else "skip"
+                loop.call_later(0.6, lambda: self.board_decision(pid, action))
             self.send_board_update()
             return
 
@@ -577,6 +622,9 @@ class Room:
                 "ownerName": owner_p["name"],
                 "message": f"Feld von {owner_p['name']}: 1 Stern zahlen oder zum Duell herausfordern?",
             })
+        if pid == self.host_pid and self.host_participates:
+            action = "rent" if p.get("stars", 0) >= 2 else "duel"
+            loop.call_later(0.6, lambda: self.board_decision(pid, action))
         self.send_board_update()
 
     def board_decision(self, pid, action):
@@ -671,6 +719,9 @@ class Room:
             c = self.players.get(pid, {}).get("client")
             if c:
                 c.send({"type": "start", "round": 1, "game": game})
+            elif pid == self.host_pid and self.host_participates:
+                d["scores"][pid] = random.randint(60, 220)
+                d["finished"].add(pid)
             else:
                 d["scores"][pid] = 0
                 d["finished"].add(pid)
@@ -718,6 +769,9 @@ class Room:
             c = self.players.get(pid, {}).get("client")
             if c:
                 c.send({"type": "start", "round": self.board["lapsDone"], "game": game})
+            elif pid == self.host_pid and self.host_participates:
+                g["scores"][pid] = random.randint(70, 260)
+                g["finished"].add(pid)
             else:
                 g["participants"] = [x for x in g["participants"] if x != pid]
         if not g.get("participants"):
@@ -831,8 +885,12 @@ class Room:
 
     # ---- Spielstart ----
     def start_game(self, rounds, order_mode, games, mode="classic"):
+        self._ensure_host_player()
+        required = 1 if self.host_participates else 2
         if len(self.connected_players()) < 2:
-            self.host.send({"type": "joinError", "message": "Mindestens 2 Spieler nötig."})
+            joined = max(0, len(self.connected_players()) - (1 if self.host_participates else 0))
+            missing = max(1, required - joined)
+            self.host.send({"type": "joinError", "message": f"Mindestens {missing} weiterer Spieler nötig."})
             return
         if not games:
             self.host.send({"type": "joinError", "message": "Mindestens 1 Spiel auswählen."})
@@ -878,6 +936,8 @@ class Room:
         self.finished = set()
         game = self.queue[self.round]
         self.broadcast({"type": "start", "round": self.round + 1, "game": game})
+        if self.host_participates and self.players.get(self.host_pid, {}).get("connected"):
+            loop.call_later(2.0, lambda: self.player_finished(self.host_pid, random.randint(70, 280)))
         # Live-Leaderboard für Host
         self.schedule_live()
         # Sicherheits-Cap
@@ -1002,6 +1062,7 @@ class Room:
         for pid in self.order:
             self.players[pid]["stars"] = 0
             self.players[pid]["totalPoints"] = 0
+        self._ensure_host_player()
         self.send_lobby()
 
 
@@ -1053,6 +1114,12 @@ def handle_message(client, msg):
         room.attach_host(client)
         return
 
+    if t in ("host:setParticipates", "host:setParticipation"):
+        room = client.room
+        if room and client.role == "host":
+            room.set_host_participates(msg.get("enabled"))
+        return
+
     if t == "player:join":
         code = (msg.get("code") or "").strip().upper()
         room = rooms.get(code)
@@ -1067,6 +1134,7 @@ def handle_message(client, msg):
         return
 
     if t == "host:start" and client.role == "host":
+        room.set_host_participates(msg.get("hostParticipates", room.host_participates))
         room.start_game(
             msg.get("rounds", 5),
             msg.get("order", "random"),

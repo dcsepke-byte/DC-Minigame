@@ -25,6 +25,8 @@
     lapsDone: 0,
     lapsTotal: 0,
     boardPanel: 'map',
+    hostParticipates: false,
+    boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
@@ -106,6 +108,8 @@
 
   Net.on('lobby', m => {
     state.players = m.players;
+    if (typeof m.hostParticipates === 'boolean') state.hostParticipates = m.hostParticipates;
+    syncHostParticipatesUI();
     renderPlayers(m);
   });
 
@@ -150,6 +154,7 @@
     state.boardLog = (m && m.text) || state.boardLog;
     setBoardLogText(state.boardLog);
     showScreen('board');
+    bumpHostBoardBadge('events');
     switchHostBoardPanel('events');
   });
 
@@ -173,6 +178,7 @@
       setBoardLogText(state.boardLog);
     }
     FX.Sound.whoosh();
+    bumpHostBoardBadge('ranking');
     switchHostBoardPanel('ranking');
   });
 
@@ -277,8 +283,10 @@
     $('#player-count').textContent = `(${m.players.length})`;
     const hint = $('#lobby-hint');
     hint.style.color = '';
-    if (m.players.length === 0) hint.textContent = 'Warte auf Spieler… (mind. 2 zum Starten)';
-    else if (m.players.length < 2) hint.textContent = 'Noch 1 Spieler nötig…';
+    const required = Math.max(0, Number(m.requiredPlayers) || (state.hostParticipates ? 1 : 2));
+    const joined = Math.max(0, m.players.length - (state.hostParticipates ? 1 : 0));
+    if (joined === 0) hint.textContent = `Warte auf Spieler… (mind. ${required} zum Starten)`;
+    else if (joined < required) hint.textContent = `Noch ${required - joined} Spieler nötig…`;
     else hint.textContent = `${m.players.length} Spieler bereit! 🎉`;
     updateStartButton();
   }
@@ -363,6 +371,14 @@
     state.mode = p.dataset.mode || 'classic';
     FX.Sound.tap();
   }));
+  document.querySelectorAll('#host-play-pills .pill').forEach(p => p.addEventListener('click', () => {
+    document.querySelectorAll('#host-play-pills .pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    state.hostParticipates = p.dataset.hostPlays === 'true';
+    Net.send({ type: 'host:setParticipates', enabled: state.hostParticipates });
+    updateStartButton();
+    FX.Sound.tap();
+  }));
   document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
     b.addEventListener('click', () => switchHostBoardPanel(b.dataset.panel || 'map'));
   });
@@ -400,7 +416,14 @@
 
   $('#btn-start-game').addEventListener('click', () => {
     const games = enabledGames().map(g => ({ id: g.id, name: g.name, icon: g.icon, desc: g.desc, rules: g.rules }));
-    Net.send({ type: 'host:start', rounds: state.rounds, order: state.order, mode: state.mode, games });
+    Net.send({
+      type: 'host:start',
+      rounds: state.rounds,
+      order: state.order,
+      mode: state.mode,
+      hostParticipates: state.hostParticipates,
+      games,
+    });
     FX.Sound.whoosh();
     FX.burst(window.innerWidth / 2, window.innerHeight / 2, 40, 12);
   });
@@ -532,11 +555,38 @@
 
   function switchHostBoardPanel(panel) {
     state.boardPanel = panel;
+    clearHostBoardBadge(panel);
     document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.panel === panel);
     });
     document.querySelectorAll('.screen[data-screen="board"] .board-panel').forEach(p => {
       p.classList.toggle('active', p.dataset.panel === panel);
+    });
+  }
+
+  function syncHostParticipatesUI() {
+    document.querySelectorAll('#host-play-pills .pill').forEach(p => {
+      p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays);
+    });
+  }
+
+  function bumpHostBoardBadge(panel) {
+    if (state.boardPanel === panel) return;
+    state.boardBadges[panel] = (state.boardBadges[panel] || 0) + 1;
+    renderHostBoardBadges();
+  }
+
+  function clearHostBoardBadge(panel) {
+    if (!state.boardBadges[panel]) return;
+    state.boardBadges[panel] = 0;
+    renderHostBoardBadges();
+  }
+
+  function renderHostBoardBadges() {
+    document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
+      const n = state.boardBadges[b.dataset.panel] || 0;
+      b.dataset.badge = n > 0 ? String(n) : '';
+      b.classList.toggle('has-badge', n > 0);
     });
   }
 })();

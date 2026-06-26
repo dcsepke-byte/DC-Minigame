@@ -68,7 +68,7 @@
             <li>Tippfehler in der URL? Die Adresse muss exakt stimmen.</li>
             <li>Cloud-Modus: Prüfe, ob die App im Browser erreichbar ist (Startseite lädt).</li>
             <li>Lokal-Modus: Nutze die URL mit <code>:3000</code> und erlaube beim ersten Start den Netzwerkzugriff in der Firewall.</li>
-            <li>Der Host-Bildschirm steuert das Spiel und spielt nicht als Spieler mit.</li>
+            <li>Der Host kann in der Lobby einstellen, ob er mitspielt oder nur steuert.</li>
           </ul>
         </div>
       </div>
@@ -99,6 +99,13 @@
             <div class="toggle-pills" id="mode-pills">
               <button class="pill active" data-mode="classic">⚡ Classic</button>
               <button class="pill" data-mode="board">🎲 Board Chaos</button>
+            </div>
+          </div>
+          <div class="option-group">
+            <label>Host spielt mit</label>
+            <div class="toggle-pills" id="host-play-pills">
+              <button class="pill active" data-host-plays="false">🎛️ Nur Host</button>
+              <button class="pill" data-host-plays="true">🕹️ Host spielt mit</button>
             </div>
           </div>
         </div>
