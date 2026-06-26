@@ -22,6 +22,7 @@
   };
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
+  let autoJoinTried = false;
 
   /* ---------- Code aus URL vorbefüllen ---------- */
   const params = new URLSearchParams(location.search);
@@ -42,7 +43,7 @@
   if (location.protocol === 'file:') {
     showJoinError('⚠️ Bitte die Adresse vom Host-Bildschirm im Browser öffnen (z.B. http://192.168.…:3000/), nicht die Datei direkt.');
   } else {
-    Net.connect();
+    Net.connect(() => tryAutoJoin());
   }
 
   $('#btn-join').addEventListener('click', doJoin);
@@ -56,6 +57,7 @@
     if (code.length !== 4) return showJoinError('Bitte den 4-stelligen Raum-Code eingeben.');
     try { localStorage.setItem('pa_name', name); } catch (_) {}
     try { localStorage.setItem('pa_figure', me.figure); } catch (_) {}
+    try { localStorage.setItem('pa_last_code', code); } catch (_) {}
     let pid = null;
     try { pid = localStorage.getItem('pa_pid_' + code); } catch (_) {}
     Net.send({ type: 'player:join', name, code, playerId: pid, figure: me.figure });
@@ -73,6 +75,7 @@
     me.id = m.playerId; me.name = m.name; me.color = m.color;
     me.figure = m.figure || me.figure;
     try { localStorage.setItem('pa_pid_' + m.code, m.playerId); } catch (_) {}
+    try { localStorage.setItem('pa_last_code', m.code); } catch (_) {}
     $('#lobby-avatar').textContent = initials(me.name);
     $('#lobby-avatar').style.background = me.color;
     $('#lobby-name').textContent = me.name;
@@ -238,6 +241,10 @@
     showScreen('join');
     showJoinError('Der Host hat das Spiel beendet.');
   });
+  Net.on('hostDisconnected', m => {
+    const sec = m && m.graceSeconds ? m.graceSeconds : 120;
+    showJoinError(`Host kurz getrennt. Bitte warten (${sec}s Reconnect-Fenster).`);
+  });
   Net.on('_close', () => {
     if (!isActive('join')) showJoinError('Verbindung verloren — bitte neu beitreten.');
     showScreen('join');
@@ -361,6 +368,21 @@
       });
       picker.appendChild(b);
     });
+  }
+
+  function tryAutoJoin() {
+    if (autoJoinTried) return;
+    autoJoinTried = true;
+    let code = '';
+    let name = '';
+    let pid = '';
+    try {
+      code = (($('#code-input') && $('#code-input').value) || localStorage.getItem('pa_last_code') || '').trim().toUpperCase();
+      name = (($('#name-input') && $('#name-input').value) || localStorage.getItem('pa_name') || '').trim();
+      pid = localStorage.getItem('pa_pid_' + code) || '';
+    } catch (_) {}
+    if (code.length !== 4 || !name || !pid) return;
+    Net.send({ type: 'player:join', name, code, playerId: pid, figure: me.figure });
   }
 
   function showBoardPrompt(text, actions = []) {

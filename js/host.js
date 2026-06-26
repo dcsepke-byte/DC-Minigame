@@ -38,7 +38,19 @@
   if (location.protocol === 'file:') {
     setConn('⚠️ Bitte NICHT die Datei direkt öffnen! Starte den Server (python server.py) und öffne http://localhost:3000/host', 'err');
   } else {
-    Net.connect(() => Net.send({ type: 'host:create' }));
+    Net.connect(() => {
+      let savedCode = '';
+      let savedToken = '';
+      try {
+        savedCode = (localStorage.getItem('pa_host_code') || '').toUpperCase();
+        savedToken = localStorage.getItem('pa_host_token') || '';
+      } catch (_) {}
+      if (savedCode && savedToken) {
+        Net.send({ type: 'host:resume', code: savedCode, hostToken: savedToken });
+      } else {
+        Net.send({ type: 'host:create' });
+      }
+    });
   }
 
   Net.on('created', m => {
@@ -46,8 +58,31 @@
     $('#join-url').textContent = m.lanUrl;
     const helpUrl = $('#help-url');
     if (helpUrl) helpUrl.textContent = m.lanUrl;
+    try {
+      localStorage.setItem('pa_host_code', m.code || '');
+      if (m.hostToken) localStorage.setItem('pa_host_token', m.hostToken);
+    } catch (_) {}
     setConn('✅ Verbunden — Raum bereit!', 'ok');
     setTimeout(() => { if (connStatus) connStatus.style.display = 'none'; }, 2500);
+  });
+
+  Net.on('joinError', m => {
+    const txt = String(m && m.message || 'Host-Session fehlgeschlagen.').toLowerCase();
+    if (txt.includes('wiederhergestellt')) {
+      try {
+        localStorage.removeItem('pa_host_code');
+        localStorage.removeItem('pa_host_token');
+      } catch (_) {}
+      Net.send({ type: 'host:create' });
+      return;
+    }
+    setConn(`⚠️ ${m.message}`, 'err');
+  });
+
+  Net.on('hostDisconnected', m => {
+    const sec = m && m.graceSeconds ? m.graceSeconds : 120;
+    setConn(`⏳ Host getrennt. Reconnect-Fenster: ${sec}s`, 'err');
+    if (connStatus) connStatus.style.display = '';
   });
 
   const btnHelp = $('#btn-help');

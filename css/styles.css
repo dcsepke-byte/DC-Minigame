@@ -813,6 +813,8 @@ body { overflow-y: auto; }
   grid-template-rows: repeat(5, minmax(64px, auto));
   gap: 10px;
   perspective: 1200px;
+  position: relative;
+  transform-style: preserve-3d;
 }
 .board-grid-mobile {
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -826,9 +828,59 @@ body { overflow-y: auto; }
   transform: rotateX(16deg) translateZ(0);
   transform-origin: center bottom;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: visible;
+}
+.board-tile::before,
+.board-tile::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+.board-tile::before {
+  left: 7px;
+  right: 7px;
+  bottom: -8px;
+  height: 10px;
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(180deg, rgba(9, 10, 29, 0.72), rgba(9, 10, 29, 0.18));
+  transform: skewX(-18deg);
+}
+.board-tile::after {
+  top: 7px;
+  right: -8px;
+  width: 10px;
+  bottom: 7px;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(180deg, rgba(7, 8, 24, 0.78), rgba(7, 8, 24, 0.22));
+  transform: skewY(-18deg);
 }
 .board-tile.start { border-color: var(--good); }
 .board-tile.chaos { border-color: var(--bad); }
+.board-grid-iso {
+  transform: perspective(1250px) rotateX(50deg) rotateZ(45deg) scale(0.96);
+  transform-origin: center;
+}
+.board-grid-iso .board-center,
+.board-grid-iso .board-tile {
+  transform-style: preserve-3d;
+}
+.board-grid-iso .board-center {
+  transform: translateZ(6px) rotateZ(-45deg) rotateX(-50deg);
+}
+.board-grid-iso .board-tile {
+  transform: translateZ(14px) rotateZ(-45deg) rotateX(-50deg);
+}
+.board-grid-iso::before {
+  content: '';
+  position: absolute;
+  inset: 7% 7%;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(11, 12, 34, 0.88), rgba(19, 21, 58, 0.76));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+  transform: translateZ(-28px);
+}
 .board-center {
   grid-row: 2 / 5;
   grid-column: 2 / 5;
@@ -843,6 +895,7 @@ body { overflow-y: auto; }
   color: rgba(255, 255, 255, 0.85);
   font-size: 20px;
   line-height: 1.1;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.2), 0 10px 20px rgba(0, 0, 0, 0.25);
 }
 .board-center span { display: block; }
 .bt-top {
@@ -882,6 +935,9 @@ body { overflow-y: auto; }
   .board-grid {
     gap: 8px;
     grid-template-rows: repeat(5, minmax(54px, auto));
+  }
+  .board-grid-iso {
+    transform: perspective(950px) rotateX(46deg) rotateZ(45deg) scale(0.92);
   }
   .board-tile {
     min-height: 74px;

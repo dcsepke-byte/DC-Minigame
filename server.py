@@ -47,6 +47,7 @@ GAME_CAPS = {
     "oddone": 30, "arrows": 30, "highlow": 32,
 }
 DEFAULT_CAP = 60
+HOST_RECONNECT_GRACE = 120
 
 ROUTES = {
     "/": "player.html",
@@ -155,6 +156,8 @@ class Room:
     def __init__(self, code, host):
         self.code = code
         self.host = host
+        self.host_token = uuid.uuid4().hex[:16]
+        self.host_reconnect_handle = None
         self.players = {}         # pid -> dict
         self.order = []           # join-Reihenfolge der pids
         self.state = "lobby"
@@ -167,6 +170,38 @@ class Room:
         self.live_handle = None
         self.mode = "classic"
         self.board = None
+
+    def cancel_host_reconnect_timeout(self):
+        if self.host_reconnect_handle:
+            self.host_reconnect_handle.cancel()
+            self.host_reconnect_handle = None
+
+    def schedule_host_reconnect_timeout(self):
+        self.cancel_host_reconnect_timeout()
+        self.host_reconnect_handle = loop.call_later(HOST_RECONNECT_GRACE, self._close_if_host_missing)
+
+    def _close_if_host_missing(self):
+        self.host_reconnect_handle = None
+        if self.host is None:
+            self.cancel_timers()
+            self.broadcast({"type": "hostLeft"}, include_host=False)
+            rooms.pop(self.code, None)
+
+    def attach_host(self, client):
+        self.cancel_host_reconnect_timeout()
+        self.host = client
+        client.role = "host"
+        client.room = self
+        client.send({
+            "type": "created",
+            "code": self.code,
+            "lanUrl": join_url_for(client),
+            "hostToken": self.host_token,
+        })
+        self.send_lobby()
+        if self.state == "board" and self.board:
+            client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", [])})
+            client.send(self.board_payload())
 
     # ---- Helfer ----
     def public_players(self):
@@ -220,6 +255,34 @@ class Room:
                          "color": p["color"], "figure": p.get("figure", "🙂"),
                          "code": self.code, "state": self.state})
             self.send_lobby()
+            if self.state == "board" and self.board:
+                client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", [])})
+                client.send(self.board_payload())
+                current = self.board.get("turnPlayerId")
+                pending = (self.board.get("pending") or {}).get("player")
+                if self.board.get("phase") == "turn" and current == pid:
+                    client.send({"type": "board:yourTurn", "action": "roll", "message": "Du bist dran. Würfle jetzt!"})
+                if self.board.get("phase") == "decision" and pending == pid:
+                    pen = self.board.get("pending") or {}
+                    tile_idx = int(pen.get("tile", 0))
+                    tile = self.board.get("tiles", [])[tile_idx] if self.board.get("tiles") else {"idx": tile_idx, "name": "Feld", "icon": "🎮"}
+                    if pen.get("kind") == "buy":
+                        client.send({
+                            "type": "board:decision",
+                            "kind": "buy",
+                            "tile": tile,
+                            "cost": 1,
+                            "message": "Dieses Feld ist frei. Für 1 Stern kaufen?",
+                        })
+                    elif pen.get("kind") == "rentOrDuel":
+                        owner = self.players.get(pen.get("owner"))
+                        client.send({
+                            "type": "board:decision",
+                            "kind": "rentOrDuel",
+                            "tile": tile,
+                            "ownerName": owner["name"] if owner else "Besitzer",
+                            "message": f"Feld von {(owner['name'] if owner else 'Besitzer')}: 1 Stern zahlen oder zum Duell herausfordern?",
+                        })
             return
 
         if self.state != "lobby":
@@ -255,10 +318,10 @@ class Room:
 
     def remove_client(self, client):
         if client is self.host:
-            # Host weg -> Raum schließen
-            self.cancel_timers()
-            self.broadcast({"type": "hostLeft"}, include_host=False)
-            rooms.pop(self.code, None)
+            # Host weg -> Grace-Phase für Reconnect
+            self.host = None
+            self.broadcast({"type": "hostDisconnected", "graceSeconds": HOST_RECONNECT_GRACE}, include_host=False)
+            self.schedule_host_reconnect_timeout()
             return
         if client.pid and client.pid in self.players:
             p = self.players[client.pid]
@@ -272,6 +335,40 @@ class Room:
             # Falls im Spiel alle übrigen fertig sind -> Runde beenden
             if self.state == "playing":
                 self.check_all_finished()
+            if self.state == "board":
+                self.handle_board_disconnect(client.pid)
+
+    def handle_board_disconnect(self, pid):
+        if not self.board:
+            return
+        phase = self.board.get("phase")
+        pending = self.board.get("pending") or {}
+        if phase == "turn" and self.board.get("turnPlayerId") == pid:
+            self.board["lastLog"] = f"{self.players[pid]['name']} ist offline. Zug wird übersprungen."
+            self.send_board_update()
+            self.end_board_turn()
+            return
+        if phase == "decision" and pending.get("player") == pid:
+            self.board_decision(pid, "skip")
+            return
+        if phase == "duel" and self.board.get("duel"):
+            d = self.board["duel"]
+            if pid in (d.get("challenger"), d.get("owner")):
+                d["scores"][pid] = 0
+                d["finished"].add(pid)
+                other = d.get("owner") if pid == d.get("challenger") else d.get("challenger")
+                if other in self.players:
+                    d["finished"].add(other)
+                self.finish_board_duel()
+            return
+        if phase == "global" and self.board.get("global"):
+            g = self.board["global"]
+            if pid in g.get("participants", []):
+                g["participants"] = [x for x in g["participants"] if x != pid]
+                g["finished"] = {x for x in g.get("finished", set()) if x != pid}
+                g["scores"].pop(pid, None)
+                if g["participants"] and all(x in g["finished"] for x in g["participants"]):
+                    self.finish_global_board_round()
 
     # ---- Board Mode ----
     def build_board_tiles(self):
@@ -866,10 +963,17 @@ def handle_message(client, msg):
         code = gen_code()
         room = Room(code, client)
         rooms[code] = room
-        client.role = "host"
-        client.room = room
-        client.send({"type": "created", "code": code, "lanUrl": join_url_for(client)})
-        room.send_lobby()
+        room.attach_host(client)
+        return
+
+    if t == "host:resume":
+        code = (msg.get("code") or "").strip().upper()
+        token = (msg.get("hostToken") or "").strip()
+        room = rooms.get(code)
+        if not room or not token or token != room.host_token:
+            client.send({"type": "joinError", "message": "Host-Session konnte nicht wiederhergestellt werden."})
+            return
+        room.attach_host(client)
         return
 
     if t == "player:join":
