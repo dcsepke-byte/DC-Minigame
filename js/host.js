@@ -29,6 +29,14 @@
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
+  function setBoardLogText(text) {
+    const value = text || '...';
+    const top = $('#board-log');
+    if (top) top.textContent = value;
+    const panel = $('#board-log-panel');
+    if (panel) panel.textContent = value;
+  }
+
   /* ---------- Verbindung ---------- */
   const connStatus = $('#conn-status');
   function setConn(text, cls) {
@@ -124,8 +132,7 @@
     renderBoardPlayerInfo();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
-    const log = $('#board-log');
-    if (log) log.textContent = state.boardLog || '...';
+    setBoardLogText(state.boardLog);
     showScreen('board');
   });
 
@@ -141,8 +148,7 @@
 
   Net.on('board:announce', m => {
     state.boardLog = (m && m.text) || state.boardLog;
-    const log = $('#board-log');
-    if (log) log.textContent = state.boardLog || '...';
+    setBoardLogText(state.boardLog);
     showScreen('board');
     switchHostBoardPanel('events');
   });
@@ -150,8 +156,7 @@
   Net.on('board:duel', m => {
     if (m && m.challengerName && m.ownerName) {
       state.boardLog = `⚔️ Duell: ${m.challengerName} vs ${m.ownerName} (Start in ${m.startsIn || 4}s)`;
-      const log = $('#board-log');
-      if (log) log.textContent = state.boardLog;
+      setBoardLogText(state.boardLog);
     }
     FX.Sound.go();
   });
@@ -165,8 +170,7 @@
     if (m && Array.isArray(m.ranking)) {
       const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
       state.boardLog = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
-      const log = $('#board-log');
-      if (log) log.textContent = state.boardLog;
+      setBoardLogText(state.boardLog);
     }
     FX.Sound.whoosh();
     switchHostBoardPanel('ranking');

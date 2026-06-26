@@ -141,10 +141,14 @@
 
     <!-- ============ BOARD MODE ============ -->
     <section class="screen" data-screen="board">
-      <div class="live-header">
-        <div class="game-icon-huge live-icon">🎲</div>
-        <h2 class="intro-game-name">Board Chaos</h2>
-        <p class="tagline" id="board-lap">Runde 0 / 0</p>
+      <div class="board-topbar">
+        <div class="board-topbar-main">
+          <span class="board-chip">🎲 Board Chaos</span>
+          <span class="board-chip" id="board-lap">Runde 0 / 0</span>
+        </div>
+        <div class="board-topbar-side">
+          <span class="board-chip board-chip-dim" id="board-log">Warte auf den Start…</span>
+        </div>
       </div>
       <div class="board-layout card live-card">
         <aside class="board-nav" id="host-board-nav">
@@ -164,7 +168,7 @@
           </div>
           <div class="board-panel" data-panel="events">
             <h2 class="card-title">📣 Ereignisse</h2>
-            <p class="hint" id="board-log">Warte auf den Start…</p>
+            <p class="hint" id="board-log-panel">Warte auf den Start…</p>
           </div>
           <div class="board-panel" data-panel="players">
             <h2 class="card-title">👥 Spieler-Infos</h2>
