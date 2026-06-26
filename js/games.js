@@ -564,9 +564,12 @@ const Games = (() => {
      10) FINDE DAS ANDERE — Odd One Out
      ========================================================= */
   function gameOddOne(stage, api) {
-    const total = 20000;
-    const emojis = ['😀','😎','🤖','👻','🐶','🍕','🌟','🎈','🚀','🐱','🍦','🎵','🍩','🐸','⚽','🌸'];
-    let score = 0, streak = 0, gridN = 3, endTime = performance.now() + total, locked = false;
+    const total = 22000;
+    const pairs = [
+      ['🙂', '😊'], ['😎', '🤓'], ['🍏', '🍐'], ['🟢', '🟩'],
+      ['🔷', '🔹'], ['🌙', '⭐'], ['🐱', '🐯'], ['🍩', '🍪']
+    ];
+    let score = 0, streak = 0, gridN = 4, endTime = performance.now() + total, locked = false;
 
     const wrap = el('div', 'stage-center');
     wrap.innerHTML = `
@@ -582,8 +585,9 @@ const Games = (() => {
     function build() {
       locked = false;
       const n = gridN * gridN;
-      const base = emojis[rand(0, emojis.length - 1)];
-      let odd; do { odd = emojis[rand(0, emojis.length - 1)]; } while (odd === base);
+      const pair = pairs[rand(0, pairs.length - 1)];
+      const base = pair[0];
+      const odd = pair[1];
       const oddIdx = rand(0, n - 1);
       grid.style.gridTemplateColumns = `repeat(${gridN}, 1fr)`;
       grid.innerHTML = '';
@@ -603,16 +607,156 @@ const Games = (() => {
         FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
         c.classList.add('correct');
-        if (streak % 2 === 0) gridN = Math.min(gridN + 1, 6);
+        if (streak % 2 === 0) gridN = Math.min(gridN + 1, 7);
         api.timeout(build, 220);
       } else {
         streak = 0; streakEl.textContent = '';
-        endTime -= 1500; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', '#ff4d6d');
+        endTime -= 2000; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', '#ff4d6d');
         c.classList.add('wrong'); c.disabled = true;
       }
     }
 
     build();
+    api.frameLoop(() => {
+      const rem = endTime - performance.now();
+      bar.style.width = Math.max(0, rem / total * 100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
+    });
+  }
+
+  /* =========================================================
+     13) COUNT-VISION — Zähle die Zielsymbole
+     ========================================================= */
+  function gameCountVision(stage, api) {
+    const total = 22000;
+    let score = 0, streak = 0, endTime = performance.now() + total, answer = 0, locked = false;
+    const symbols = ['⭐', '🍀', '🎈', '⚡', '🎲', '🍕', '🚀'];
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="cv-bar"></div>
+      <div class="math-streak" id="cv-streak"></div>
+      <div class="seq-info" id="cv-title">Zähle die Zielsymbole</div>
+      <div class="seq-grid" id="cv-grid"></div>
+      <div class="choice-grid" id="cv-choices"></div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#cv-bar');
+    const streakEl = wrap.querySelector('#cv-streak');
+    const title = wrap.querySelector('#cv-title');
+    const grid = wrap.querySelector('#cv-grid');
+    const choices = wrap.querySelector('#cv-choices');
+
+    function nextRound() {
+      locked = false;
+      const target = symbols[rand(0, symbols.length - 1)];
+      const n = 16;
+      const arr = [];
+      answer = rand(3, 8);
+      for (let i = 0; i < answer; i++) arr.push(target);
+      while (arr.length < n) {
+        const s = symbols[rand(0, symbols.length - 1)];
+        arr.push(s === target ? symbols[(symbols.indexOf(s) + 1) % symbols.length] : s);
+      }
+      shuffle(arr);
+      title.innerHTML = `Wie oft siehst du <strong>${target}</strong>?`;
+      grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+      grid.innerHTML = '';
+      arr.forEach(s => grid.appendChild(el('button', 'seq-cell', s)));
+
+      const opts = new Set([answer]);
+      while (opts.size < 4) {
+        const v = Math.max(0, answer + rand(-3, 3));
+        opts.add(v === answer ? answer + 1 : v);
+      }
+      const list = shuffle([...opts]).slice(0, 4);
+      choices.innerHTML = '';
+      list.forEach(v => {
+        const b = el('button', 'choice-btn', String(v));
+        b.addEventListener('pointerdown', () => choose(v, b));
+        choices.appendChild(b);
+      });
+    }
+
+    function choose(v, btn) {
+      if (locked) return;
+      if (v === answer) {
+        locked = true;
+        streak++;
+        const pts = 18 + Math.min(10, streak) * 2;
+        score += pts; api.setScore(score);
+        btn.classList.add('correct');
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
+        api.timeout(nextRound, 260);
+      } else {
+        streak = 0; streakEl.textContent = '';
+        endTime -= 1800;
+        btn.classList.add('wrong');
+        btn.disabled = true;
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.8s', '#ff4d6d');
+      }
+    }
+
+    nextRound();
+    api.frameLoop(() => {
+      const rem = endTime - performance.now();
+      bar.style.width = Math.max(0, rem / total * 100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
+    });
+  }
+
+  /* =========================================================
+     14) REFLEX-LANES — Tippe nur das Zielsymbol
+     ========================================================= */
+  function gameReflexLanes(stage, api) {
+    const total = 20000;
+    let score = 0, endTime = performance.now() + total;
+    const target = ['⭐', '⚡', '🎯', '🍀'][rand(0, 3)];
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="rl-bar"></div>
+      <div class="seq-info">Tippe nur: <strong>${target}</strong></div>
+      <div class="odd-grid" id="rl-grid"></div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#rl-bar');
+    const grid = wrap.querySelector('#rl-grid');
+    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+
+    const pool = ['⭐', '⚡', '🎯', '🍀', '💣', '🧊'];
+
+    function spawn() {
+      const cells = 16;
+      grid.innerHTML = '';
+      for (let i = 0; i < cells; i++) {
+        const s = pool[rand(0, pool.length - 1)];
+        const c = el('button', 'odd-cell', s);
+        c.addEventListener('pointerdown', () => {
+          if (s === target) {
+            score += 14;
+            api.setScore(score);
+            c.classList.add('correct');
+            FX.Sound.tap();
+          } else if (s === '💣') {
+            score = Math.max(0, score - 30);
+            api.setScore(score);
+            c.classList.add('wrong');
+            FX.Sound.explode(); FX.shake(stage);
+          } else {
+            score = Math.max(0, score - 8);
+            api.setScore(score);
+            c.classList.add('wrong');
+            FX.Sound.bad();
+          }
+        }, { once: true });
+        grid.appendChild(c);
+      }
+    }
+
+    spawn();
+    api.interval(() => {
+      if (performance.now() < endTime) spawn();
+    }, 1100);
     api.frameLoop(() => {
       const rem = endTime - performance.now();
       bar.style.width = Math.max(0, rem / total * 100) + '%';
@@ -775,7 +919,11 @@ const Games = (() => {
     { id: 'arrows', name: 'Pfeil-Wirbel', icon: '🧭', desc: 'Drücke blitzschnell die angezeigte Richtung.',
       rules: 'Ein <strong>Pfeil</strong> erscheint — drücke sofort die passende Richtungstaste. Combos bringen mehr Punkte 🔥, Fehler kosten Zeit. 20 Sekunden.', play: gameArrows },
     { id: 'highlow', name: 'Höher oder Tiefer', icon: '🃏', desc: 'Errate, ob die nächste Zahl höher oder tiefer ist.',
-      rules: 'Tippe auf <strong>Höher ⬆️</strong> oder <strong>Tiefer ⬇️</strong>, um vorherzusagen, ob die nächste Zahl (1–100) größer oder kleiner ist. Combos geben Bonus 🔥. 22 Sekunden.', play: gameHighLow }
+      rules: 'Tippe auf <strong>Höher ⬆️</strong> oder <strong>Tiefer ⬇️</strong>, um vorherzusagen, ob die nächste Zahl (1–100) größer oder kleiner ist. Combos geben Bonus 🔥. 22 Sekunden.', play: gameHighLow },
+    { id: 'countvision', name: 'Count-Vision', icon: '🧮', desc: 'Zähle blitzschnell die Zielsymbole und wähle die richtige Zahl.',
+      rules: 'Du siehst ein Symbol-Ziel (z. B. ⭐). Zähle, wie oft es im Raster vorkommt, und tippe die richtige Zahl. Falsche Antworten kosten Zeit.', play: gameCountVision },
+    { id: 'reflexlanes', name: 'Reflex-Lanes', icon: '🎯', desc: 'Tippe nur das Zielsymbol im wechselnden Raster.',
+      rules: 'Nur das angezeigte Zielsymbol zählt. Falsche Treffer kosten Punkte, Bomben kosten extra viel. Schnell und präzise spielen!', play: gameReflexLanes }
   ];
 
   return { list };

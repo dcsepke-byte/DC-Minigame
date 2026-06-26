@@ -20,6 +20,7 @@
     tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '',
     phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
   };
+  const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   let boardModeActive = false;
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
@@ -147,7 +148,7 @@
     renderBoardGrid();
     const keepGameScreen =
       boardModeActive &&
-      (board.phase === 'global' || board.phase === 'duel') &&
+      (board.phase === 'global' || board.phase === 'duel' || board.phase === 'globalIntro' || board.phase === 'duelIntro') &&
       (isActive('play') || isActive('round-intro') || isActive('waiting'));
     if (!keepGameScreen) showScreen('board');
   });
@@ -181,6 +182,43 @@
     const status = $('#board-status');
     if (status) status.textContent = m.text || 'Chaos ausgelöst!';
     FX.Sound.whoosh();
+  });
+
+  Net.on('board:rolled', m => {
+    if (!m) return;
+    animateBoardMove(m.playerId, m.from, m.to);
+  });
+
+  Net.on('board:announce', m => {
+    const status = $('#board-status');
+    if (status) status.textContent = m.text || 'Neue Phase startet…';
+    showBoardPrompt(m.text || 'Neue Phase startet…');
+  });
+
+  Net.on('board:duel', m => {
+    const meInDuel = me.id && (me.id === m.challenger || me.id === m.owner);
+    if (meInDuel) {
+      showBoardPrompt(`⚔️ Duell gegen ${me.id === m.challenger ? m.ownerName : m.challengerName}. Start in ${m.startsIn || 4}s…`);
+    } else {
+      showBoardPrompt(`👀 Zuschauer: ${m.challengerName} vs ${m.ownerName}. Start in ${m.startsIn || 4}s…`);
+    }
+    showScreen('board');
+  });
+
+  Net.on('board:duelLive', m => {
+    const cs = (m.scores && m.scores[m.challenger]) || 0;
+    const os = (m.scores && m.scores[m.owner]) || 0;
+    const status = $('#board-status');
+    if (status) status.textContent = `⚔️ Duell live: ${cs} : ${os}`;
+  });
+
+  Net.on('board:globalResult', m => {
+    if (!m || !Array.isArray(m.ranking)) return;
+    const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
+    showBoardPrompt(`📊 Runden-Scoreboard: ${top || 'keine Punkte'}`);
+    const status = $('#board-status');
+    if (status) status.textContent = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
+    showScreen('board');
   });
 
   Net.on('board:duelResult', () => {
@@ -418,11 +456,15 @@
     grid.appendChild(center);
     const posMap = {};
     (board.players || []).forEach(p => {
-      const pos = Number.isFinite(p.position) ? p.position : 0;
-      (posMap[pos] = posMap[pos] || []).push(p);
+      const isMoving = boardAnim.active && boardAnim.playerId === p.id;
+      const pos = isMoving ? boardAnim.pos : (Number.isFinite(p.position) ? p.position : 0);
+      (posMap[pos] = posMap[pos] || []).push({ p, isMoving });
     });
     (board.tiles || []).forEach(t => {
-      const tile = el('div', 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : ''));
+      let cls = 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : '');
+      if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
+      if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
+      const tile = el('div', cls);
       const pos = boardCellPosition(t.idx);
       tile.style.gridRow = String(pos.row);
       tile.style.gridColumn = String(pos.col);
@@ -431,9 +473,34 @@
       tile.innerHTML = `
         <div class="bt-top"><span>${t.icon}</span><span>#${t.idx}</span></div>
         <div class="bt-owner">${owner ? `👑 ${escapeHtml(owner.name)}` : 'Frei'}</div>
-        <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || '🙂'}</span>`).join('')}</div>`;
+        <div class="bt-pawns">${(posMap[t.idx] || []).map(x => `<span class="bt-pawn${x.isMoving ? ' moving' : ''}" style="background:${x.p.color}">${x.p.figure || '🙂'}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+  }
+
+  function animateBoardMove(playerId, from, to) {
+    if (!playerId || !Number.isFinite(from) || !Number.isFinite(to)) return;
+    if (boardAnim.timer) clearTimeout(boardAnim.timer);
+    boardAnim.active = true;
+    boardAnim.playerId = playerId;
+    boardAnim.pos = from;
+    boardAnim.to = to;
+    const size = Math.max(1, (board.tiles || []).length || 16);
+
+    function step() {
+      renderBoardGrid();
+      if (boardAnim.pos === boardAnim.to) {
+        boardAnim.timer = setTimeout(() => {
+          boardAnim.active = false;
+          renderBoardGrid();
+        }, 260);
+        return;
+      }
+      boardAnim.pos = (boardAnim.pos + 1) % size;
+      boardAnim.timer = setTimeout(step, 200);
+    }
+
+    boardAnim.timer = setTimeout(step, 120);
   }
 
   function updateMyBoardStats() {

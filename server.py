@@ -45,9 +45,11 @@ GAME_CAPS = {
     "reaction": 35, "simon": 80, "math": 30, "tap": 14, "targets": 24,
     "stroop": 30, "precision": 45, "bombcode": 80, "sequence": 34,
     "oddone": 30, "arrows": 30, "highlow": 32,
+    "countvision": 32, "reflexlanes": 30,
 }
 DEFAULT_CAP = 60
 HOST_RECONNECT_GRACE = 120
+ROUND_INTRO_DELAY = 4.0
 
 ROUTES = {
     "/": "player.html",
@@ -183,9 +185,15 @@ class Room:
     def _close_if_host_missing(self):
         self.host_reconnect_handle = None
         if self.host is None:
+            self.cancel_board_start_handle()
             self.cancel_timers()
             self.broadcast({"type": "hostLeft"}, include_host=False)
             rooms.pop(self.code, None)
+
+    def cancel_board_start_handle(self):
+        if self.board and self.board.get("startHandle"):
+            self.board["startHandle"].cancel()
+            self.board["startHandle"] = None
 
     def attach_host(self, client):
         self.cancel_host_reconnect_timeout()
@@ -351,7 +359,7 @@ class Room:
         if phase == "decision" and pending.get("player") == pid:
             self.board_decision(pid, "skip")
             return
-        if phase == "duel" and self.board.get("duel"):
+        if phase in ("duel", "duelIntro") and self.board.get("duel"):
             d = self.board["duel"]
             if pid in (d.get("challenger"), d.get("owner")):
                 d["scores"][pid] = 0
@@ -361,7 +369,7 @@ class Room:
                     d["finished"].add(other)
                 self.finish_board_duel()
             return
-        if phase == "global" and self.board.get("global"):
+        if phase in ("global", "globalIntro") and self.board.get("global"):
             g = self.board["global"]
             if pid in g.get("participants", []):
                 g["participants"] = [x for x in g["participants"] if x != pid]
@@ -434,6 +442,7 @@ class Room:
             "lastLog": "Board-Modus gestartet. Alle starten mit 3 Sternen.",
             "duel": None,
             "global": None,
+            "startHandle": None,
         }
         self.state = "board"
         self.broadcast({"type": "board:init", "players": self.public_players(), "tiles": self.board["tiles"]})
@@ -619,7 +628,7 @@ class Room:
         game_pool = (self.settings or {}).get("games") or []
         game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         duel_id = uuid.uuid4().hex[:8]
-        self.board["phase"] = "duel"
+        self.board["phase"] = "duelIntro"
         self.board["duel"] = {
             "id": duel_id,
             "tile": tile_idx,
@@ -631,14 +640,42 @@ class Room:
         }
         cp = self.players[challenger]
         op = self.players[owner]
-        self.board["lastLog"] = f"Duell: {cp['name']} vs {op['name']} um Feld {tile_idx}."
+        self.board["lastLog"] = f"Duell startet in {int(ROUND_INTRO_DELAY)}s: {cp['name']} vs {op['name']} um Feld {tile_idx}."
+        self.broadcast({"type": "board:announce", "text": self.board["lastLog"]})
         for pid in (challenger, owner):
             c = self.players[pid].get("client")
             if c:
                 c.send({"type": "roundIntro", "round": 1, "total": 1, "game": game})
-                c.send({"type": "start", "round": 1, "game": game})
-        self.broadcast({"type": "board:duel", "challenger": challenger, "owner": owner, "tile": tile_idx, "game": game})
+        self.broadcast({
+            "type": "board:duel",
+            "challenger": challenger,
+            "owner": owner,
+            "challengerName": cp["name"],
+            "ownerName": op["name"],
+            "tile": tile_idx,
+            "game": game,
+            "startsIn": int(ROUND_INTRO_DELAY),
+        })
         self.send_board_update()
+        self.cancel_board_start_handle()
+        self.board["startHandle"] = loop.call_later(ROUND_INTRO_DELAY, self.begin_board_duel_start)
+
+    def begin_board_duel_start(self):
+        if self.state != "board" or not self.board or not self.board.get("duel"):
+            return
+        d = self.board["duel"]
+        self.board["startHandle"] = None
+        self.board["phase"] = "duel"
+        game = d["game"]
+        for pid in (d["challenger"], d["owner"]):
+            c = self.players.get(pid, {}).get("client")
+            if c:
+                c.send({"type": "start", "round": 1, "game": game})
+            else:
+                d["scores"][pid] = 0
+                d["finished"].add(pid)
+        if all(x in d["finished"] for x in (d["challenger"], d["owner"])):
+            self.finish_board_duel()
 
     def start_global_board_round(self, trigger="lap", resume="begin_turn"):
         game_pool = (self.settings or {}).get("games") or []
@@ -650,7 +687,7 @@ class Room:
             else:
                 self.begin_board_turn()
             return
-        self.board["phase"] = "global"
+        self.board["phase"] = "globalIntro"
         self.board["global"] = {
             "id": uuid.uuid4().hex[:8],
             "game": game,
@@ -664,11 +701,28 @@ class Room:
             self.board["lastLog"] = f"Chaos-Runde startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
         else:
             self.board["lastLog"] = f"Runden-Minispiel startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
+        self.broadcast({"type": "board:announce", "text": self.board["lastLog"]})
         self.broadcast({"type": "roundIntro", "round": self.board["lapsDone"], "total": self.board["lapsTotal"], "game": game})
-        for pid in participants:
-            c = self.players[pid].get("client")
+        self.send_board_update()
+        self.cancel_board_start_handle()
+        self.board["startHandle"] = loop.call_later(ROUND_INTRO_DELAY, self.begin_global_board_start)
+
+    def begin_global_board_start(self):
+        if self.state != "board" or not self.board or not self.board.get("global"):
+            return
+        g = self.board["global"]
+        self.board["startHandle"] = None
+        self.board["phase"] = "global"
+        game = g["game"]
+        for pid in list(g.get("participants", [])):
+            c = self.players.get(pid, {}).get("client")
             if c:
                 c.send({"type": "start", "round": self.board["lapsDone"], "game": game})
+            else:
+                g["participants"] = [x for x in g["participants"] if x != pid]
+        if not g.get("participants"):
+            self.finish_global_board_round()
+            return
         self.send_board_update()
 
     def board_player_score(self, pid, score):
@@ -679,6 +733,12 @@ class Room:
             d = self.board["duel"]
             if pid in (d["challenger"], d["owner"]):
                 d["scores"][pid] = score
+                self.broadcast({
+                    "type": "board:duelLive",
+                    "challenger": d["challenger"],
+                    "owner": d["owner"],
+                    "scores": d["scores"],
+                })
         elif self.board.get("phase") == "global" and self.board.get("global"):
             g = self.board["global"]
             if pid in g["participants"]:
@@ -931,6 +991,7 @@ class Room:
 
     def play_again(self):
         self.cancel_timers()
+        self.cancel_board_start_handle()
         self.mode = "classic"
         self.board = None
         self.state = "lobby"

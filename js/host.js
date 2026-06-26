@@ -25,6 +25,7 @@
     lapsDone: 0,
     lapsTotal: 0,
   };
+  const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
   /* ---------- Verbindung ---------- */
@@ -130,7 +131,24 @@
     FX.burst(window.innerWidth / 2, window.innerHeight * 0.35, 28, 10);
   });
 
-  Net.on('board:duel', () => {
+  Net.on('board:rolled', m => {
+    if (!m) return;
+    animateBoardMove(m.playerId, m.from, m.to);
+  });
+
+  Net.on('board:announce', m => {
+    state.boardLog = (m && m.text) || state.boardLog;
+    const log = $('#board-log');
+    if (log) log.textContent = state.boardLog || '...';
+    showScreen('board');
+  });
+
+  Net.on('board:duel', m => {
+    if (m && m.challengerName && m.ownerName) {
+      state.boardLog = `⚔️ Duell: ${m.challengerName} vs ${m.ownerName} (Start in ${m.startsIn || 4}s)`;
+      const log = $('#board-log');
+      if (log) log.textContent = state.boardLog;
+    }
     FX.Sound.go();
   });
 
@@ -139,7 +157,13 @@
     FX.celebrate();
   });
 
-  Net.on('board:globalResult', () => {
+  Net.on('board:globalResult', m => {
+    if (m && Array.isArray(m.ranking)) {
+      const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
+      state.boardLog = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
+      const log = $('#board-log');
+      if (log) log.textContent = state.boardLog;
+    }
     FX.Sound.whoosh();
   });
 
@@ -402,11 +426,15 @@
     grid.appendChild(center);
     const posMap = {};
     state.players.forEach(p => {
-      const pos = Number.isFinite(p.position) ? p.position : 0;
-      (posMap[pos] = posMap[pos] || []).push(p);
+      const isMoving = boardAnim.active && boardAnim.playerId === p.id;
+      const pos = isMoving ? boardAnim.pos : (Number.isFinite(p.position) ? p.position : 0);
+      (posMap[pos] = posMap[pos] || []).push({ p, isMoving });
     });
     state.boardTiles.forEach(t => {
-      const tile = el('div', 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : ''));
+      let cls = 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : '');
+      if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
+      if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
+      const tile = el('div', cls);
       const pos = boardCellPosition(t.idx);
       tile.style.gridRow = String(pos.row);
       tile.style.gridColumn = String(pos.col);
@@ -418,9 +446,34 @@
           <span>#${t.idx}</span>
         </div>
         <div class="bt-owner">${owner ? `Besitzer: ${escapeHtml(owner.name)}` : 'Frei'}</div>
-        <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || initials(p.name)}</span>`).join('')}</div>`;
+        <div class="bt-pawns">${(posMap[t.idx] || []).map(x => `<span class="bt-pawn${x.isMoving ? ' moving' : ''}" style="background:${x.p.color}">${x.p.figure || initials(x.p.name)}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+  }
+
+  function animateBoardMove(playerId, from, to) {
+    if (!playerId || !Number.isFinite(from) || !Number.isFinite(to)) return;
+    if (boardAnim.timer) clearTimeout(boardAnim.timer);
+    boardAnim.active = true;
+    boardAnim.playerId = playerId;
+    boardAnim.pos = from;
+    boardAnim.to = to;
+    const size = Math.max(1, state.boardTiles.length || 16);
+
+    function step() {
+      renderBoardGrid();
+      if (boardAnim.pos === boardAnim.to) {
+        boardAnim.timer = setTimeout(() => {
+          boardAnim.active = false;
+          renderBoardGrid();
+        }, 260);
+        return;
+      }
+      boardAnim.pos = (boardAnim.pos + 1) % size;
+      boardAnim.timer = setTimeout(step, 200);
+    }
+
+    boardAnim.timer = setTimeout(step, 120);
   }
 
   function boardCellPosition(idx) {

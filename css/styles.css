@@ -32,9 +32,11 @@ html, body {
   color: var(--txt);
   background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0) 70%);
   overflow-x: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
-body { overflow-y: auto; }
+body { overflow: hidden; }
 
 /* ---------- Canvas Layer ---------- */
 #bg-canvas {
@@ -47,19 +49,21 @@ body { overflow-y: auto; }
 /* ---------- App / Screens ---------- */
 #app {
   position: relative; z-index: 1;
-  min-height: 100%;
+  height: 100dvh;
   display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
-  padding: 24px 16px 60px;
+  padding: 14px 16px 18px;
 }
 
 .screen {
   display: none;
   width: 100%;
   max-width: 860px;
+  height: 100%;
   flex-direction: column;
   align-items: center;
   gap: 22px;
+  overflow: hidden;
   animation: screenIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3);
 }
 .screen.active { display: flex; }
@@ -333,7 +337,7 @@ body { overflow-y: auto; }
 
 /* ---------- Game Stage ---------- */
 .game-stage {
-  width: 100%; min-height: 460px;
+  width: 100%; min-height: 560px;
   background: var(--glass); border: 1px solid var(--glass-border);
   border-radius: var(--radius); backdrop-filter: blur(12px);
   position: relative; overflow: hidden;
@@ -546,11 +550,11 @@ body { overflow-y: auto; }
 .seq-cell.done { background: linear-gradient(135deg, var(--good), #00a86b); color: #062b1d; opacity: 0.85; }
 
 /* Finde das Andere */
-.odd-grid { display: grid; gap: 8px; width: min(440px, 88vw); margin: 0 auto; }
+.odd-grid { display: grid; gap: 8px; width: min(560px, 94vw); margin: 0 auto; padding: 0 6px; }
 .odd-cell {
   aspect-ratio: 1; border-radius: 14px;
   background: rgba(255, 255, 255, 0.06); border: 1px solid var(--glass-border);
-  font-size: clamp(20px, 7vw, 40px); cursor: pointer; display: grid; place-items: center;
+  font-size: clamp(18px, 5.4vw, 34px); cursor: pointer; display: grid; place-items: center;
   transition: transform 0.08s, background 0.15s;
 }
 .odd-cell:hover { background: rgba(255, 255, 255, 0.14); }
@@ -670,7 +674,7 @@ body { overflow-y: auto; }
 
 @media (max-width: 560px) {
   .card { padding: 20px; }
-  .game-stage { min-height: 420px; }
+  .game-stage { min-height: 500px; }
   .add-player-row { flex-direction: column; }
 }
 
@@ -857,6 +861,12 @@ body { overflow-y: auto; }
 }
 .board-tile.start { border-color: var(--good); }
 .board-tile.chaos { border-color: var(--bad); }
+.board-tile.moving-path {
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.55), 0 12px 26px rgba(0, 240, 255, 0.28);
+}
+.board-tile.moving-dest {
+  box-shadow: 0 0 0 2px rgba(255, 211, 78, 0.75), 0 14px 30px rgba(255, 211, 78, 0.35);
+}
 .board-grid-iso {
   transform: perspective(1250px) rotateX(14deg) scale(0.98);
   transform-origin: center;
@@ -924,6 +934,15 @@ body { overflow-y: auto; }
   font-size: 14px;
   color: #11112b;
   font-weight: 700;
+}
+.bt-pawn.moving {
+  animation: pawnHop 0.2s ease-in-out infinite alternate;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes pawnHop {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px) scale(1.06); }
 }
 .board-actions {
   display: flex;
