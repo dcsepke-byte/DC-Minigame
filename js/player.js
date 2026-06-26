@@ -20,6 +20,7 @@
     tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '',
     phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
   };
+  let boardModeActive = false;
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
   let autoJoinTried = false;
@@ -113,13 +114,16 @@
   Net.on('start', m => startPlay(m.game));
 
   Net.on('board:init', m => {
+    boardModeActive = true;
     board.tiles = m.tiles || [];
     board.players = m.players || [];
+    updateMyBoardStats();
     renderBoardGrid();
     showScreen('board');
   });
 
   Net.on('board:update', m => {
+    boardModeActive = true;
     board.tiles = m.tiles || board.tiles;
     board.owners = m.owners || {};
     board.players = m.players || [];
@@ -129,6 +133,7 @@
     board.lapsDone = m.lapsDone || 0;
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
+    updateMyBoardStats();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
     const status = $('#board-status');
@@ -140,7 +145,11 @@
       showBoardPrompt('Warte auf deinen Zug…');
     }
     renderBoardGrid();
-    showScreen('board');
+    const keepGameScreen =
+      boardModeActive &&
+      (board.phase === 'global' || board.phase === 'duel') &&
+      (isActive('play') || isActive('round-intro') || isActive('waiting'));
+    if (!keepGameScreen) showScreen('board');
   });
 
   Net.on('board:yourTurn', m => {
@@ -219,6 +228,7 @@
   });
 
   Net.on('final', m => {
+    boardModeActive = false;
     const idx = m.ranking.findIndex(r => r.id === me.id);
     const r = idx >= 0 ? m.ranking[idx] : null;
     $('#p-final-avatar').textContent = initials(me.name);
@@ -238,6 +248,7 @@
   });
 
   Net.on('hostLeft', () => {
+    boardModeActive = false;
     showScreen('join');
     showJoinError('Der Host hat das Spiel beendet.');
   });
@@ -423,6 +434,17 @@
         <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || '🙂'}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+  }
+
+  function updateMyBoardStats() {
+    const mine = (board.players || []).find(p => p.id === me.id);
+    const elStats = $('#board-me-stats');
+    if (!elStats) return;
+    if (!mine) {
+      elStats.textContent = '⭐ 0 · 🧮 0 Punkte';
+      return;
+    }
+    elStats.textContent = `⭐ ${mine.stars || 0} · 🧮 ${mine.totalPoints || 0} Punkte`;
   }
 
   function boardCellPosition(idx) {

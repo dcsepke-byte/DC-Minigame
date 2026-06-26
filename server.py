@@ -525,7 +525,8 @@ class Room:
             if txt:
                 b["lastLog"] = txt
             self.send_board_update()
-            self.end_board_turn()
+            # Chaos-Feld startet sofort eine Chaos-Runde (alle spielen zusammen).
+            self.start_global_board_round(trigger="chaos", resume="end_turn")
             return
         if tile["type"] != "property":
             self.end_board_turn()
@@ -639,19 +640,30 @@ class Room:
         self.broadcast({"type": "board:duel", "challenger": challenger, "owner": owner, "tile": tile_idx, "game": game})
         self.send_board_update()
 
-    def start_global_board_round(self):
+    def start_global_board_round(self, trigger="lap", resume="begin_turn"):
         game_pool = (self.settings or {}).get("games") or []
         game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         participants = self.connected_players()
+        if not participants:
+            if resume == "end_turn":
+                self.end_board_turn()
+            else:
+                self.begin_board_turn()
+            return
         self.board["phase"] = "global"
         self.board["global"] = {
             "id": uuid.uuid4().hex[:8],
             "game": game,
+            "trigger": trigger,
+            "resume": resume,
             "participants": participants,
             "scores": {},
             "finished": set(),
         }
-        self.board["lastLog"] = f"Chaos-Runde startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
+        if trigger == "chaos":
+            self.board["lastLog"] = f"Chaos-Runde startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
+        else:
+            self.board["lastLog"] = f"Runden-Minispiel startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
         self.broadcast({"type": "roundIntro", "round": self.board["lapsDone"], "total": self.board["lapsTotal"], "game": game})
         for pid in participants:
             c = self.players[pid].get("client")
@@ -736,7 +748,11 @@ class Room:
         self.board["global"] = None
         self.board["phase"] = "turn"
         self.send_board_update()
-        self.begin_board_turn()
+        resume = g.get("resume", "begin_turn")
+        if resume == "end_turn":
+            self.end_board_turn()
+        else:
+            self.begin_board_turn()
 
     def end_board_turn(self):
         if self.state != "board" or not self.board:
@@ -749,7 +765,7 @@ class Room:
             if self.board["lapsDone"] >= self.board["lapsTotal"]:
                 self.show_final()
                 return
-            self.start_global_board_round()
+            self.start_global_board_round(trigger="lap", resume="begin_turn")
             return
         self.begin_board_turn()
 

@@ -100,6 +100,7 @@
   });
 
   Net.on('board:init', m => {
+    state.mode = 'board';
     state.players = m.players || [];
     state.boardTiles = m.tiles || [];
     renderBoardGrid();
@@ -108,6 +109,7 @@
   });
 
   Net.on('board:update', m => {
+    state.mode = 'board';
     state.players = m.players || [];
     state.boardTiles = m.tiles || state.boardTiles;
     state.boardOwners = m.owners || {};
@@ -142,6 +144,7 @@
   });
 
   Net.on('roundIntro', m => {
+    if (state.mode === 'board') return;
     $('#round-badge').textContent = `RUNDE ${m.round} / ${m.total}`;
     $('#intro-game-icon').textContent = m.game.icon;
     $('#intro-game-name').textContent = m.game.name;
@@ -152,6 +155,7 @@
   });
 
   Net.on('start', m => {
+    if (state.mode === 'board') return;
     $('#live-icon').textContent = m.game.icon;
     $('#live-name').textContent = m.game.name;
     renderLive({ players: state.players, scores: {}, finished: [] });
@@ -159,9 +163,14 @@
     showScreen('playing');
   });
 
-  Net.on('live', m => { state.players = m.players; renderLive(m); });
+  Net.on('live', m => {
+    if (state.mode === 'board') return;
+    state.players = m.players;
+    renderLive(m);
+  });
 
   Net.on('roundResult', m => {
+    if (state.mode === 'board') return;
     $('#round-result-sub').textContent = `Runde ${m.round} / ${m.total} — ${m.game.icon} ${m.game.name}`;
     const rankEl = $('#round-ranking');
     rankEl.innerHTML = '';
@@ -186,6 +195,7 @@
   });
 
   Net.on('standings', m => {
+    if (state.mode === 'board') return;
     $('#standings-sub').textContent = `Nach Runde ${m.round} von ${m.total}`;
     const rankEl = $('#standings-ranking');
     rankEl.innerHTML = '';
@@ -361,7 +371,12 @@
   $('#btn-round-begin').addEventListener('click', () => { Net.send({ type: 'host:beginRound' }); FX.Sound.go(); });
   $('#btn-round-next').addEventListener('click', () => { Net.send({ type: 'host:next' }); FX.Sound.click(); });
   $('#btn-standings-next').addEventListener('click', () => { Net.send({ type: 'host:next' }); FX.Sound.click(); });
-  $('#btn-play-again').addEventListener('click', () => { Net.send({ type: 'host:playAgain' }); FX.Sound.whoosh(); showScreen('lobby'); });
+  $('#btn-play-again').addEventListener('click', () => {
+    Net.send({ type: 'host:playAgain' });
+    state.mode = 'classic';
+    FX.Sound.whoosh();
+    showScreen('lobby');
+  });
 
   $('#sound-toggle').addEventListener('click', () => {
     const on = !FX.isSoundEnabled();
