@@ -1,0 +1,2 @@
+# PARTY ARENA benötigt KEINE externen Pakete (nur Python-Standardbibliothek).
+# Diese Datei sagt dem Cloud-Anbieter nur: "Das ist ein Python-Projekt".

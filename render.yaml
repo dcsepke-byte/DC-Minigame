@@ -1,0 +1,8 @@
+# Cloud-Deployment für PARTY ARENA (Render.com – kostenloser Plan)
+services:
+  - type: web
+    name: party-arena
+    runtime: python
+    plan: free
+    buildCommand: ""
+    startCommand: python server.py

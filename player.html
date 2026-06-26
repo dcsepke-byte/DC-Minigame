@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Party Arena — Mitspielen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+  <button id="sound-toggle" class="sound-toggle" title="Sound an/aus">🔊</button>
+
+  <main id="app">
+
+    <!-- ============ JOIN ============ -->
+    <section class="screen active" data-screen="join">
+      <div class="logo-wrap">
+        <h1 class="logo"><span class="logo-word">PARTY</span><span class="logo-word accent">ARENA</span></h1>
+        <p class="tagline">Mit dem Handy mitspielen</p>
+      </div>
+      <div class="card setup-card">
+        <h2 class="card-title">🎮 Beitreten</h2>
+        <label class="field-label">Dein Name</label>
+        <input type="text" id="name-input" maxlength="14" placeholder="z. B. Max" autocomplete="off" />
+        <label class="field-label">Raum-Code</label>
+        <input type="text" id="code-input" maxlength="4" placeholder="z. B. ABCD" autocomplete="off" class="code-field" />
+        <p class="hint" id="join-error"></p>
+        <button class="btn btn-primary btn-big" id="btn-join">🚀 Mitspielen</button>
+      </div>
+    </section>
+
+    <!-- ============ WARTERAUM ============ -->
+    <section class="screen" data-screen="lobby">
+      <div class="player-turn-content">
+        <div class="turn-avatar" id="lobby-avatar">P</div>
+        <h2 class="turn-name" id="lobby-name">Spieler</h2>
+        <p class="turn-label">Du bist im Raum <strong id="lobby-code">····</strong></p>
+        <div class="waiting-spinner"></div>
+        <p class="turn-progress" id="lobby-players">Warte, bis der Host startet…</p>
+      </div>
+    </section>
+
+    <!-- ============ RUNDEN-INTRO ============ -->
+    <section class="screen" data-screen="round-intro">
+      <div class="round-intro-content">
+        <div class="round-badge" id="p-round-badge">RUNDE 1</div>
+        <div class="game-icon-huge" id="p-intro-icon">⚡</div>
+        <h2 class="intro-game-name" id="p-intro-name">Reaktion</h2>
+        <div class="intro-rules" id="p-intro-rules"></div>
+        <p class="turn-label">Mach dich bereit… 📱</p>
+      </div>
+    </section>
+
+    <!-- ============ SPIELEN ============ -->
+    <section class="screen" data-screen="play">
+      <div class="play-hud">
+        <div class="hud-player">
+          <span class="hud-avatar" id="hud-avatar">P</span>
+          <span class="hud-name" id="hud-name">Du</span>
+        </div>
+        <div class="hud-game" id="hud-game">⚡</div>
+        <div class="hud-score">
+          <span class="hud-score-label">Punkte</span>
+          <span class="hud-score-value" id="hud-score">0</span>
+        </div>
+      </div>
+      <div class="game-stage" id="game-stage"></div>
+    </section>
+
+    <!-- ============ FERTIG / WARTEN ============ -->
+    <section class="screen" data-screen="waiting">
+      <div class="player-result-content">
+        <div class="result-avatar" id="wait-avatar">P</div>
+        <p class="result-label">Dein Ergebnis</p>
+        <div class="result-score" id="wait-score">0</div>
+        <p class="result-points-label">Punkte</p>
+        <div class="waiting-spinner"></div>
+        <p class="turn-label">Warte auf die anderen Spieler…</p>
+      </div>
+    </section>
+
+    <!-- ============ RUNDENERGEBNIS (Spielersicht) ============ -->
+    <section class="screen" data-screen="result">
+      <div class="player-result-content">
+        <h2 class="round-result-title" id="result-headline">Platz 1</h2>
+        <div class="result-avatar" id="result-avatar">P</div>
+        <h2 class="result-name" id="result-name">Du</h2>
+        <p class="result-label" id="result-detail">erzielt 0 Punkte</p>
+        <div class="star-winner" id="result-star"></div>
+        <p class="turn-label">Weiter geht's am Host-Bildschirm…</p>
+      </div>
+    </section>
+
+    <!-- ============ GESAMTSTAND (Spielersicht) ============ -->
+    <section class="screen" data-screen="standings">
+      <div class="standings-content">
+        <h2 class="standings-title">⭐ Dein Stand</h2>
+        <p class="standings-sub" id="p-standings-sub"></p>
+        <div class="big-place" id="p-standings-place">–</div>
+        <p class="turn-label" id="p-standings-stars"></p>
+      </div>
+    </section>
+
+    <!-- ============ FINALE (Spielersicht) ============ -->
+    <section class="screen" data-screen="final">
+      <div class="final-content">
+        <h2 class="final-title" id="p-final-title">🏆</h2>
+        <div class="result-avatar" id="p-final-avatar">P</div>
+        <div class="big-place" id="p-final-place">–</div>
+        <div class="final-winner-banner" id="p-final-banner"></div>
+        <p class="turn-label">Danke fürs Mitspielen! 🎉</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/effects.js"></script>
+  <script src="js/games.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/player.js"></script>
+</body>
+</html>

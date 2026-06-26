@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Party Arena — Die ultimative Mini-Spiel-Challenge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Animierter Partikel-Hintergrund -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- Konfetti / Effekt-Layer -->
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- Sound-Toggle -->
+  <button id="sound-toggle" class="sound-toggle" title="Sound an/aus" aria-label="Sound umschalten">🔊</button>
+
+  <main id="app">
+
+    <!-- ============ START / SETUP ============ -->
+    <section class="screen active" id="screen-start" data-screen="start">
+      <div class="logo-wrap">
+        <h1 class="logo">
+          <span class="logo-word">PARTY</span>
+          <span class="logo-word accent">ARENA</span>
+        </h1>
+        <p class="tagline">Die ultimative Mini-Spiel-Challenge</p>
+      </div>
+
+      <div class="card setup-card">
+        <h2 class="card-title">👥 Spieler hinzufügen</h2>
+        <div class="add-player-row">
+          <input type="text" id="player-name-input" maxlength="14" placeholder="Spielername eingeben…" autocomplete="off" />
+          <button class="btn btn-add" id="btn-add-player">+ Hinzufügen</button>
+        </div>
+        <ul class="player-list" id="player-list"></ul>
+        <p class="hint" id="player-hint">Mindestens 2 Spieler nötig (max. 8).</p>
+
+        <div class="setup-options">
+          <div class="option-group">
+            <label>Anzahl Runden</label>
+            <div class="stepper">
+              <button class="step-btn" data-step="rounds" data-dir="-1">−</button>
+              <span class="step-value" id="rounds-value">5</span>
+              <button class="step-btn" data-step="rounds" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="option-group">
+            <label>Spiel-Reihenfolge</label>
+            <div class="toggle-pills">
+              <button class="pill active" data-order="random">🎲 Zufällig</button>
+              <button class="pill" data-order="fixed">📋 Der Reihe nach</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-big" id="btn-start-game" disabled>
+          🚀 Spiel starten
+        </button>
+      </div>
+
+      <div class="card games-preview">
+        <h2 class="card-title">🎮 Spiele auswählen</h2>
+        <p class="hint games-pick-hint">Tippe ein Spiel an, um es <strong>ein- oder auszuschalten</strong>. Ausgegraute Spiele werden nicht gespielt.</p>
+        <div class="games-grid" id="games-grid"></div>
+        <p class="hint" id="games-hint"></p>
+      </div>
+    </section>
+
+    <!-- ============ RUNDEN-INTRO ============ -->
+    <section class="screen" id="screen-round-intro" data-screen="round-intro">
+      <div class="round-intro-content">
+        <div class="round-badge" id="round-badge">RUNDE 1</div>
+        <div class="game-icon-huge" id="intro-game-icon">⚡</div>
+        <h2 class="intro-game-name" id="intro-game-name">Reaktion</h2>
+        <p class="intro-game-desc" id="intro-game-desc"></p>
+        <div class="intro-rules" id="intro-rules"></div>
+        <button class="btn btn-primary btn-big" id="btn-round-begin">Los geht's!</button>
+      </div>
+    </section>
+
+    <!-- ============ SPIELER-INTRO ("Du bist dran") ============ -->
+    <section class="screen" id="screen-player-turn" data-screen="player-turn">
+      <div class="player-turn-content">
+        <p class="turn-label">Als nächstes ist dran…</p>
+        <div class="turn-avatar" id="turn-avatar">P</div>
+        <h2 class="turn-name" id="turn-name">Spieler</h2>
+        <div class="turn-progress" id="turn-progress"></div>
+        <button class="btn btn-primary btn-big" id="btn-player-ready">Ich bin bereit!</button>
+      </div>
+    </section>
+
+    <!-- ============ MINI-SPIEL BÜHNE ============ -->
+    <section class="screen" id="screen-play" data-screen="play">
+      <div class="play-hud">
+        <div class="hud-player">
+          <span class="hud-avatar" id="hud-avatar">P</span>
+          <span class="hud-name" id="hud-name">Spieler</span>
+        </div>
+        <div class="hud-game" id="hud-game">⚡ Reaktion</div>
+        <div class="hud-score">
+          <span class="hud-score-label">Punkte</span>
+          <span class="hud-score-value" id="hud-score">0</span>
+        </div>
+      </div>
+      <div class="game-stage" id="game-stage"></div>
+    </section>
+
+    <!-- ============ SPIELER-ERGEBNIS ============ -->
+    <section class="screen" id="screen-player-result" data-screen="player-result">
+      <div class="player-result-content">
+        <div class="result-avatar" id="result-avatar">P</div>
+        <h2 class="result-name" id="result-name">Spieler</h2>
+        <p class="result-label">erzielt</p>
+        <div class="result-score" id="result-score">0</div>
+        <p class="result-points-label">Punkte</p>
+        <button class="btn btn-primary btn-big" id="btn-result-next">Weiter</button>
+      </div>
+    </section>
+
+    <!-- ============ RUNDEN-RANGLISTE ============ -->
+    <section class="screen" id="screen-round-result" data-screen="round-result">
+      <div class="round-result-content">
+        <h2 class="round-result-title">🏁 Rundenergebnis</h2>
+        <p class="round-result-sub" id="round-result-sub">Runde 1 — Reaktion</p>
+        <div class="ranking" id="round-ranking"></div>
+        <div class="star-winner" id="star-winner"></div>
+        <button class="btn btn-primary btn-big" id="btn-round-next">Nächste Runde</button>
+      </div>
+    </section>
+
+    <!-- ============ GESAMTSTAND ============ -->
+    <section class="screen" id="screen-standings" data-screen="standings">
+      <div class="standings-content">
+        <h2 class="standings-title">⭐ Gesamtstand</h2>
+        <p class="standings-sub" id="standings-sub"></p>
+        <div class="ranking" id="standings-ranking"></div>
+        <button class="btn btn-primary btn-big" id="btn-standings-next">Weiter</button>
+      </div>
+    </section>
+
+    <!-- ============ FINALE / SIEGEREHRUNG ============ -->
+    <section class="screen" id="screen-final" data-screen="final">
+      <div class="final-content">
+        <h2 class="final-title">🏆 SIEGEREHRUNG 🏆</h2>
+        <div class="podium" id="podium"></div>
+        <div class="final-winner-banner" id="final-winner-banner"></div>
+        <button class="btn btn-primary btn-big" id="btn-play-again">🔄 Nochmal spielen</button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/effects.js"></script>
+  <script src="js/games.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

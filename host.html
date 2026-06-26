@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Party Arena — Host</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+  <button id="sound-toggle" class="sound-toggle" title="Sound an/aus">🔊</button>
+
+  <main id="app">
+
+    <!-- ============ LOBBY ============ -->
+    <section class="screen active" data-screen="lobby">
+      <div class="logo-wrap">
+        <h1 class="logo"><span class="logo-word">PARTY</span><span class="logo-word accent">ARENA</span></h1>
+        <p class="tagline">Mehrspieler · Host-Bildschirm</p>
+      </div>
+
+      <div class="conn-status" id="conn-status">🔌 Verbinde mit Server…</div>
+
+      <div class="card join-card">
+        <h2 class="card-title">📱 So treten Spieler bei</h2>
+        <div class="join-info">
+          <div class="join-step">
+            <span class="join-num">1</span>
+            <div>Am Handy im Browser öffnen:<br><span class="join-url" id="join-url">…</span></div>
+          </div>
+          <div class="join-step">
+            <span class="join-num">2</span>
+            <div>Raum-Code eingeben:</div>
+          </div>
+        </div>
+        <div class="room-code" id="room-code">····</div>
+        <button class="btn btn-ghost btn-help" id="btn-help">❓ Wie tritt ein Spieler bei?</button>
+      </div>
+
+      <div class="card help-panel" id="help-panel" hidden>
+        <h2 class="card-title">📖 Anleitung: Mitspieler hinzufügen</h2>
+        <div class="help-steps">
+          <div class="help-step">
+            <span class="join-num">1</span>
+            <div><strong>Cloud oder lokal:</strong> Alle Mitspieler brauchen Zugriff auf die angezeigte URL (entweder öffentliche Cloud-URL oder lokale Rechner-URL).</div>
+          </div>
+          <div class="help-step">
+            <span class="join-num">2</span>
+            <div><strong>Adresse im Handy-Browser öffnen</strong> (Chrome/Safari) – exakt diese URL:<br>
+              <span class="join-url-mono" id="help-url">https://deine-app.onrender.com/</span></div>
+          </div>
+          <div class="help-step">
+            <span class="join-num">3</span>
+            <div><strong>Namen</strong> eingeben und den <strong>4-stelligen Raum-Code</strong> vom oberen Bildschirm eintippen.</div>
+          </div>
+          <div class="help-step">
+            <span class="join-num">4</span>
+            <div>Fertig – der Spieler erscheint in der Liste „Spieler im Raum". Ab 2 Spielern kannst du starten. 🎉</div>
+          </div>
+        </div>
+        <div class="help-note">
+          <strong>⚠️ Handy kann nicht verbinden?</strong>
+          <ul>
+            <li>Tippfehler in der URL? Die Adresse muss exakt stimmen.</li>
+            <li>Cloud-Modus: Prüfe, ob die App im Browser erreichbar ist (Startseite lädt).</li>
+            <li>Lokal-Modus: Nutze die URL mit <code>:3000</code> und erlaube beim ersten Start den Netzwerkzugriff in der Firewall.</li>
+            <li>Der Host-Bildschirm steuert das Spiel und spielt nicht als Spieler mit.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card setup-card">
+        <h2 class="card-title">👥 Spieler im Raum <span class="player-count" id="player-count">(0)</span></h2>
+        <ul class="player-list" id="player-list"></ul>
+        <p class="hint" id="lobby-hint">Warte auf Spieler… (mind. 2 zum Starten)</p>
+
+        <div class="setup-options">
+          <div class="option-group">
+            <label>Anzahl Runden</label>
+            <div class="stepper">
+              <button class="step-btn" data-dir="-1">−</button>
+              <span class="step-value" id="rounds-value">5</span>
+              <button class="step-btn" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="option-group">
+            <label>Spiel-Reihenfolge</label>
+            <div class="toggle-pills">
+              <button class="pill active" data-order="random">🎲 Zufällig</button>
+              <button class="pill" data-order="fixed">📋 Der Reihe nach</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-big" id="btn-start-game" disabled>🚀 Spiel starten</button>
+      </div>
+
+      <div class="card games-preview">
+        <h2 class="card-title">🎮 Spiele auswählen</h2>
+        <p class="hint games-pick-hint">Tippe ein Spiel an, um es <strong>ein- oder auszuschalten</strong>. Ausgegraute Spiele werden nicht gespielt.</p>
+        <div class="games-grid" id="games-grid"></div>
+        <p class="hint" id="games-hint"></p>
+      </div>
+    </section>
+
+    <!-- ============ RUNDEN-INTRO ============ -->
+    <section class="screen" data-screen="round-intro">
+      <div class="round-intro-content">
+        <div class="round-badge" id="round-badge">RUNDE 1</div>
+        <div class="game-icon-huge" id="intro-game-icon">⚡</div>
+        <h2 class="intro-game-name" id="intro-game-name">Reaktion</h2>
+        <p class="intro-game-desc" id="intro-game-desc"></p>
+        <div class="intro-rules" id="intro-rules"></div>
+        <button class="btn btn-primary btn-big" id="btn-round-begin">▶️ Runde starten (alle Handys)</button>
+      </div>
+    </section>
+
+    <!-- ============ LIVE (alle spielen) ============ -->
+    <section class="screen" data-screen="playing">
+      <div class="live-header">
+        <div class="game-icon-huge live-icon" id="live-icon">⚡</div>
+        <h2 class="intro-game-name" id="live-name">Reaktion</h2>
+        <p class="tagline">Alle spielen gerade…</p>
+      </div>
+      <div class="card live-card">
+        <h2 class="card-title">📊 Live-Rangliste</h2>
+        <div class="ranking" id="live-ranking"></div>
+      </div>
+    </section>
+
+    <!-- ============ RUNDEN-RANGLISTE ============ -->
+    <section class="screen" data-screen="round-result">
+      <div class="round-result-content">
+        <h2 class="round-result-title">🏁 Rundenergebnis</h2>
+        <p class="round-result-sub" id="round-result-sub">Runde 1</p>
+        <div class="ranking" id="round-ranking"></div>
+        <div class="star-winner" id="star-winner"></div>
+        <button class="btn btn-primary btn-big" id="btn-round-next">Weiter</button>
+      </div>
+    </section>
+
+    <!-- ============ GESAMTSTAND ============ -->
+    <section class="screen" data-screen="standings">
+      <div class="standings-content">
+        <h2 class="standings-title">⭐ Gesamtstand</h2>
+        <p class="standings-sub" id="standings-sub"></p>
+        <div class="ranking" id="standings-ranking"></div>
+        <button class="btn btn-primary btn-big" id="btn-standings-next">Weiter</button>
+      </div>
+    </section>
+
+    <!-- ============ FINALE ============ -->
+    <section class="screen" data-screen="final">
+      <div class="final-content">
+        <h2 class="final-title">🏆 SIEGEREHRUNG 🏆</h2>
+        <div class="podium" id="podium"></div>
+        <div class="final-winner-banner" id="final-winner-banner"></div>
+        <button class="btn btn-primary btn-big" id="btn-play-again">🔄 Nochmal spielen</button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/effects.js"></script>
+  <script src="js/games.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/host.js"></script>
+</body>
+</html>
