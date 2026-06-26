@@ -16,8 +16,14 @@
   const state = {
     rounds: 5,
     order: 'random',
+    mode: 'classic',
     disabledGames: new Set(),
     players: [],
+    boardTiles: [],
+    boardOwners: {},
+    boardLog: '',
+    lapsDone: 0,
+    lapsTotal: 0,
   };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
@@ -56,6 +62,48 @@
   Net.on('lobby', m => {
     state.players = m.players;
     renderPlayers(m);
+  });
+
+  Net.on('board:init', m => {
+    state.players = m.players || [];
+    state.boardTiles = m.tiles || [];
+    renderBoardGrid();
+    renderBoardRanking();
+    showScreen('board');
+  });
+
+  Net.on('board:update', m => {
+    state.players = m.players || [];
+    state.boardTiles = m.tiles || state.boardTiles;
+    state.boardOwners = m.owners || {};
+    state.boardLog = m.log || '';
+    state.lapsDone = m.lapsDone || 0;
+    state.lapsTotal = m.lapsTotal || 0;
+    renderBoardGrid();
+    renderBoardRanking();
+    const lap = $('#board-lap');
+    if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
+    const log = $('#board-log');
+    if (log) log.textContent = state.boardLog || '...';
+    showScreen('board');
+  });
+
+  Net.on('board:chaos', () => {
+    FX.Sound.whoosh();
+    FX.burst(window.innerWidth / 2, window.innerHeight * 0.35, 28, 10);
+  });
+
+  Net.on('board:duel', () => {
+    FX.Sound.go();
+  });
+
+  Net.on('board:duelResult', () => {
+    FX.Sound.fanfare();
+    FX.celebrate();
+  });
+
+  Net.on('board:globalResult', () => {
+    FX.Sound.whoosh();
   });
 
   Net.on('roundIntro', m => {
@@ -227,9 +275,15 @@
     state.rounds = Math.max(1, Math.min(20, state.rounds + parseInt(b.dataset.dir, 10)));
     $('#rounds-value').textContent = state.rounds; FX.Sound.tap();
   }));
-  document.querySelectorAll('.toggle-pills .pill').forEach(p => p.addEventListener('click', () => {
-    document.querySelectorAll('.toggle-pills .pill').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(p => p.addEventListener('click', () => {
+    document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(x => x.classList.remove('active'));
     p.classList.add('active'); state.order = p.dataset.order; FX.Sound.tap();
+  }));
+  document.querySelectorAll('#mode-pills .pill').forEach(p => p.addEventListener('click', () => {
+    document.querySelectorAll('#mode-pills .pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    state.mode = p.dataset.mode || 'classic';
+    FX.Sound.tap();
   }));
 
   // Spiele-Auswahl
@@ -265,7 +319,7 @@
 
   $('#btn-start-game').addEventListener('click', () => {
     const games = enabledGames().map(g => ({ id: g.id, name: g.name, icon: g.icon, desc: g.desc, rules: g.rules }));
-    Net.send({ type: 'host:start', rounds: state.rounds, order: state.order, games });
+    Net.send({ type: 'host:start', rounds: state.rounds, order: state.order, mode: state.mode, games });
     FX.Sound.whoosh();
     FX.burst(window.innerWidth / 2, window.innerHeight / 2, 40, 12);
   });
@@ -288,5 +342,45 @@
     const parts = String(name).trim().split(/\s+/);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return String(name).trim().slice(0, 2).toUpperCase();
+  }
+
+  function renderBoardGrid() {
+    const grid = $('#host-board-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const posMap = {};
+    state.players.forEach(p => {
+      const pos = Number.isFinite(p.position) ? p.position : 0;
+      (posMap[pos] = posMap[pos] || []).push(p);
+    });
+    state.boardTiles.forEach(t => {
+      const tile = el('div', 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : ''));
+      const ownerId = state.boardOwners[String(t.idx)];
+      const owner = ownerId ? state.players.find(p => p.id === ownerId) : null;
+      tile.innerHTML = `
+        <div class="bt-top">
+          <span>${t.icon} ${escapeHtml(t.name)}</span>
+          <span>#${t.idx}</span>
+        </div>
+        <div class="bt-owner">${owner ? `Besitzer: ${escapeHtml(owner.name)}` : 'Frei'}</div>
+        <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || initials(p.name)}</span>`).join('')}</div>`;
+      grid.appendChild(tile);
+    });
+  }
+
+  function renderBoardRanking() {
+    const rank = $('#board-ranking');
+    if (!rank) return;
+    rank.innerHTML = '';
+    const arr = [...state.players].sort((a, b) => (b.stars || 0) - (a.stars || 0));
+    arr.forEach((p, i) => {
+      const row = el('div', 'rank-row' + (i === 0 ? ' first' : ''));
+      row.innerHTML = `
+        <span class="rank-pos">${i + 1}</span>
+        <span class="rank-avatar" style="background:${p.color}">${p.figure || initials(p.name)}</span>
+        <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
+        <span class="rank-stars">${'⭐'.repeat(p.stars || 0) || '0'}</span>`;
+      rank.appendChild(row);
+    });
   }
 })();

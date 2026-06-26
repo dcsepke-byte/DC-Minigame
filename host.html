@@ -94,6 +94,13 @@
               <button class="pill" data-order="fixed">📋 Der Reihe nach</button>
             </div>
           </div>
+          <div class="option-group">
+            <label>Spielmodus</label>
+            <div class="toggle-pills" id="mode-pills">
+              <button class="pill active" data-mode="classic">⚡ Classic</button>
+              <button class="pill" data-mode="board">🎲 Board Chaos</button>
+            </div>
+          </div>
         </div>
 
         <button class="btn btn-primary btn-big" id="btn-start-game" disabled>🚀 Spiel starten</button>
@@ -129,6 +136,27 @@
       <div class="card live-card">
         <h2 class="card-title">📊 Live-Rangliste</h2>
         <div class="ranking" id="live-ranking"></div>
+      </div>
+    </section>
+
+    <!-- ============ BOARD MODE ============ -->
+    <section class="screen" data-screen="board">
+      <div class="live-header">
+        <div class="game-icon-huge live-icon">🎲</div>
+        <h2 class="intro-game-name">Board Chaos</h2>
+        <p class="tagline" id="board-lap">Runde 0 / 0</p>
+      </div>
+      <div class="card live-card">
+        <h2 class="card-title">🧩 Spielfeld</h2>
+        <div class="board-grid" id="host-board-grid"></div>
+      </div>
+      <div class="card live-card">
+        <h2 class="card-title">📣 Ereignis</h2>
+        <p class="hint" id="board-log">Warte auf den Start…</p>
+      </div>
+      <div class="card live-card">
+        <h2 class="card-title">⭐ Sterne & Besitz</h2>
+        <div class="ranking" id="board-ranking"></div>
       </div>
     </section>
 

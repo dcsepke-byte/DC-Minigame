@@ -6,6 +6,7 @@
   'use strict';
 
   const $ = s => document.querySelector(s);
+  const FIGURES = ['🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
@@ -14,7 +15,8 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const me = { id: null, name: '', color: '#ff3cac' };
+  const me = { id: null, name: '', color: '#ff3cac', figure: '🚀' };
+  const board = { tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '' };
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
 
@@ -27,6 +29,11 @@
     const savedName = localStorage.getItem('pa_name');
     if (savedName) $('#name-input').value = savedName;
   } catch (_) {}
+  try {
+    const savedFigure = localStorage.getItem('pa_figure');
+    if (savedFigure) me.figure = savedFigure;
+  } catch (_) {}
+  renderFigurePicker();
 
   /* ---------- Verbindung ---------- */
   if (location.protocol === 'file:') {
@@ -45,9 +52,10 @@
     if (!name) return showJoinError('Bitte einen Namen eingeben.');
     if (code.length !== 4) return showJoinError('Bitte den 4-stelligen Raum-Code eingeben.');
     try { localStorage.setItem('pa_name', name); } catch (_) {}
+    try { localStorage.setItem('pa_figure', me.figure); } catch (_) {}
     let pid = null;
     try { pid = localStorage.getItem('pa_pid_' + code); } catch (_) {}
-    Net.send({ type: 'player:join', name, code, playerId: pid });
+    Net.send({ type: 'player:join', name, code, playerId: pid, figure: me.figure });
     FX.Sound.click();
   }
   function showJoinError(msg) {
@@ -60,6 +68,7 @@
 
   Net.on('joined', m => {
     me.id = m.playerId; me.name = m.name; me.color = m.color;
+    me.figure = m.figure || me.figure;
     try { localStorage.setItem('pa_pid_' + m.code, m.playerId); } catch (_) {}
     $('#lobby-avatar').textContent = initials(me.name);
     $('#lobby-avatar').style.background = me.color;
@@ -68,6 +77,10 @@
     $('#hud-avatar').textContent = initials(me.name);
     $('#hud-avatar').style.background = me.color;
     $('#hud-name').textContent = me.name;
+    const bAvatar = $('#board-avatar');
+    if (bAvatar) { bAvatar.textContent = me.figure; bAvatar.style.background = me.color; }
+    const bName = $('#board-name');
+    if (bName) bName.textContent = me.name;
     if (m.state === 'lobby') showScreen('lobby');
     FX.Sound.star();
     FX.burst(window.innerWidth / 2, window.innerHeight * 0.4, 26, 10);
@@ -92,6 +105,67 @@
   });
 
   Net.on('start', m => startPlay(m.game));
+
+  Net.on('board:init', m => {
+    board.tiles = m.tiles || [];
+    board.players = m.players || [];
+    renderBoardGrid();
+    showScreen('board');
+  });
+
+  Net.on('board:update', m => {
+    board.tiles = m.tiles || board.tiles;
+    board.owners = m.owners || {};
+    board.players = m.players || [];
+    board.lapsDone = m.lapsDone || 0;
+    board.lapsTotal = m.lapsTotal || 0;
+    board.log = m.log || '';
+    const lap = $('#board-lap');
+    if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
+    const status = $('#board-status');
+    if (status) status.textContent = board.log || 'Warte auf deinen Zug…';
+    showBoardPrompt('Warte auf deinen Zug…');
+    renderBoardGrid();
+    showScreen('board');
+  });
+
+  Net.on('board:yourTurn', m => {
+    showScreen('board');
+    if (m.action === 'roll') {
+      showBoardPrompt(m.message || 'Du bist dran! Würfeln?', [
+        { label: '🎲 Würfeln', action: () => Net.send({ type: 'board:roll' }) },
+      ]);
+      FX.Sound.go();
+    }
+  });
+
+  Net.on('board:decision', m => {
+    showScreen('board');
+    if (m.kind === 'buy') {
+      showBoardPrompt(m.message || 'Feld kaufen?', [
+        { label: '⭐ Kaufen (1)', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+        { label: 'Weiterziehen', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
+      ]);
+    } else if (m.kind === 'rentOrDuel') {
+      showBoardPrompt(m.message || 'Zahlen oder Duell?', [
+        { label: '⭐ Zahlen (1)', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '⚔️ Duell', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
+      ]);
+    }
+  });
+
+  Net.on('board:chaos', m => {
+    const status = $('#board-status');
+    if (status) status.textContent = m.text || 'Chaos ausgelöst!';
+    FX.Sound.whoosh();
+  });
+
+  Net.on('board:duelResult', () => {
+    const actions = $('#board-actions');
+    if (actions) actions.innerHTML = '';
+    showBoardPrompt('Duell beendet. Weiter geht es mit dem nächsten Zug.');
+    FX.Sound.whoosh();
+  });
 
   Net.on('waiting', m => {
     $('#wait-avatar').textContent = initials(me.name);
@@ -260,5 +334,60 @@
       if (t < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
+  }
+
+  function renderFigurePicker() {
+    const picker = $('#figure-picker');
+    if (!picker) return;
+    picker.innerHTML = '';
+    FIGURES.forEach(f => {
+      const b = el('button', 'figure-pill' + (me.figure === f ? ' active' : ''), f);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        me.figure = f;
+        renderFigurePicker();
+        FX.Sound.tap();
+      });
+      picker.appendChild(b);
+    });
+  }
+
+  function showBoardPrompt(text, actions = []) {
+    const prompt = $('#board-prompt');
+    const panel = $('#board-actions');
+    if (prompt) prompt.textContent = text || 'Warte auf deinen Zug…';
+    if (!panel) return;
+    panel.innerHTML = '';
+    actions.forEach(a => {
+      const b = el('button', 'btn btn-primary', a.label);
+      b.type = 'button';
+      b.addEventListener('click', a.action);
+      panel.appendChild(b);
+    });
+  }
+
+  function renderBoardGrid() {
+    const grid = $('#player-board-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const posMap = {};
+    (board.players || []).forEach(p => {
+      const pos = Number.isFinite(p.position) ? p.position : 0;
+      (posMap[pos] = posMap[pos] || []).push(p);
+    });
+    (board.tiles || []).forEach(t => {
+      const tile = el('div', 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : ''));
+      const ownerId = (board.owners || {})[String(t.idx)];
+      const owner = (board.players || []).find(p => p.id === ownerId);
+      tile.innerHTML = `
+        <div class="bt-top"><span>${t.icon}</span><span>#${t.idx}</span></div>
+        <div class="bt-owner">${owner ? `👑 ${escapeHtml(owner.name)}` : 'Frei'}</div>
+        <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || '🙂'}</span>`).join('')}</div>`;
+      grid.appendChild(tile);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 })();
