@@ -16,7 +16,10 @@
   }
 
   const me = { id: null, name: '', color: '#ff3cac', figure: '🚀' };
-  const board = { tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '' };
+  const board = {
+    tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '',
+    phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
+  };
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
 
@@ -117,6 +120,9 @@
     board.tiles = m.tiles || board.tiles;
     board.owners = m.owners || {};
     board.players = m.players || [];
+    board.phase = m.phase || board.phase;
+    board.turnPlayerId = m.turnPlayerId || null;
+    board.pendingPlayerId = m.pendingPlayerId || null;
     board.lapsDone = m.lapsDone || 0;
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
@@ -124,7 +130,12 @@
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
     const status = $('#board-status');
     if (status) status.textContent = board.log || 'Warte auf deinen Zug…';
-    showBoardPrompt('Warte auf deinen Zug…');
+    const myActionable =
+      (board.phase === 'turn' && board.turnPlayerId === me.id) ||
+      (board.phase === 'decision' && board.pendingPlayerId === me.id);
+    if (!myActionable) {
+      showBoardPrompt('Warte auf deinen Zug…');
+    }
     renderBoardGrid();
     showScreen('board');
   });
@@ -370,6 +381,8 @@
     const grid = $('#player-board-grid');
     if (!grid) return;
     grid.innerHTML = '';
+    const center = el('div', 'board-center', '<span>PARTY</span><span>ARENA</span>');
+    grid.appendChild(center);
     const posMap = {};
     (board.players || []).forEach(p => {
       const pos = Number.isFinite(p.position) ? p.position : 0;
@@ -377,6 +390,9 @@
     });
     (board.tiles || []).forEach(t => {
       const tile = el('div', 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : ''));
+      const pos = boardCellPosition(t.idx);
+      tile.style.gridRow = String(pos.row);
+      tile.style.gridColumn = String(pos.col);
       const ownerId = (board.owners || {})[String(t.idx)];
       const owner = (board.players || []).find(p => p.id === ownerId);
       tile.innerHTML = `
@@ -385,6 +401,16 @@
         <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || '🙂'}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+  }
+
+  function boardCellPosition(idx) {
+    const map = [
+      [5, 1], [5, 2], [5, 3], [5, 4], [5, 5],
+      [4, 5], [3, 5], [2, 5], [1, 5], [1, 4],
+      [1, 3], [1, 2], [1, 1], [2, 1], [3, 1], [4, 1],
+    ];
+    const p = map[Math.max(0, Math.min(map.length - 1, idx))];
+    return { row: p[0], col: p[1] };
   }
 
   function escapeHtml(s) {

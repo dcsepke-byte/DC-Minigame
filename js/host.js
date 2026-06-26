@@ -348,6 +348,8 @@
     const grid = $('#host-board-grid');
     if (!grid) return;
     grid.innerHTML = '';
+    const center = el('div', 'board-center', '<span>BOARD</span><span>CHAOS</span>');
+    grid.appendChild(center);
     const posMap = {};
     state.players.forEach(p => {
       const pos = Number.isFinite(p.position) ? p.position : 0;
@@ -355,6 +357,9 @@
     });
     state.boardTiles.forEach(t => {
       const tile = el('div', 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : ''));
+      const pos = boardCellPosition(t.idx);
+      tile.style.gridRow = String(pos.row);
+      tile.style.gridColumn = String(pos.col);
       const ownerId = state.boardOwners[String(t.idx)];
       const owner = ownerId ? state.players.find(p => p.id === ownerId) : null;
       tile.innerHTML = `
@@ -366,6 +371,16 @@
         <div class="bt-pawns">${(posMap[t.idx] || []).map(p => `<span class="bt-pawn" style="background:${p.color}">${p.figure || initials(p.name)}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+  }
+
+  function boardCellPosition(idx) {
+    const map = [
+      [5, 1], [5, 2], [5, 3], [5, 4], [5, 5],
+      [4, 5], [3, 5], [2, 5], [1, 5], [1, 4],
+      [1, 3], [1, 2], [1, 1], [2, 1], [3, 1], [4, 1],
+    ];
+    const p = map[Math.max(0, Math.min(map.length - 1, idx))];
+    return { row: p[0], col: p[1] };
   }
 
   function renderBoardRanking() {

@@ -299,12 +299,15 @@ class Room:
 
     def board_payload(self):
         b = self.board or {}
+        pending = b.get("pending") or {}
         return {
             "type": "board:update",
             "state": self.state,
+            "phase": b.get("phase", "turn"),
             "lapsDone": b.get("lapsDone", 0),
             "lapsTotal": b.get("lapsTotal", 0),
             "turnPlayerId": b.get("turnPlayerId"),
+            "pendingPlayerId": pending.get("player"),
             "tiles": b.get("tiles", []),
             "owners": b.get("owners", {}),
             "players": self.public_players(),
