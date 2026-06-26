@@ -24,6 +24,7 @@
     boardLog: '',
     lapsDone: 0,
     lapsTotal: 0,
+    boardPanel: 'map',
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
@@ -106,6 +107,7 @@
     state.boardTiles = m.tiles || [];
     renderBoardGrid();
     renderBoardRanking();
+    renderBoardPlayerInfo();
     showScreen('board');
   });
 
@@ -119,6 +121,7 @@
     state.lapsTotal = m.lapsTotal || 0;
     renderBoardGrid();
     renderBoardRanking();
+    renderBoardPlayerInfo();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     const log = $('#board-log');
@@ -141,6 +144,7 @@
     const log = $('#board-log');
     if (log) log.textContent = state.boardLog || '...';
     showScreen('board');
+    switchHostBoardPanel('events');
   });
 
   Net.on('board:duel', m => {
@@ -165,6 +169,7 @@
       if (log) log.textContent = state.boardLog;
     }
     FX.Sound.whoosh();
+    switchHostBoardPanel('ranking');
   });
 
   Net.on('roundIntro', m => {
@@ -354,6 +359,9 @@
     state.mode = p.dataset.mode || 'classic';
     FX.Sound.tap();
   }));
+  document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
+    b.addEventListener('click', () => switchHostBoardPanel(b.dataset.panel || 'map'));
+  });
 
   // Spiele-Auswahl
   (function renderGamesPreview() {
@@ -499,6 +507,32 @@
         <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
         <span class="rank-stars">${'⭐'.repeat(p.stars || 0) || '0'}</span>`;
       rank.appendChild(row);
+    });
+  }
+
+  function renderBoardPlayerInfo() {
+    const list = $('#host-board-player-info');
+    if (!list) return;
+    list.innerHTML = '';
+    const arr = [...state.players].sort((a, b) => (b.stars || 0) - (a.stars || 0));
+    arr.forEach((p, i) => {
+      const row = el('div', 'rank-row' + (i === 0 ? ' first' : ''));
+      row.innerHTML = `
+        <span class="rank-pos">${i + 1}</span>
+        <span class="rank-avatar" style="background:${p.color}">${p.figure || initials(p.name)}</span>
+        <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
+        <span class="rank-stars">⭐ ${p.stars || 0} · 🧮 ${p.totalPoints || 0}</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  function switchHostBoardPanel(panel) {
+    state.boardPanel = panel;
+    document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.panel === panel);
+    });
+    document.querySelectorAll('.screen[data-screen="board"] .board-panel').forEach(p => {
+      p.classList.toggle('active', p.dataset.panel === panel);
     });
   }
 })();

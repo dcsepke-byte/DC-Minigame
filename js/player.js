@@ -19,6 +19,7 @@
   const board = {
     tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '',
     phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
+    panel: 'map',
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   let boardModeActive = false;
@@ -120,6 +121,8 @@
     board.players = m.players || [];
     updateMyBoardStats();
     renderBoardGrid();
+    renderBoardRanking();
+    renderProfileCard();
     showScreen('board');
   });
 
@@ -135,6 +138,8 @@
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
     updateMyBoardStats();
+    renderBoardRanking();
+    renderProfileCard();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
     const status = $('#board-status');
@@ -155,6 +160,7 @@
 
   Net.on('board:yourTurn', m => {
     showScreen('board');
+    switchPlayerBoardPanel('action');
     if (m.action === 'roll') {
       showBoardPrompt(m.message || 'Du bist dran! Würfeln?', [
         { label: '🎲 Würfeln', action: () => Net.send({ type: 'board:roll' }) },
@@ -165,6 +171,7 @@
 
   Net.on('board:decision', m => {
     showScreen('board');
+    switchPlayerBoardPanel('action');
     if (m.kind === 'buy') {
       showBoardPrompt(m.message || 'Feld kaufen?', [
         { label: '⭐ Kaufen (1)', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
@@ -219,6 +226,7 @@
     const status = $('#board-status');
     if (status) status.textContent = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
     showScreen('board');
+    switchPlayerBoardPanel('ranking');
   });
 
   Net.on('board:duelResult', () => {
@@ -384,6 +392,9 @@
     $('#sound-toggle').textContent = on ? '🔊' : '🔇';
   });
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
+  document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
+    b.addEventListener('click', () => switchPlayerBoardPanel(b.dataset.panel || 'map'));
+  });
 
   /* ---------- Helfer ---------- */
   function isActive(name) { return screens[name] && screens[name].classList.contains('active'); }
@@ -512,6 +523,49 @@
       return;
     }
     elStats.textContent = `⭐ ${mine.stars || 0} · 🧮 ${mine.totalPoints || 0} Punkte`;
+  }
+
+  function renderBoardRanking() {
+    const rank = $('#player-board-ranking');
+    if (!rank) return;
+    rank.innerHTML = '';
+    const arr = [...(board.players || [])].sort((a, b) => (b.stars || 0) - (a.stars || 0));
+    arr.forEach((p, i) => {
+      const row = el('div', 'rank-row' + (i === 0 ? ' first' : ''));
+      row.innerHTML = `
+        <span class="rank-pos">${i + 1}</span>
+        <span class="rank-avatar" style="background:${p.color}">${p.figure || '🙂'}</span>
+        <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
+        <span class="rank-stars">⭐ ${p.stars || 0}</span>`;
+      rank.appendChild(row);
+    });
+  }
+
+  function renderProfileCard() {
+    const card = $('#player-info-card');
+    if (!card) return;
+    card.innerHTML = '';
+    const meRow = (board.players || []).find(p => p.id === me.id);
+    if (!meRow) {
+      card.innerHTML = '<div class="rank-row"><span class="rank-name">Noch keine Daten vorhanden</span></div>';
+      return;
+    }
+    const row = el('div', 'rank-row first');
+    row.innerHTML = `
+      <span class="rank-avatar" style="background:${meRow.color}">${meRow.figure || '🙂'}</span>
+      <span class="rank-name">${escapeHtml(meRow.name)} · Feld ${meRow.position ?? 0}</span>
+      <span class="rank-stars">⭐ ${meRow.stars || 0} · 🧮 ${meRow.totalPoints || 0}</span>`;
+    card.appendChild(row);
+  }
+
+  function switchPlayerBoardPanel(panel) {
+    board.panel = panel;
+    document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.panel === panel);
+    });
+    document.querySelectorAll('.screen[data-screen="board"] .board-panel').forEach(p => {
+      p.classList.toggle('active', p.dataset.panel === panel);
+    });
   }
 
   function boardCellPosition(idx) {

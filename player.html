@@ -55,14 +55,32 @@
         <p class="turn-label" id="board-me-stats">⭐ 0 · 🧮 0 Punkte</p>
         <p class="turn-progress" id="board-status">Warte auf deinen Zug…</p>
       </div>
-      <div class="card live-card">
-        <h2 class="card-title">🧩 Spielfeld</h2>
-        <div class="board-grid board-grid-mobile board-grid-iso" id="player-board-grid"></div>
-      </div>
-      <div class="card live-card">
-        <h2 class="card-title">🎯 Aktion</h2>
-        <p class="hint" id="board-prompt">Warte auf deinen Zug…</p>
-        <div class="board-actions" id="board-actions"></div>
+      <div class="board-layout card live-card">
+        <aside class="board-nav" id="player-board-nav">
+          <button class="board-nav-btn active" data-panel="map">🧩 Spielfeld</button>
+          <button class="board-nav-btn" data-panel="action">🎯 Aktion</button>
+          <button class="board-nav-btn" data-panel="ranking">⭐ Scoreboard</button>
+          <button class="board-nav-btn" data-panel="profile">👤 Meine Infos</button>
+        </aside>
+        <div class="board-panels">
+          <div class="board-panel active" data-panel="map">
+            <h2 class="card-title">🧩 Spielfeld</h2>
+            <div class="board-grid board-grid-mobile board-grid-iso" id="player-board-grid"></div>
+          </div>
+          <div class="board-panel" data-panel="action">
+            <h2 class="card-title">🎯 Aktion</h2>
+            <p class="hint" id="board-prompt">Warte auf deinen Zug…</p>
+            <div class="board-actions" id="board-actions"></div>
+          </div>
+          <div class="board-panel" data-panel="ranking">
+            <h2 class="card-title">⭐ Scoreboard</h2>
+            <div class="ranking" id="player-board-ranking"></div>
+          </div>
+          <div class="board-panel" data-panel="profile">
+            <h2 class="card-title">👤 Meine Infos</h2>
+            <div class="ranking" id="player-info-card"></div>
+          </div>
+        </div>
       </div>
     </section>
 
