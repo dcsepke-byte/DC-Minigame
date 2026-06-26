@@ -51,7 +51,9 @@ DEFAULT_CAP = 60
 ROUTES = {
     "/": "player.html",
     "/host": "host.html",
+    "/host/": "host.html",
     "/solo": "index.html",
+    "/solo/": "index.html",
 }
 
 rooms = {}        # code -> Room
