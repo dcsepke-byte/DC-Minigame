@@ -12,6 +12,7 @@
 <body>
   <canvas id="bg-canvas"></canvas>
   <canvas id="fx-canvas"></canvas>
+  <button id="fullscreen-toggle" class="fullscreen-toggle" title="Vollbild">⛶</button>
   <button id="sound-toggle" class="sound-toggle" title="Sound an/aus">🔊</button>
 
   <main id="app">
@@ -106,6 +107,13 @@
             <div class="toggle-pills" id="host-play-pills">
               <button class="pill active" data-host-plays="false">🎛️ Nur Host</button>
               <button class="pill" data-host-plays="true">🕹️ Host spielt mit</button>
+            </div>
+          </div>
+          <div class="option-group">
+            <label>Kiosk-Modus</label>
+            <div class="toggle-pills" id="kiosk-pills">
+              <button class="pill active" data-kiosk="false">🧭 Normal</button>
+              <button class="pill" data-kiosk="true">🖥️ Kiosk (Vollbild)</button>
             </div>
           </div>
         </div>

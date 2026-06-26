@@ -10,8 +10,10 @@
   function showScreen(name) {
     Object.values(screens).forEach(s => s.classList.remove('active'));
     if (screens[name]) screens[name].classList.add('active');
+    document.body.classList.toggle('host-lobby-scroll', name === 'lobby');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+  document.body.classList.toggle('host-lobby-scroll', !!(screens['lobby'] && screens['lobby'].classList.contains('active')));
 
   const state = {
     rounds: 5,
@@ -26,6 +28,7 @@
     lapsTotal: 0,
     boardPanel: 'map',
     hostParticipates: false,
+    kioskMode: false,
     boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
@@ -38,6 +41,60 @@
     const panel = $('#board-log-panel');
     if (panel) panel.textContent = value;
   }
+
+  function applyBoardCompactMode() {
+    const compact = state.kioskMode || window.innerHeight <= 760;
+    document.body.classList.toggle('board-compact', compact);
+  }
+
+  function persistHostSettings() {
+    try {
+      localStorage.setItem('pa_host_settings', JSON.stringify({
+        rounds: state.rounds,
+        order: state.order,
+        mode: state.mode,
+        hostParticipates: state.hostParticipates,
+        kioskMode: state.kioskMode,
+      }));
+    } catch (_) {}
+  }
+
+  function restoreHostSettings() {
+    try {
+      const raw = localStorage.getItem('pa_host_settings');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (Number.isFinite(s.rounds)) state.rounds = Math.max(1, Math.min(20, Number(s.rounds) || 5));
+      if (s.order === 'random' || s.order === 'fixed') state.order = s.order;
+      if (s.mode === 'classic' || s.mode === 'board') state.mode = s.mode;
+      state.hostParticipates = !!s.hostParticipates;
+      state.kioskMode = !!s.kioskMode;
+    } catch (_) {}
+  }
+
+  async function toggleFullscreen(forceOn) {
+    const root = document.documentElement;
+    const wantOn = typeof forceOn === 'boolean' ? forceOn : !document.fullscreenElement;
+    try {
+      if (wantOn) {
+        if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
+      } else if (document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch (_) {}
+  }
+
+  function syncLobbyControls() {
+    $('#rounds-value').textContent = String(state.rounds);
+    document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(p => p.classList.toggle('active', p.dataset.order === state.order));
+    document.querySelectorAll('#mode-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.mode === state.mode));
+    document.querySelectorAll('#host-play-pills .pill').forEach(p => p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays));
+    document.querySelectorAll('#kiosk-pills .pill').forEach(p => p.classList.toggle('active', String(state.kioskMode) === p.dataset.kiosk));
+    document.body.classList.toggle('kiosk-mode', state.kioskMode);
+    applyBoardCompactMode();
+  }
+
+  restoreHostSettings();
 
   /* ---------- Verbindung ---------- */
   const connStatus = $('#conn-status');
@@ -75,6 +132,8 @@
       if (m.hostToken) localStorage.setItem('pa_host_token', m.hostToken);
     } catch (_) {}
     setConn('✅ Verbunden — Raum bereit!', 'ok');
+    syncLobbyControls();
+    updateStartButton();
     setTimeout(() => { if (connStatus) connStatus.style.display = 'none'; }, 2500);
   });
 
@@ -359,16 +418,22 @@
   /* ---------- Steuerung ---------- */
   document.querySelectorAll('.step-btn').forEach(b => b.addEventListener('click', () => {
     state.rounds = Math.max(1, Math.min(20, state.rounds + parseInt(b.dataset.dir, 10)));
-    $('#rounds-value').textContent = state.rounds; FX.Sound.tap();
+    $('#rounds-value').textContent = state.rounds;
+    persistHostSettings();
+    FX.Sound.tap();
   }));
   document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(p => p.addEventListener('click', () => {
     document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(x => x.classList.remove('active'));
-    p.classList.add('active'); state.order = p.dataset.order; FX.Sound.tap();
+    p.classList.add('active');
+    state.order = p.dataset.order;
+    persistHostSettings();
+    FX.Sound.tap();
   }));
   document.querySelectorAll('#mode-pills .pill').forEach(p => p.addEventListener('click', () => {
     document.querySelectorAll('#mode-pills .pill').forEach(x => x.classList.remove('active'));
     p.classList.add('active');
     state.mode = p.dataset.mode || 'classic';
+    persistHostSettings();
     FX.Sound.tap();
   }));
   document.querySelectorAll('#host-play-pills .pill').forEach(p => p.addEventListener('click', () => {
@@ -376,7 +441,17 @@
     p.classList.add('active');
     state.hostParticipates = p.dataset.hostPlays === 'true';
     Net.send({ type: 'host:setParticipates', enabled: state.hostParticipates });
+    persistHostSettings();
     updateStartButton();
+    FX.Sound.tap();
+  }));
+  document.querySelectorAll('#kiosk-pills .pill').forEach(p => p.addEventListener('click', () => {
+    document.querySelectorAll('#kiosk-pills .pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    state.kioskMode = p.dataset.kiosk === 'true';
+    document.body.classList.toggle('kiosk-mode', state.kioskMode);
+    applyBoardCompactMode();
+    persistHostSettings();
     FX.Sound.tap();
   }));
   document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
@@ -424,6 +499,7 @@
       hostParticipates: state.hostParticipates,
       games,
     });
+    if (state.kioskMode) toggleFullscreen(true);
     FX.Sound.whoosh();
     FX.burst(window.innerWidth / 2, window.innerHeight / 2, 40, 12);
   });
@@ -442,6 +518,47 @@
     FX.setSoundEnabled(on);
     $('#sound-toggle').textContent = on ? '🔊' : '🔇';
   });
+  const fsBtn = $('#fullscreen-toggle');
+  if (fsBtn) {
+    const root = document.documentElement;
+    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen);
+    if (!canFs) {
+      fsBtn.style.display = 'none';
+    } else {
+      const updateFsBtn = () => {
+        const active = !!document.fullscreenElement;
+        fsBtn.textContent = active ? '🗗' : '⛶';
+        fsBtn.title = active ? 'Vollbild beenden' : 'Vollbild';
+      };
+      fsBtn.addEventListener('click', async () => {
+        await toggleFullscreen();
+        updateFsBtn();
+      });
+      document.addEventListener('fullscreenchange', updateFsBtn);
+      updateFsBtn();
+    }
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'f' && !e.repeat) {
+      const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea') toggleFullscreen();
+    }
+    if (e.key === ' ' && !e.repeat) {
+      const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (screens['round-intro'] && screens['round-intro'].classList.contains('active')) {
+        e.preventDefault();
+        $('#btn-round-begin').click();
+      } else if (screens['round-result'] && screens['round-result'].classList.contains('active')) {
+        e.preventDefault();
+        $('#btn-round-next').click();
+      } else if (screens['standings'] && screens['standings'].classList.contains('active')) {
+        e.preventDefault();
+        $('#btn-standings-next').click();
+      }
+    }
+  });
+  window.addEventListener('resize', applyBoardCompactMode);
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
 
   /* ---------- Helfer ---------- */
@@ -568,6 +685,7 @@
     document.querySelectorAll('#host-play-pills .pill').forEach(p => {
       p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays);
     });
+    persistHostSettings();
   }
 
   function bumpHostBoardBadge(panel) {

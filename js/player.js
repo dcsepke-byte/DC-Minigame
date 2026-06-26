@@ -395,6 +395,45 @@
     FX.setSoundEnabled(on);
     $('#sound-toggle').textContent = on ? '🔊' : '🔇';
   });
+  const fsBtn = $('#fullscreen-toggle');
+  if (fsBtn) {
+    const root = document.documentElement;
+    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen);
+    if (!canFs) {
+      fsBtn.style.display = 'none';
+    } else {
+      const updateFsBtn = () => {
+        const active = !!document.fullscreenElement;
+        fsBtn.textContent = active ? '🗗' : '⛶';
+        fsBtn.title = active ? 'Vollbild beenden' : 'Vollbild';
+      };
+      fsBtn.addEventListener('click', async () => {
+        try {
+          if (document.fullscreenElement) {
+            if (document.exitFullscreen) await document.exitFullscreen();
+          } else if (root.requestFullscreen) {
+            await root.requestFullscreen();
+          }
+        } catch (_) {}
+        updateFsBtn();
+      });
+      document.addEventListener('fullscreenchange', updateFsBtn);
+      updateFsBtn();
+    }
+  }
+  document.addEventListener('keydown', async (e) => {
+    if (e.key.toLowerCase() !== 'f' || e.repeat) return;
+    const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    const root = document.documentElement;
+    try {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+      } else if (root.requestFullscreen) {
+        await root.requestFullscreen();
+      }
+    } catch (_) {}
+  });
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
   document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
     b.addEventListener('click', () => switchPlayerBoardPanel(b.dataset.panel || 'map'));

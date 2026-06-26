@@ -449,6 +449,76 @@ body { overflow: hidden; }
 .sound-toggle:hover { background: rgba(255,255,255,0.16); }
 .sound-toggle:active { transform: scale(0.9); }
 
+.fullscreen-toggle {
+  position: fixed;
+  top: 16px;
+  right: 72px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  color: var(--txt);
+  cursor: pointer;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s, background 0.2s;
+}
+
+.fullscreen-toggle:hover { background: rgba(255,255,255,0.16); }
+.fullscreen-toggle:active { transform: scale(0.9); }
+
+body.host-lobby-scroll .screen[data-screen="lobby"] {
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+
+body.host-lobby-scroll .screen[data-screen="lobby"] .card {
+  margin-bottom: 12px;
+}
+
+body.kiosk-mode .sound-toggle,
+body.kiosk-mode .fullscreen-toggle {
+  top: 10px;
+}
+
+body.board-compact .board-layout {
+  height: calc(100dvh - 145px);
+}
+
+body.board-compact .board-grid {
+  gap: 7px;
+  grid-template-rows: repeat(5, minmax(48px, auto));
+}
+
+body.board-compact .board-tile {
+  min-height: 58px;
+  padding: 6px;
+}
+
+body.board-compact .bt-top,
+body.board-compact .bt-owner {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+body.board-compact .bt-pawn {
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+}
+
+body.board-compact .board-center {
+  font-size: 14px;
+}
+
 /* ---------- Title ---------- */
 .round-result-title, .standings-title, .final-title {
   font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 8vw, 52px);
@@ -1230,6 +1300,29 @@ body { overflow: hidden; }
   .board-grid-host {
     max-height: calc(100dvh - 340px);
     grid-template-rows: repeat(5, minmax(48px, 1fr));
+  }
+}
+
+@media (max-height: 760px) {
+  body .screen[data-screen="board"] {
+    gap: 6px;
+  }
+
+  body .screen[data-screen="board"] .live-card {
+    padding: 8px;
+  }
+
+  body .board-topbar {
+    gap: 6px;
+  }
+
+  body .board-chip {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  body .board-layout {
+    height: calc(100dvh - 132px);
   }
 }
 
