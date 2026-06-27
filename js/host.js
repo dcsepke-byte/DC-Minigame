@@ -229,7 +229,8 @@
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     setBoardLogText(state.boardLog);
-    showScreen('board');
+    // During board mini-games, keep the host on the active play screen.
+    if (!hostGame.active) showScreen('board');
   });
 
   Net.on('board:chaos', () => {
