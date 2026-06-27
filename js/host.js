@@ -54,6 +54,7 @@
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const hostGame = { active: false, lastScoreSent: 0, scoreThrottle: 0 };
   const storyPopup = { queue: [], showing: false };
+  const eventReveal = { queue: [], showing: false };
   let turnNoticeEl = null;
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
@@ -332,13 +333,7 @@
 
   Net.on('board:eventReveal', m => {
     if (!m) return;
-    const rarity = m.rarity || 'Normal';
-    const title = m.title || 'Ereignis';
-    const triggerName = m.triggerName ? ` für ${m.triggerName}` : '';
-    pushBoardStory({
-      title: `🎴 Ereigniskarte · ${rarity}`,
-      text: `${title}${triggerName}`,
-    });
+    queueEventReveal(m);
   });
 
   Net.on('board:duel', m => {
@@ -869,6 +864,53 @@
       storyPopup.queue.push({ text: String(text), title: '📣 Update' });
     }
     if (!storyPopup.showing) showNextBoardStory();
+  }
+
+  function queueEventReveal(payload) {
+    eventReveal.queue.push(payload || {});
+    if (!eventReveal.showing) showNextEventReveal();
+  }
+
+  function showNextEventReveal() {
+    if (!eventReveal.queue.length) {
+      eventReveal.showing = false;
+      return;
+    }
+    eventReveal.showing = true;
+    const m = eventReveal.queue.shift() || {};
+    const rarity = String(m.rarity || 'Gewoehnlich');
+    const title = String(m.title || 'Ereignis');
+    const desc = String(m.desc || 'Ueberraschungseffekt');
+    const target = m.triggerName ? `Fuer ${m.triggerName}` : 'Fuer alle';
+
+    const wrap = el('div', 'event-reveal-overlay');
+    wrap.innerHTML = `<div class="event-card">
+      <div class="event-card-inner">
+        <div class="event-card-front">
+          <div class="event-card-seal">🎴</div>
+          <div class="event-card-front-text">Ereignisfeld</div>
+          <div class="event-card-front-sub">Karte wird aufgedeckt…</div>
+        </div>
+        <div class="event-card-back rarity-${rarity.toLowerCase()}">
+          <div class="event-card-rarity">${escapeHtml(rarity)}</div>
+          <div class="event-card-title">${escapeHtml(title)}</div>
+          <div class="event-card-desc">${escapeHtml(desc)}</div>
+          <div class="event-card-target">${escapeHtml(target)}</div>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(wrap);
+    FX.Sound.whoosh();
+
+    requestAnimationFrame(() => wrap.classList.add('show'));
+    setTimeout(() => wrap.classList.add('flipped'), 520);
+    setTimeout(() => {
+      wrap.classList.remove('show');
+      setTimeout(() => {
+        if (wrap.parentNode) wrap.remove();
+        showNextEventReveal();
+      }, 260);
+    }, 3050);
   }
 
   function showNextBoardStory() {

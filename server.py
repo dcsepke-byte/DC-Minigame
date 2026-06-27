@@ -33,24 +33,24 @@ PALETTE = ["#ff3cac", "#00f0ff", "#2bffb9", "#ffd34e", "#7b2ff7", "#ff6a00", "#3
 BOARD_FIGURES = ["🚀", "🐱", "🦊", "🐸", "🐼", "🦄", "🤖", "🐙"]
 
 BOARD_EVENT_EFFECTS = [
-    {"id": "give_lowest", "title": "Lucky Boost", "rarity": "Gewoehnlich", "weight": 12},
-    {"id": "step_back", "title": "Zeitreise", "rarity": "Gewoehnlich", "weight": 10},
-    {"id": "step_forward", "title": "Rueckenwind", "rarity": "Gewoehnlich", "weight": 10},
-    {"id": "rich_tax", "title": "Reichensteuer", "rarity": "Gewoehnlich", "weight": 9},
-    {"id": "all_bonus", "title": "Team-Mood", "rarity": "Gewoehnlich", "weight": 8},
-    {"id": "swap_random", "title": "Positionswechsel", "rarity": "Selten", "weight": 5},
-    {"id": "star_rain", "title": "Sternenregen", "rarity": "Selten", "weight": 4},
-    {"id": "steal_from_leader", "title": "Coup", "rarity": "Selten", "weight": 4},
-    {"id": "lottery", "title": "Sternenlotterie", "rarity": "Selten", "weight": 4},
-    {"id": "claim_free_tile", "title": "Blitz-Kauf", "rarity": "Episch", "weight": 3},
-    {"id": "bonus_duel", "title": "Power-Duell", "rarity": "Episch", "weight": 3},
-    {"id": "trigger_global", "title": "Event-Karte", "rarity": "Legendaer", "weight": 2},
+    {"id": "give_lowest", "title": "Lucky Boost", "desc": "+1 Stern fuer den letzten Platz", "rarity": "Gewoehnlich", "weight": 12},
+    {"id": "step_back", "title": "Zeitreise", "desc": "Ausloeser geht 5 Felder zurueck", "rarity": "Gewoehnlich", "weight": 10},
+    {"id": "step_forward", "title": "Rueckenwind", "desc": "Ausloeser springt 3 Felder vor", "rarity": "Gewoehnlich", "weight": 10},
+    {"id": "rich_tax", "title": "Reichensteuer", "desc": "Fuehrender verliert 1 Stern", "rarity": "Gewoehnlich", "weight": 9},
+    {"id": "all_bonus", "title": "Team-Mood", "desc": "Alle erhalten +1 Stern", "rarity": "Gewoehnlich", "weight": 8},
+    {"id": "swap_random", "title": "Positionswechsel", "desc": "Zwei zufaellige Spieler tauschen Felder", "rarity": "Selten", "weight": 5},
+    {"id": "star_rain", "title": "Sternenregen", "desc": "Ein Spieler bekommt +2 Sterne", "rarity": "Selten", "weight": 4},
+    {"id": "steal_from_leader", "title": "Coup", "desc": "Ausloeser stiehlt 1 Stern vom Leader", "rarity": "Selten", "weight": 4},
+    {"id": "lottery", "title": "Sternenlotterie", "desc": "Zufaelliger Sternengewinn/-verlust", "rarity": "Selten", "weight": 4},
+    {"id": "claim_free_tile", "title": "Blitz-Kauf", "desc": "Zufaelliges freies Feld fuer 1 Stern", "rarity": "Episch", "weight": 3},
+    {"id": "bonus_duel", "title": "Power-Duell", "desc": "Ausloeser raubt 1-2 Sterne", "rarity": "Episch", "weight": 3},
+    {"id": "trigger_global", "title": "Event-Karte", "desc": "Sofort ein globales Minispiel", "rarity": "Legendaer", "weight": 2},
 ]
 
 BOARD_TEMPO_PRESETS = {
-    "slow": {"actionDelay": 2.0, "introDelay": 4.8},
-    "normal": {"actionDelay": 1.35, "introDelay": 4.0},
-    "fast": {"actionDelay": 0.8, "introDelay": 3.0},
+    "slow": {"actionDelay": 2.0, "introDelay": 4.8, "eventRevealDelay": 2.9},
+    "normal": {"actionDelay": 1.35, "introDelay": 4.0, "eventRevealDelay": 2.3},
+    "fast": {"actionDelay": 0.8, "introDelay": 3.0, "eventRevealDelay": 1.6},
 }
 
 # Sicherheits-Cap (Sekunden) pro Mini-Spiel: Falls ein Spieler nicht meldet,
@@ -730,10 +730,12 @@ class Room:
             if txt:
                 b["lastLog"] = txt
             self.send_board_update()
+            reveal_delay = float(b.get("eventRevealDelay", 2.3))
+            next_delay = float(b.get("actionDelay", BOARD_ACTION_DELAY)) + reveal_delay
             if isinstance(event_outcome, dict) and event_outcome.get("triggerGlobal"):
-                self.schedule_board_continue(lambda: self.start_global_board_round(trigger="chaos", resume="end_turn"))
+                self.schedule_board_continue(lambda: self.start_global_board_round(trigger="chaos", resume="end_turn"), delay=next_delay)
             else:
-                self.schedule_board_continue(self.end_board_turn)
+                self.schedule_board_continue(self.end_board_turn, delay=next_delay)
             return
         if tile["type"] != "property":
             self.schedule_board_continue(self.end_board_turn)
