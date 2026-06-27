@@ -15,6 +15,7 @@
       screens[name].classList.add('active');
       if (name === 'play') screens[name].classList.add('game-fixed');
     }
+    document.body.classList.toggle('in-game', !['join', 'lobby'].includes(name));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -57,6 +58,12 @@
   $('#btn-join').addEventListener('click', doJoin);
   const btnHostCreate = $('#btn-host-create');
   if (btnHostCreate) btnHostCreate.addEventListener('click', () => { location.href = '/host'; });
+  const btnInGameEnd = $('#btn-in-game-end');
+  if (btnInGameEnd) btnInGameEnd.addEventListener('click', () => {
+    Net.send({ type: 'player:endGame' });
+    showScreen('join');
+    showJoinError('Spiel wurde beendet.');
+  });
   $('#code-input').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
   $('#name-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('#code-input').focus(); });
 
@@ -201,6 +208,7 @@
 
   Net.on('board:rolled', m => {
     if (!m) return;
+    showDiceRoll(m.roll, m.playerId);
     animateBoardMove(m.playerId, m.from, m.to);
   });
 
@@ -581,14 +589,14 @@
         boardAnim.timer = setTimeout(() => {
           boardAnim.active = false;
           renderBoardGrid();
-        }, 260);
+        }, 320);
         return;
       }
       boardAnim.pos = (boardAnim.pos + 1) % size;
-      boardAnim.timer = setTimeout(step, 200);
+      boardAnim.timer = setTimeout(step, 300);
     }
 
-    boardAnim.timer = setTimeout(step, 120);
+    boardAnim.timer = setTimeout(step, 180);
   }
 
   function updateMyBoardStats() {
@@ -674,6 +682,20 @@
     ];
     const p = map[Math.max(0, Math.min(map.length - 1, idx))];
     return { row: p[0], col: p[1] };
+  }
+
+  function showDiceRoll(roll, playerId) {
+    if (!Number.isFinite(Number(roll))) return;
+    const prior = document.querySelector('.dice-drop');
+    if (prior) prior.remove();
+    const actor = (board.players || []).find(p => p.id === playerId);
+    const wrap = el('div', 'dice-drop');
+    const face = el('div', 'dice-face', String(roll));
+    const label = el('div', 'dice-label', `${escapeHtml(actor ? actor.name : 'Spieler')} würfelt`);
+    wrap.appendChild(face);
+    wrap.appendChild(label);
+    document.body.appendChild(wrap);
+    setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, 1300);
   }
 
   function escapeHtml(s) {

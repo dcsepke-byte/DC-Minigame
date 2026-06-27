@@ -12,6 +12,7 @@
 <body>
   <canvas id="bg-canvas"></canvas>
   <canvas id="fx-canvas"></canvas>
+  <button id="btn-in-game-end" class="in-game-end-toggle" title="Spiel sofort beenden">⛔</button>
   <button id="fullscreen-toggle" class="fullscreen-toggle" title="Vollbild">⛶</button>
   <button id="sound-toggle" class="sound-toggle" title="Sound an/aus">🔊</button>
 
@@ -115,6 +116,14 @@
               <button class="pill active" data-kiosk="false">🧭 Normal</button>
               <button class="pill" data-kiosk="true">🖥️ Kiosk (Vollbild)</button>
             </div>
+          </div>
+          <div class="option-group">
+            <label>Host-Name</label>
+            <input type="text" id="host-name-input" class="option-input" maxlength="14" placeholder="z. B. Alex" autocomplete="off" />
+          </div>
+          <div class="option-group">
+            <label>Host-Figur</label>
+            <div class="figure-picker host-figure-picker" id="host-figure-picker"></div>
           </div>
         </div>
 

@@ -342,7 +342,8 @@ body { overflow-x: hidden; overflow-y: auto; }
 
 /* ---------- Game Stage ---------- */
 .game-stage {
-  width: 100%; min-height: 520px;
+  width: 100%;
+  min-height: clamp(340px, 62dvh, 520px);
   background: var(--glass); border: 1px solid var(--glass-border);
   border-radius: var(--radius); backdrop-filter: blur(12px);
   position: relative; overflow: hidden;
@@ -454,6 +455,37 @@ body { overflow-x: hidden; overflow-y: auto; }
 .sound-toggle:hover { background: rgba(255,255,255,0.16); }
 .sound-toggle:active { transform: scale(0.9); }
 
+.in-game-end-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 77, 109, 0.6);
+  background: rgba(255, 77, 109, 0.16);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  display: none;
+  place-items: center;
+  backdrop-filter: blur(10px);
+  transition: transform 0.15s, background 0.2s;
+}
+
+body.in-game .in-game-end-toggle {
+  display: grid;
+}
+
+.in-game-end-toggle:hover {
+  background: rgba(255, 77, 109, 0.28);
+}
+
+.in-game-end-toggle:active {
+  transform: scale(0.92);
+}
+
 .fullscreen-toggle {
   position: fixed;
   top: 16px;
@@ -492,6 +524,31 @@ body.host-lobby-scroll .screen[data-screen="lobby"] .card {
 body.kiosk-mode .sound-toggle,
 body.kiosk-mode .fullscreen-toggle {
   top: 10px;
+}
+
+body.kiosk-mode .in-game-end-toggle {
+  top: 10px;
+}
+
+.option-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--txt);
+  font-family: var(--font-body);
+  font-size: 16px;
+  outline: none;
+}
+
+.option-input:focus {
+  border-color: var(--accent-3);
+}
+
+.host-figure-picker {
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  margin: 0;
 }
 
 body.board-compact .board-layout {
@@ -749,7 +806,7 @@ body.board-compact .board-center {
 
 @media (max-width: 560px) {
   .card { padding: 20px; }
-  .game-stage { min-height: 500px; }
+  .game-stage { min-height: clamp(300px, 56dvh, 420px); }
   .add-player-row { flex-direction: column; }
 }
 
@@ -943,7 +1000,7 @@ body.board-compact .board-center {
   box-shadow: 0 0 0 2px rgba(255, 211, 78, 0.75), 0 14px 30px rgba(255, 211, 78, 0.35);
 }
 .board-grid-iso {
-  transform: perspective(1250px) rotateX(12deg) scale(0.9);
+  transform: perspective(1250px) rotateX(8deg) scale(0.95) translateY(4px);
   transform-origin: center;
 }
 .board-grid-iso .board-center,
@@ -1181,6 +1238,50 @@ body.board-compact .board-center {
   width: 100%;
   max-width: 980px;
   margin: 0 auto;
+  transform-origin: center top;
+}
+
+.dice-drop {
+  position: fixed;
+  left: 50%;
+  top: 78px;
+  transform: translateX(-50%);
+  z-index: 1200;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  animation: diceDropIn 0.62s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+
+.dice-face {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: linear-gradient(160deg, #fafcff, #d7defa);
+  color: #14143a;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 36px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.45);
+}
+
+.dice-label {
+  font-size: 13px;
+  color: var(--txt);
+  background: rgba(10, 10, 31, 0.72);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+
+@keyframes diceDropIn {
+  0% { opacity: 0; transform: translate(-50%, -80px) rotate(-20deg) scale(0.55); }
+  62% { opacity: 1; transform: translate(-50%, 0) rotate(10deg) scale(1.02); }
+  100% { opacity: 1; transform: translate(-50%, 0) rotate(0deg) scale(1); }
 }
 
 .board-panel .card-title {
@@ -1338,7 +1439,7 @@ body.board-compact .board-center {
 
 @media (max-height: 760px) {
   .game-stage {
-    min-height: 390px;
+    min-height: clamp(280px, 52dvh, 390px);
   }
 
   body .screen[data-screen="board"] {

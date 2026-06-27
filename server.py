@@ -175,6 +175,8 @@ class Room:
         self.board = None
         self.host_participates = False
         self.host_pid = "__host__"
+        self.host_name = "Host"
+        self.host_figure = "🎩"
 
     def cancel_host_reconnect_timeout(self):
         if self.host_reconnect_handle:
@@ -221,24 +223,38 @@ class Room:
         if self.host_participates:
             if self.host_pid not in self.players:
                 self.players[self.host_pid] = {
-                    "name": "Host",
+                    "name": self.host_name,
                     "color": "#ffd34e",
                     "stars": 0,
                     "totalPoints": 0,
                     "position": 0,
-                    "figure": "🎩",
+                    "figure": self.host_figure,
                     "client": None,
                     "connected": self.host is not None,
                 }
                 self.order.append(self.host_pid)
             else:
                 p = self.players[self.host_pid]
+                p["name"] = self.host_name
+                p["figure"] = self.host_figure
                 p["connected"] = self.host is not None
                 p["client"] = None
         else:
             if self.host_pid in self.players:
                 self.players.pop(self.host_pid, None)
                 self.order = [pid for pid in self.order if pid != self.host_pid]
+
+    def set_host_profile(self, name, figure):
+        if self.state != "lobby":
+            return
+        clean_name = (name or "").strip()[:14]
+        if clean_name:
+            self.host_name = clean_name
+        clean_figure = (figure or "").strip()[:2]
+        if clean_figure:
+            self.host_figure = clean_figure
+        self._ensure_host_player()
+        self.send_lobby()
 
     def public_players(self):
         out = []
@@ -1150,6 +1166,12 @@ def handle_message(client, msg):
             room.set_host_participates(msg.get("enabled"))
         return
 
+    if t == "host:setProfile":
+        room = client.room
+        if room and client.role == "host":
+            room.set_host_profile(msg.get("name"), msg.get("figure"))
+        return
+
     if t == "player:join":
         code = (msg.get("code") or "").strip().upper()
         room = rooms.get(code)
@@ -1179,6 +1201,9 @@ def handle_message(client, msg):
         room.play_again()
     elif t == "host:endGame" and client.role == "host":
         room.end_game()
+    elif t == "player:endGame" and client.role in ("player", "host"):
+        if room.state != "lobby":
+            room.end_game()
     elif t == "board:hostNextTurn" and client.role == "host":
         room.begin_board_turn()
     elif t == "board:roll" and client.role in ("player", "host"):

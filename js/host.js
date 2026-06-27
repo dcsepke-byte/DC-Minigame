@@ -5,6 +5,8 @@
   'use strict';
 
   const $ = s => document.querySelector(s);
+  const HOST_PID = '__host__';
+  const HOST_FIGURES = ['🎩', '🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function syncHostGameFixed() {
@@ -16,10 +18,12 @@
     Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
     if (screens[name]) screens[name].classList.add('active');
     document.body.classList.toggle('host-lobby-scroll', name === 'lobby');
+    document.body.classList.toggle('in-game', name !== 'lobby');
     if (name === 'playing') syncHostGameFixed();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   document.body.classList.toggle('host-lobby-scroll', !!(screens['lobby'] && screens['lobby'].classList.contains('active')));
+  document.body.classList.toggle('in-game', false);
 
   const state = {
     rounds: 5,
@@ -30,10 +34,15 @@
     boardTiles: [],
     boardOwners: {},
     boardLog: '',
+    boardPhase: 'turn',
+    turnPlayerId: null,
+    pendingPlayerId: null,
+    hostPendingKind: '',
     lapsDone: 0,
     lapsTotal: 0,
     boardPanel: 'map',
     hostParticipates: false,
+    hostProfile: { name: 'Host', figure: '🎩' },
     kioskMode: false,
     boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
   };
@@ -61,6 +70,8 @@
         order: state.order,
         mode: state.mode,
         hostParticipates: state.hostParticipates,
+        hostName: state.hostProfile.name,
+        hostFigure: state.hostProfile.figure,
         kioskMode: state.kioskMode,
       }));
     } catch (_) {}
@@ -75,6 +86,8 @@
       if (s.order === 'random' || s.order === 'fixed') state.order = s.order;
       if (s.mode === 'classic' || s.mode === 'board') state.mode = s.mode;
       state.hostParticipates = !!s.hostParticipates;
+      if ((s.hostName || '').trim()) state.hostProfile.name = String(s.hostName).trim().slice(0, 14);
+      if ((s.hostFigure || '').trim()) state.hostProfile.figure = String(s.hostFigure).trim().slice(0, 2);
       state.kioskMode = !!s.kioskMode;
     } catch (_) {}
   }
@@ -97,11 +110,14 @@
     document.querySelectorAll('#mode-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.mode === state.mode));
     document.querySelectorAll('#host-play-pills .pill').forEach(p => p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays));
     document.querySelectorAll('#kiosk-pills .pill').forEach(p => p.classList.toggle('active', String(state.kioskMode) === p.dataset.kiosk));
+    const hostNameInput = $('#host-name-input');
+    if (hostNameInput) hostNameInput.value = state.hostProfile.name;
     document.body.classList.toggle('kiosk-mode', state.kioskMode);
     applyBoardCompactMode();
   }
 
   restoreHostSettings();
+  applyHostProfile(false);
 
   /* ---------- Verbindung ---------- */
   const connStatus = $('#conn-status');
@@ -139,6 +155,7 @@
       if (m.hostToken) localStorage.setItem('pa_host_token', m.hostToken);
     } catch (_) {}
     setConn('✅ Verbunden — Raum bereit!', 'ok');
+    pushHostProfile();
     syncLobbyControls();
     updateStartButton();
     setTimeout(() => { if (connStatus) connStatus.style.display = 'none'; }, 2500);
@@ -174,9 +191,19 @@
 
   Net.on('lobby', m => {
     state.players = m.players;
+    const hostRow = (m.players || []).find(p => p.id === HOST_PID);
+    if (hostRow) {
+      state.hostProfile.name = hostRow.name || state.hostProfile.name;
+      state.hostProfile.figure = hostRow.figure || state.hostProfile.figure;
+      syncHostProfileUI();
+    }
     if (typeof m.hostParticipates === 'boolean') state.hostParticipates = m.hostParticipates;
     syncHostParticipatesUI();
     renderPlayers(m);
+    if ((m && m.state) === 'lobby') {
+      state.mode = 'classic';
+      showScreen('lobby');
+    }
   });
 
   Net.on('board:init', m => {
@@ -195,6 +222,10 @@
     state.boardTiles = m.tiles || state.boardTiles;
     state.boardOwners = m.owners || {};
     state.boardLog = m.log || '';
+    state.boardPhase = m.phase || 'turn';
+    state.turnPlayerId = m.turnPlayerId || null;
+    state.pendingPlayerId = m.pendingPlayerId || null;
+    if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
     state.lapsDone = m.lapsDone || 0;
     state.lapsTotal = m.lapsTotal || 0;
     renderBoardGrid();
@@ -213,6 +244,7 @@
 
   Net.on('board:rolled', m => {
     if (!m) return;
+    showDiceRoll(m.roll, m.playerId, state.players);
     animateBoardMove(m.playerId, m.from, m.to);
   });
 
@@ -235,6 +267,7 @@
   Net.on('board:yourTurn', m => {
     if (!state.hostParticipates) return;
     if (m && m.action === 'roll') {
+      state.hostPendingKind = 'roll';
       state.boardLog = m.message || 'Du bist dran. Würfeln?';
       setBoardLogText(state.boardLog);
       switchHostBoardPanel('map');
@@ -244,6 +277,7 @@
 
   Net.on('board:decision', m => {
     if (!state.hostParticipates) return;
+    state.hostPendingKind = (m && m.kind) || 'decision';
     state.boardLog = (m && m.message) || 'Entscheidung offen';
     setBoardLogText(state.boardLog);
     switchHostBoardPanel('map');
@@ -281,7 +315,7 @@
 
   Net.on('start', m => {
     if (state.hostParticipates) {
-      startHostPlay(m.game, state.mode === 'board');
+      startHostPlay(m.game);
     }
     if (state.mode === 'board') return;
     $('#live-icon').textContent = m.game.icon;
@@ -498,6 +532,21 @@
     persistHostSettings();
     FX.Sound.tap();
   }));
+  const hostNameInput = $('#host-name-input');
+  if (hostNameInput) {
+    hostNameInput.addEventListener('input', () => {
+      state.hostProfile.name = hostNameInput.value.slice(0, 14);
+      persistHostSettings();
+    });
+    hostNameInput.addEventListener('change', () => applyHostProfile(true));
+    hostNameInput.addEventListener('blur', () => applyHostProfile(true));
+    hostNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyHostProfile(true);
+      }
+    });
+  }
   document.querySelectorAll('#host-board-nav .board-nav-btn').forEach(b => {
     b.addEventListener('click', () => switchHostBoardPanel(b.dataset.panel || 'map'));
   });
@@ -534,6 +583,7 @@
   }
 
   $('#btn-start-game').addEventListener('click', () => {
+    applyHostProfile(true);
     const games = enabledGames().map(g => ({ id: g.id, name: g.name, icon: g.icon, desc: g.desc, rules: g.rules }));
     Net.send({
       type: 'host:start',
@@ -560,6 +610,12 @@
   if (btnEnd) btnEnd.addEventListener('click', () => {
     Net.send({ type: 'host:endGame' });
     showScreen('lobby');
+  });
+  const btnInGameEnd = $('#btn-in-game-end');
+  if (btnInGameEnd) btnInGameEnd.addEventListener('click', () => {
+    Net.send({ type: 'host:endGame' });
+    showScreen('lobby');
+    FX.Sound.bad();
   });
 
   $('#sound-toggle').addEventListener('click', () => {
@@ -653,25 +709,25 @@
     });
 
     if (state.hostParticipates) {
-      const b = state.boardLog || '';
-      const pendingAction = /würfle|kaufen\?|zahlen oder duell/i.test(b);
-      if (pendingAction) {
+      const canRoll = state.boardPhase === 'turn' && state.turnPlayerId === HOST_PID;
+      const canDecide = state.boardPhase === 'decision' && state.pendingPlayerId === HOST_PID;
+      if (canRoll || canDecide) {
         const box = el('div', 'board-center-action');
-        const txt = el('div', 'board-center-action-text', escapeHtml(b));
+        const txt = el('div', 'board-center-action-text', escapeHtml(state.boardLog || 'Du bist am Zug.'));
         const btnWrap = el('div', 'board-center-action-buttons');
-        if (/würfle/i.test(b)) {
+        if (canRoll || state.hostPendingKind === 'roll') {
           const rb = el('button', 'btn btn-primary', '🎲 Würfeln');
           rb.type = 'button';
           rb.addEventListener('click', () => Net.send({ type: 'board:roll' }));
           btnWrap.appendChild(rb);
-        } else if (/kaufen\?/i.test(b)) {
+        } else if (state.hostPendingKind === 'buy') {
           const b1 = el('button', 'btn btn-primary', '⭐ Kaufen');
           const b2 = el('button', 'btn btn-ghost', 'Weiter');
           b1.type = 'button'; b2.type = 'button';
           b1.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'buy' }));
           b2.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'skip' }));
           btnWrap.appendChild(b1); btnWrap.appendChild(b2);
-        } else if (/zahlen oder duell/i.test(b)) {
+        } else {
           const b1 = el('button', 'btn btn-primary', '⭐ Zahlen');
           const b2 = el('button', 'btn btn-ghost', '⚔️ Duell');
           b1.type = 'button'; b2.type = 'button';
@@ -701,14 +757,14 @@
         boardAnim.timer = setTimeout(() => {
           boardAnim.active = false;
           renderBoardGrid();
-        }, 260);
+        }, 320);
         return;
       }
       boardAnim.pos = (boardAnim.pos + 1) % size;
-      boardAnim.timer = setTimeout(step, 200);
+      boardAnim.timer = setTimeout(step, 300);
     }
 
-    boardAnim.timer = setTimeout(step, 120);
+    boardAnim.timer = setTimeout(step, 180);
   }
 
   function boardCellPosition(idx) {
@@ -772,6 +828,59 @@
     persistHostSettings();
   }
 
+  function renderHostFigurePicker() {
+    const picker = $('#host-figure-picker');
+    if (!picker) return;
+    picker.innerHTML = '';
+    HOST_FIGURES.forEach(f => {
+      const b = el('button', 'figure-pill' + (state.hostProfile.figure === f ? ' active' : ''), f);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        state.hostProfile.figure = f;
+        renderHostFigurePicker();
+        applyHostProfile(true);
+        FX.Sound.tap();
+      });
+      picker.appendChild(b);
+    });
+  }
+
+  function syncHostProfileUI() {
+    const input = $('#host-name-input');
+    if (input && input.value !== state.hostProfile.name) input.value = state.hostProfile.name;
+    renderHostFigurePicker();
+  }
+
+  function pushHostProfile() {
+    Net.send({
+      type: 'host:setProfile',
+      name: state.hostProfile.name,
+      figure: state.hostProfile.figure,
+    });
+  }
+
+  function applyHostProfile(sendToServer) {
+    const clean = (state.hostProfile.name || '').trim().slice(0, 14);
+    state.hostProfile.name = clean || 'Host';
+    syncHostProfileUI();
+    persistHostSettings();
+    if (sendToServer) pushHostProfile();
+  }
+
+  function showDiceRoll(roll, playerId, players) {
+    if (!Number.isFinite(Number(roll))) return;
+    const prior = document.querySelector('.dice-drop');
+    if (prior) prior.remove();
+    const actor = Array.isArray(players) ? players.find(p => p.id === playerId) : null;
+    const wrap = el('div', 'dice-drop');
+    const face = el('div', 'dice-face', String(roll));
+    const label = el('div', 'dice-label', `${escapeHtml(actor ? actor.name : 'Spieler')} würfelt`);
+    wrap.appendChild(face);
+    wrap.appendChild(label);
+    document.body.appendChild(wrap);
+    setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, 1300);
+  }
+
   function bumpHostBoardBadge(panel) {
     if (state.boardPanel === panel) return;
     state.boardBadges[panel] = (state.boardBadges[panel] || 0) + 1;
@@ -792,7 +901,7 @@
     });
   }
 
-  function startHostPlay(gameMeta, keepBoardScreen) {
+  function startHostPlay(gameMeta) {
     const card = $('#host-play-card');
     const stage = $('#host-game-stage');
     const scoreEl = $('#host-hud-score');
@@ -805,7 +914,7 @@
     hostGame.scoreThrottle = 0;
     scoreEl.textContent = '0';
     if (gameLabel) gameLabel.textContent = `${gameMeta.icon} ${gameMeta.name}`;
-    if (!keepBoardScreen) showScreen('playing');
+    showScreen('playing');
 
     const game = Games.list.find(g => g.id === gameMeta.id);
     if (!game) {
