@@ -11,7 +11,7 @@ Party Arena ist eine browserbasierte Multiplayer-Minispielsammlung mit Host-Ansi
 - Classic: normale Rundensequenz mit Punktwertung.
 - Monopoly: Spielfeld mit Feldern, Besitz, Ereignissen und Duellen.
 - Reconnect-Mechanik für Host/Spieler.
-- Vollbild-/Kiosk-Optionen für den Host.
+- Vollbild-Option für den Host.
 
 ## Projektstruktur
 

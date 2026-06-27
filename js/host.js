@@ -43,7 +43,6 @@
     boardPanel: 'map',
     hostParticipates: false,
     hostProfile: { name: 'Host', figure: '🎩' },
-    kioskMode: false,
     boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
@@ -59,7 +58,7 @@
   }
 
   function applyBoardCompactMode() {
-    const compact = state.kioskMode || window.innerHeight <= 760;
+    const compact = window.innerHeight <= 760;
     document.body.classList.toggle('board-compact', compact);
   }
 
@@ -72,7 +71,6 @@
         hostParticipates: state.hostParticipates,
         hostName: state.hostProfile.name,
         hostFigure: state.hostProfile.figure,
-        kioskMode: state.kioskMode,
       }));
     } catch (_) {}
   }
@@ -88,7 +86,6 @@
       state.hostParticipates = !!s.hostParticipates;
       if ((s.hostName || '').trim()) state.hostProfile.name = String(s.hostName).trim().slice(0, 14);
       if ((s.hostFigure || '').trim()) state.hostProfile.figure = String(s.hostFigure).trim().slice(0, 2);
-      state.kioskMode = !!s.kioskMode;
     } catch (_) {}
   }
 
@@ -109,10 +106,8 @@
     document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(p => p.classList.toggle('active', p.dataset.order === state.order));
     document.querySelectorAll('#mode-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.mode === state.mode));
     document.querySelectorAll('#host-play-pills .pill').forEach(p => p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays));
-    document.querySelectorAll('#kiosk-pills .pill').forEach(p => p.classList.toggle('active', String(state.kioskMode) === p.dataset.kiosk));
     const hostNameInput = $('#host-name-input');
     if (hostNameInput) hostNameInput.value = state.hostProfile.name;
-    document.body.classList.toggle('kiosk-mode', state.kioskMode);
     applyBoardCompactMode();
   }
 
@@ -523,15 +518,6 @@
     updateStartButton();
     FX.Sound.tap();
   }));
-  document.querySelectorAll('#kiosk-pills .pill').forEach(p => p.addEventListener('click', () => {
-    document.querySelectorAll('#kiosk-pills .pill').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-    state.kioskMode = p.dataset.kiosk === 'true';
-    document.body.classList.toggle('kiosk-mode', state.kioskMode);
-    applyBoardCompactMode();
-    persistHostSettings();
-    FX.Sound.tap();
-  }));
   const hostNameInput = $('#host-name-input');
   if (hostNameInput) {
     hostNameInput.addEventListener('input', () => {
@@ -593,7 +579,6 @@
       hostParticipates: state.hostParticipates,
       games,
     });
-    if (state.kioskMode) toggleFullscreen(true);
     FX.Sound.whoosh();
     FX.burst(window.innerWidth / 2, window.innerHeight / 2, 40, 12);
   });

@@ -521,15 +521,6 @@ body.host-lobby-scroll .screen[data-screen="lobby"] .card {
   margin-bottom: 12px;
 }
 
-body.kiosk-mode .sound-toggle,
-body.kiosk-mode .fullscreen-toggle {
-  top: 10px;
-}
-
-body.kiosk-mode .in-game-end-toggle {
-  top: 10px;
-}
-
 .option-input {
   width: 100%;
   background: rgba(0, 0, 0, 0.25);
