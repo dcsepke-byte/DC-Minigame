@@ -187,7 +187,7 @@ class Room:
         self.live_handle = None
         self.mode = "classic"
         self.board = None
-        self.host_participates = False
+        self.host_participates = True
         self.host_pid = "__host__"
         self.host_name = "Host"
         self.host_figure = "🎩"
@@ -346,7 +346,7 @@ class Room:
     def set_host_participates(self, enabled):
         if self.state != "lobby":
             return
-        self.host_participates = bool(enabled)
+        self.host_participates = True
         self._ensure_host_player()
         self.send_lobby()
 
@@ -1331,7 +1331,7 @@ def handle_message(client, msg):
         return
 
     if t == "host:start" and client.role == "host":
-        room.set_host_participates(msg.get("hostParticipates", room.host_participates))
+        room.set_host_participates(True)
         room.start_game(
             msg.get("rounds", 5),
             msg.get("order", "random"),

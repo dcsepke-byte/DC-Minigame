@@ -46,7 +46,7 @@
     lapsDone: 0,
     lapsTotal: 0,
     boardPanel: 'map',
-    hostParticipates: false,
+    hostParticipates: true,
     hostProfile: { name: 'Host', figure: '🎩' },
     boardBadges: { action: 0, ranking: 0, profile: 0, map: 0 },
     boardAction: { text: 'Warte auf deinen Zug…', buttons: [] },
@@ -122,7 +122,7 @@
         order: state.order,
         mode: state.mode,
         tempo: state.tempo,
-        hostParticipates: state.hostParticipates,
+        hostParticipates: true,
         hostName: state.hostProfile.name,
         hostFigure: state.hostProfile.figure,
       }));
@@ -138,7 +138,7 @@
       if (s.order === 'random' || s.order === 'fixed') state.order = s.order;
       if (s.mode === 'classic' || s.mode === 'board') state.mode = s.mode;
       if (s.tempo === 'slow' || s.tempo === 'normal' || s.tempo === 'fast') state.tempo = s.tempo;
-      state.hostParticipates = !!s.hostParticipates;
+      state.hostParticipates = true;
       if ((s.hostName || '').trim()) state.hostProfile.name = String(s.hostName).trim().slice(0, 14);
       if ((s.hostFigure || '').trim()) state.hostProfile.figure = String(s.hostFigure).trim().slice(0, 2);
     } catch (_) {}
@@ -161,7 +161,7 @@
     document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(p => p.classList.toggle('active', p.dataset.order === state.order));
     document.querySelectorAll('#mode-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.mode === state.mode));
     document.querySelectorAll('#tempo-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.tempo === state.tempo));
-    document.querySelectorAll('#host-play-pills .pill').forEach(p => p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays));
+    state.hostParticipates = true;
     const hostNameInput = $('#host-name-input');
     if (hostNameInput) hostNameInput.value = state.hostProfile.name;
     applyBoardCompactMode();
@@ -248,7 +248,7 @@
       state.hostProfile.figure = hostRow.figure || state.hostProfile.figure;
       syncHostProfileUI();
     }
-    if (typeof m.hostParticipates === 'boolean') state.hostParticipates = m.hostParticipates;
+    state.hostParticipates = true;
     syncHostParticipatesUI();
     renderPlayers(m);
     if ((m && m.state) === 'lobby') {
@@ -520,8 +520,8 @@
     $('#player-count').textContent = `(${m.players.length})`;
     const hint = $('#lobby-hint');
     hint.style.color = '';
-    const required = Math.max(0, Number(m.requiredPlayers) || (state.hostParticipates ? 1 : 2));
-    const joined = Math.max(0, m.players.length - (state.hostParticipates ? 1 : 0));
+    const required = Math.max(0, Number(m.requiredPlayers) || 1);
+    const joined = Math.max(0, m.players.length - 1);
     if (joined === 0) hint.textContent = `Warte auf Spieler… (mind. ${required} zum Starten)`;
     else if (joined < required) hint.textContent = `Noch ${required - joined} Spieler nötig…`;
     else hint.textContent = `${m.players.length} Spieler bereit! 🎉`;
@@ -628,15 +628,7 @@
     persistHostSettings();
     FX.Sound.tap();
   }));
-  document.querySelectorAll('#host-play-pills .pill').forEach(p => p.addEventListener('click', () => {
-    document.querySelectorAll('#host-play-pills .pill').forEach(x => x.classList.remove('active'));
-    p.classList.add('active');
-    state.hostParticipates = p.dataset.hostPlays === 'true';
-    Net.send({ type: 'host:setParticipates', enabled: state.hostParticipates });
-    persistHostSettings();
-    updateStartButton();
-    FX.Sound.tap();
-  }));
+  state.hostParticipates = true;
   const hostNameInput = $('#host-name-input');
   if (hostNameInput) {
     hostNameInput.addEventListener('input', () => {
@@ -696,7 +688,7 @@
       order: state.order,
       mode: state.mode,
       tempo: state.tempo,
-      hostParticipates: state.hostParticipates,
+      hostParticipates: true,
       games,
     });
     FX.Sound.whoosh();
