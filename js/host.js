@@ -21,6 +21,7 @@
     document.body.classList.toggle('host-lobby-scroll', name === 'lobby');
     document.body.classList.toggle('in-game', name !== 'lobby');
     if (name !== 'playing') document.body.classList.remove('host-playing-active');
+    if (name !== 'playing') document.body.classList.remove('host-mirror-player-view');
     if (name === 'playing') syncHostGameFixed();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -103,6 +104,14 @@
   function applyBoardCompactMode() {
     const compact = window.innerHeight <= 760;
     document.body.classList.toggle('board-compact', compact);
+  }
+
+  function setHostPlayerMirrorMode(on) {
+    document.body.classList.toggle('host-mirror-player-view', !!on);
+    const header = $('#host-live-header');
+    const ranking = $('#host-live-ranking-card');
+    if (header) header.hidden = !!on;
+    if (ranking) ranking.hidden = !!on;
   }
 
   function persistHostSettings() {
@@ -486,6 +495,7 @@
   Net.on('hostLeft', () => {
     stopHostPlay();
     state.mode = 'classic';
+    setHostPlayerMirrorMode(false);
     showScreen('lobby');
     setConn('⏹️ Spiel beendet.', 'err');
     if (connStatus) connStatus.style.display = '';
@@ -704,17 +714,20 @@
   $('#btn-play-again').addEventListener('click', () => {
     Net.send({ type: 'host:playAgain' });
     state.mode = 'classic';
+    setHostPlayerMirrorMode(false);
     FX.Sound.whoosh();
     showScreen('lobby');
   });
   const btnEnd = $('#btn-end-game');
   if (btnEnd) btnEnd.addEventListener('click', () => {
     Net.send({ type: 'host:endGame' });
+    setHostPlayerMirrorMode(false);
     showScreen('lobby');
   });
   const btnInGameEnd = $('#btn-in-game-end');
   if (btnInGameEnd) btnInGameEnd.addEventListener('click', () => {
     Net.send({ type: 'host:endGame' });
+    setHostPlayerMirrorMode(false);
     showScreen('lobby');
     FX.Sound.bad();
   });
@@ -1062,6 +1075,7 @@
     if (!card || !stage || !scoreEl) return;
     card.hidden = false;
     hostGame.active = true;
+    setHostPlayerMirrorMode(true);
     syncHostGameFixed();
     hostGame.lastScoreSent = 0;
     hostGame.scoreThrottle = 0;
@@ -1079,7 +1093,7 @@
     stage.innerHTML = '';
     const ready = el('div', 'stage-center');
     ready.innerHTML = `<div class="stage-big-text">${gameMeta.icon} ${escapeHtml(gameMeta.name)}</div>
-      <div class="stage-sub">Bereit? Klicke zum Starten.</div>`;
+      <div class="stage-sub">Bereit? Klicke auf Bereit.</div>`;
     const helpBtn = el('button', 'btn btn-ghost ready-help-btn', '? Spiel erklären');
     helpBtn.type = 'button';
     const helpBox = el('div', 'ready-help-box', gameMeta.rules || 'Keine weiteren Regeln vorhanden.');
@@ -1146,7 +1160,11 @@
         cleanup();
         const val = Math.max(0, Math.round(score || 0));
         Net.send({ type: 'player:finished', score: val });
-        hostGame.active = false;
+        stage.innerHTML = `<div class="stage-center">
+          <div class="stage-big-text">✅ Ergebnis gesendet</div>
+          <div class="stage-sub">Warte auf die anderen Spieler…</div>
+          <div class="waiting-spinner"></div>
+        </div>`;
       },
       timeout(fn, ms) { const id = setTimeout(fn, ms); timeouts.push(id); return id; },
       interval(fn, ms) { const id = setInterval(fn, ms); intervals.push(id); return id; },
@@ -1165,6 +1183,7 @@
 
   function stopHostPlay() {
     hostGame.active = false;
+    setHostPlayerMirrorMode(false);
     syncHostGameFixed();
     const card = $('#host-play-card');
     const stage = $('#host-game-stage');

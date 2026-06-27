@@ -83,6 +83,20 @@ body.host-playing-active #host-play-card .game-stage {
   min-height: clamp(280px, 50dvh, 460px);
 }
 
+body.host-mirror-player-view .screen[data-screen="playing"] {
+  max-width: 860px;
+  gap: 14px;
+}
+
+body.host-mirror-player-view #host-play-card {
+  display: block;
+  width: 100%;
+}
+
+body.host-mirror-player-view #host-play-card .game-stage {
+  min-height: clamp(320px, 58dvh, 520px);
+}
+
 @keyframes screenIn {
   from { opacity: 0; transform: translateY(30px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
