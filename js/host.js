@@ -7,10 +7,16 @@
   const $ = s => document.querySelector(s);
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
+  function syncHostGameFixed() {
+    const playing = screens['playing'];
+    if (!playing) return;
+    playing.classList.toggle('game-fixed', !!hostGame.active);
+  }
   function showScreen(name) {
-    Object.values(screens).forEach(s => s.classList.remove('active'));
+    Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
     if (screens[name]) screens[name].classList.add('active');
     document.body.classList.toggle('host-lobby-scroll', name === 'lobby');
+    if (name === 'playing') syncHostGameFixed();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   document.body.classList.toggle('host-lobby-scroll', !!(screens['lobby'] && screens['lobby'].classList.contains('active')));
@@ -794,6 +800,7 @@
     if (!card || !stage || !scoreEl) return;
     card.hidden = false;
     hostGame.active = true;
+    syncHostGameFixed();
     hostGame.lastScoreSent = 0;
     hostGame.scoreThrottle = 0;
     scoreEl.textContent = '0';
@@ -885,6 +892,7 @@
 
   function stopHostPlay() {
     hostGame.active = false;
+    syncHostGameFixed();
     const card = $('#host-play-card');
     const stage = $('#host-game-stage');
     if (card) card.hidden = true;

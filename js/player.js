@@ -10,8 +10,11 @@
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
-    Object.values(screens).forEach(s => s.classList.remove('active'));
-    if (screens[name]) screens[name].classList.add('active');
+    Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
+    if (screens[name]) {
+      screens[name].classList.add('active');
+      if (name === 'play') screens[name].classList.add('game-fixed');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
