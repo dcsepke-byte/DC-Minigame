@@ -29,10 +29,12 @@
     rounds: 5,
     order: 'random',
     mode: 'classic',
+    tempo: 'normal',
     disabledGames: new Set(),
     players: [],
     boardTiles: [],
     boardOwners: {},
+    boardHistory: [],
     boardLog: '',
     boardPhase: 'turn',
     turnPlayerId: null,
@@ -70,6 +72,7 @@
         rounds: state.rounds,
         order: state.order,
         mode: state.mode,
+        tempo: state.tempo,
         hostParticipates: state.hostParticipates,
         hostName: state.hostProfile.name,
         hostFigure: state.hostProfile.figure,
@@ -85,6 +88,7 @@
       if (Number.isFinite(s.rounds)) state.rounds = Math.max(1, Math.min(20, Number(s.rounds) || 5));
       if (s.order === 'random' || s.order === 'fixed') state.order = s.order;
       if (s.mode === 'classic' || s.mode === 'board') state.mode = s.mode;
+      if (s.tempo === 'slow' || s.tempo === 'normal' || s.tempo === 'fast') state.tempo = s.tempo;
       state.hostParticipates = !!s.hostParticipates;
       if ((s.hostName || '').trim()) state.hostProfile.name = String(s.hostName).trim().slice(0, 14);
       if ((s.hostFigure || '').trim()) state.hostProfile.figure = String(s.hostFigure).trim().slice(0, 2);
@@ -107,6 +111,7 @@
     $('#rounds-value').textContent = String(state.rounds);
     document.querySelectorAll('.toggle-pills .pill[data-order]').forEach(p => p.classList.toggle('active', p.dataset.order === state.order));
     document.querySelectorAll('#mode-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.mode === state.mode));
+    document.querySelectorAll('#tempo-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.tempo === state.tempo));
     document.querySelectorAll('#host-play-pills .pill').forEach(p => p.classList.toggle('active', String(state.hostParticipates) === p.dataset.hostPlays));
     const hostNameInput = $('#host-name-input');
     if (hostNameInput) hostNameInput.value = state.hostProfile.name;
@@ -207,9 +212,11 @@
     state.mode = 'board';
     state.players = m.players || [];
     state.boardTiles = m.tiles || [];
+    state.boardHistory = [];
     renderBoardGrid();
     renderBoardRanking();
     renderBoardPlayerInfo();
+    renderHostBoardTimeline();
     showHostBoardPrompt('Warte auf deinen Zug…');
     showScreen('board');
   });
@@ -219,6 +226,7 @@
     state.players = m.players || [];
     state.boardTiles = m.tiles || state.boardTiles;
     state.boardOwners = m.owners || {};
+    state.boardHistory = Array.isArray(m.history) ? m.history.slice(-20) : state.boardHistory;
     state.boardLog = m.log || '';
     state.boardPhase = m.phase || 'turn';
     state.turnPlayerId = m.turnPlayerId || null;
@@ -229,6 +237,7 @@
     renderBoardGrid();
     renderBoardRanking();
     renderBoardPlayerInfo();
+    renderHostBoardTimeline();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     setBoardLogText(state.boardLog);
@@ -268,6 +277,17 @@
   Net.on('board:story', m => {
     if (!m || !m.text) return;
     pushBoardStory(m.text);
+  });
+
+  Net.on('board:eventReveal', m => {
+    if (!m) return;
+    const rarity = m.rarity || 'Normal';
+    const title = m.title || 'Ereignis';
+    const triggerName = m.triggerName ? ` für ${m.triggerName}` : '';
+    pushBoardStory({
+      title: `🎴 Ereigniskarte · ${rarity}`,
+      text: `${title}${triggerName}`,
+    });
   });
 
   Net.on('board:duel', m => {
@@ -542,6 +562,13 @@
     persistHostSettings();
     FX.Sound.tap();
   }));
+  document.querySelectorAll('#tempo-pills .pill').forEach(p => p.addEventListener('click', () => {
+    document.querySelectorAll('#tempo-pills .pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    state.tempo = p.dataset.tempo || 'normal';
+    persistHostSettings();
+    FX.Sound.tap();
+  }));
   document.querySelectorAll('#host-play-pills .pill').forEach(p => p.addEventListener('click', () => {
     document.querySelectorAll('#host-play-pills .pill').forEach(x => x.classList.remove('active'));
     p.classList.add('active');
@@ -609,6 +636,7 @@
       rounds: state.rounds,
       order: state.order,
       mode: state.mode,
+      tempo: state.tempo,
       hostParticipates: state.hostParticipates,
       games,
     });
@@ -748,8 +776,30 @@
     });
   }
 
+  function renderHostBoardTimeline() {
+    const list = $('#host-board-timeline');
+    if (!list) return;
+    const items = (state.boardHistory || []).slice(-16).reverse();
+    if (!items.length) {
+      list.innerHTML = '<div class="board-timeline-item">Noch keine Ereignisse.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    items.forEach(msg => {
+      const row = el('div', 'board-timeline-item', escapeHtml(msg));
+      list.appendChild(row);
+    });
+  }
+
   function pushBoardStory(text) {
-    storyPopup.queue.push(String(text));
+    if (text && typeof text === 'object') {
+      storyPopup.queue.push({
+        text: String(text.text || ''),
+        title: String(text.title || '📣 Update'),
+      });
+    } else {
+      storyPopup.queue.push({ text: String(text), title: '📣 Update' });
+    }
     if (!storyPopup.showing) showNextBoardStory();
   }
 
@@ -760,17 +810,20 @@
     }
     storyPopup.showing = true;
     const msg = storyPopup.queue.shift();
-    const popup = el('div', 'board-story-popup');
-    popup.innerHTML = `<div class="board-story-card">${escapeHtml(msg)}</div>`;
+    const popup = el('div', 'msg-modal-backdrop');
+    popup.innerHTML = `<div class="msg-modal">
+      <div class="msg-modal-title">${escapeHtml(msg.title || '📣 Update')}</div>
+      <div class="msg-modal-text">${escapeHtml(msg.text || '')}</div>
+      <button class="btn btn-primary msg-modal-btn" type="button">✅ Gelesen</button>
+    </div>`;
     document.body.appendChild(popup);
-    FX.Sound.whoosh();
-    setTimeout(() => {
-      popup.classList.add('hide');
-      setTimeout(() => {
-        if (popup.parentNode) popup.remove();
-        showNextBoardStory();
-      }, 260);
-    }, 2200);
+    FX.Sound.tap();
+    const btn = popup.querySelector('.msg-modal-btn');
+    const close = () => {
+      if (popup.parentNode) popup.remove();
+      showNextBoardStory();
+    };
+    btn.addEventListener('click', close);
   }
 
   function animateBoardMove(playerId, from, to) {

@@ -104,6 +104,14 @@
             </div>
           </div>
           <div class="option-group">
+            <label>Tempo</label>
+            <div class="toggle-pills" id="tempo-pills">
+              <button class="pill" data-tempo="slow">🐢 Langsam</button>
+              <button class="pill active" data-tempo="normal">⚖️ Normal</button>
+              <button class="pill" data-tempo="fast">⚡ Schnell</button>
+            </div>
+          </div>
+          <div class="option-group">
             <label>Host spielt mit</label>
             <div class="toggle-pills" id="host-play-pills">
               <button class="pill active" data-host-plays="false">🎛️ Nur Host</button>
@@ -206,7 +214,7 @@
           </div>
           <div class="board-panel" data-panel="events">
             <h2 class="card-title">📣 Ereignisse</h2>
-            <p class="hint" id="board-log-panel">Warte auf den Start…</p>
+            <div class="board-timeline" id="host-board-timeline"></div>
           </div>
           <div class="board-panel" data-panel="players">
             <h2 class="card-title">👥 Spieler-Infos</h2>

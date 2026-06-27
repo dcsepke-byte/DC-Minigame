@@ -21,7 +21,7 @@
 
   const me = { id: null, name: '', color: '#ff3cac', figure: '🚀' };
   const board = {
-    tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '',
+    tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '', history: [],
     phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
     panel: 'map',
     badges: { action: 0, ranking: 0, profile: 0, map: 0 },
@@ -137,10 +137,12 @@
     boardModeActive = true;
     board.tiles = m.tiles || [];
     board.players = m.players || [];
+    board.history = [];
     updateMyBoardStats();
     renderBoardGrid();
     renderBoardRanking();
     renderProfileCard();
+    renderBoardTimeline();
     showScreen('board');
   });
 
@@ -155,9 +157,11 @@
     board.lapsDone = m.lapsDone || 0;
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
+    board.history = Array.isArray(m.history) ? m.history.slice(-20) : board.history;
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();
+    renderBoardTimeline();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
     const status = $('#board-status');
@@ -222,6 +226,14 @@
   Net.on('board:story', m => {
     if (!m || !m.text) return;
     pushBoardStory(m.text);
+  });
+
+  Net.on('board:eventReveal', m => {
+    if (!m) return;
+    pushBoardStory({
+      title: `🎴 Ereigniskarte · ${m.rarity || 'Normal'}`,
+      text: `${m.title || 'Ereignis'}${m.triggerName ? ` für ${m.triggerName}` : ''}`,
+    });
   });
 
   Net.on('board:duel', m => {
@@ -660,6 +672,21 @@
     card.appendChild(row);
   }
 
+  function renderBoardTimeline() {
+    const list = $('#player-board-timeline');
+    if (!list) return;
+    const items = (board.history || []).slice(-12).reverse();
+    if (!items.length) {
+      list.innerHTML = '<div class="board-timeline-item">Noch keine Ereignisse.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    items.forEach(msg => {
+      const row = el('div', 'board-timeline-item', escapeHtml(msg));
+      list.appendChild(row);
+    });
+  }
+
   function switchPlayerBoardPanel(panel) {
     board.panel = panel;
     setPlayerBoardBadge(panel, 0);
@@ -716,7 +743,14 @@
   }
 
   function pushBoardStory(text) {
-    storyPopup.queue.push(String(text));
+    if (text && typeof text === 'object') {
+      storyPopup.queue.push({
+        text: String(text.text || ''),
+        title: String(text.title || '📣 Update'),
+      });
+    } else {
+      storyPopup.queue.push({ text: String(text), title: '📣 Update' });
+    }
     if (!storyPopup.showing) showNextBoardStory();
   }
 
@@ -727,17 +761,20 @@
     }
     storyPopup.showing = true;
     const msg = storyPopup.queue.shift();
-    const popup = el('div', 'board-story-popup');
-    popup.innerHTML = `<div class="board-story-card">${escapeHtml(msg)}</div>`;
+    const popup = el('div', 'msg-modal-backdrop');
+    popup.innerHTML = `<div class="msg-modal">
+      <div class="msg-modal-title">${escapeHtml(msg.title || '📣 Update')}</div>
+      <div class="msg-modal-text">${escapeHtml(msg.text || '')}</div>
+      <button class="btn btn-primary msg-modal-btn" type="button">✅ Gelesen</button>
+    </div>`;
     document.body.appendChild(popup);
-    FX.Sound.whoosh();
-    setTimeout(() => {
-      popup.classList.add('hide');
-      setTimeout(() => {
-        if (popup.parentNode) popup.remove();
-        showNextBoardStory();
-      }, 260);
-    }, 2200);
+    FX.Sound.tap();
+    const btn = popup.querySelector('.msg-modal-btn');
+    const close = () => {
+      if (popup.parentNode) popup.remove();
+      showNextBoardStory();
+    };
+    btn.addEventListener('click', close);
   }
 
   function escapeHtml(s) {

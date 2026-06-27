@@ -1118,6 +1118,25 @@ body.board-compact .board-center {
   flex-wrap: wrap;
 }
 
+.board-timeline {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.board-timeline-item {
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .board-story-popup {
   position: fixed;
   left: 50%;
@@ -1147,6 +1166,41 @@ body.board-compact .board-center {
   text-align: center;
   color: #fff;
   padding: 12px 18px;
+}
+
+.msg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  background: rgba(6, 8, 24, 0.62);
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.msg-modal {
+  width: min(700px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: linear-gradient(155deg, rgba(16, 16, 44, 0.96), rgba(34, 22, 74, 0.92));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  padding: 16px 16px 14px;
+}
+
+.msg-modal-title {
+  font-family: var(--font-display);
+  font-size: clamp(17px, 2.8vw, 24px);
+  margin-bottom: 8px;
+}
+
+.msg-modal-text {
+  font-size: clamp(15px, 2.3vw, 20px);
+  line-height: 1.35;
+}
+
+.msg-modal-btn {
+  margin-top: 14px;
+  width: 100%;
 }
 
 .screen[data-screen="board"] {

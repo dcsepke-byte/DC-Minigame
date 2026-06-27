@@ -33,19 +33,25 @@ PALETTE = ["#ff3cac", "#00f0ff", "#2bffb9", "#ffd34e", "#7b2ff7", "#ff6a00", "#3
 BOARD_FIGURES = ["🚀", "🐱", "🦊", "🐸", "🐼", "🦄", "🤖", "🐙"]
 
 BOARD_EVENT_EFFECTS = [
-    {"id": "give_lowest"},
-    {"id": "step_back"},
-    {"id": "step_forward"},
-    {"id": "rich_tax"},
-    {"id": "all_bonus"},
-    {"id": "swap_random"},
-    {"id": "star_rain"},
-    {"id": "steal_from_leader"},
-    {"id": "lottery"},
-    {"id": "claim_free_tile"},
-    {"id": "bonus_duel"},
-    {"id": "trigger_global"},
+    {"id": "give_lowest", "title": "Lucky Boost", "rarity": "Gewoehnlich", "weight": 12},
+    {"id": "step_back", "title": "Zeitreise", "rarity": "Gewoehnlich", "weight": 10},
+    {"id": "step_forward", "title": "Rueckenwind", "rarity": "Gewoehnlich", "weight": 10},
+    {"id": "rich_tax", "title": "Reichensteuer", "rarity": "Gewoehnlich", "weight": 9},
+    {"id": "all_bonus", "title": "Team-Mood", "rarity": "Gewoehnlich", "weight": 8},
+    {"id": "swap_random", "title": "Positionswechsel", "rarity": "Selten", "weight": 5},
+    {"id": "star_rain", "title": "Sternenregen", "rarity": "Selten", "weight": 4},
+    {"id": "steal_from_leader", "title": "Coup", "rarity": "Selten", "weight": 4},
+    {"id": "lottery", "title": "Sternenlotterie", "rarity": "Selten", "weight": 4},
+    {"id": "claim_free_tile", "title": "Blitz-Kauf", "rarity": "Episch", "weight": 3},
+    {"id": "bonus_duel", "title": "Power-Duell", "rarity": "Episch", "weight": 3},
+    {"id": "trigger_global", "title": "Event-Karte", "rarity": "Legendaer", "weight": 2},
 ]
+
+BOARD_TEMPO_PRESETS = {
+    "slow": {"actionDelay": 2.0, "introDelay": 4.8},
+    "normal": {"actionDelay": 1.35, "introDelay": 4.0},
+    "fast": {"actionDelay": 0.8, "introDelay": 3.0},
+}
 
 # Sicherheits-Cap (Sekunden) pro Mini-Spiel: Falls ein Spieler nicht meldet,
 # wird die Runde nach dieser Zeit trotzdem beendet.
@@ -214,16 +220,32 @@ class Room:
             self.board["flowHandle"].cancel()
             self.board["flowHandle"] = None
 
-    def schedule_board_continue(self, cb, delay=BOARD_ACTION_DELAY):
+    def schedule_board_continue(self, cb, delay=None):
         if not self.board:
             return
+        if delay is None:
+            delay = float(self.board.get("actionDelay", BOARD_ACTION_DELAY))
         self.cancel_board_flow_handle()
         self.board["flowHandle"] = loop.call_later(delay, cb)
+
+    def board_push_history(self, text):
+        if not self.board:
+            return
+        msg = (text or "").strip()
+        if not msg:
+            return
+        hist = self.board.setdefault("history", [])
+        hist.append(msg)
+        if len(hist) > 24:
+            self.board["history"] = hist[-24:]
 
     def board_story(self, text):
         msg = (text or "").strip()
         if not msg:
             return
+        if self.board is not None:
+            self.board["lastLog"] = msg
+        self.board_push_history(msg)
         self.broadcast({"type": "board:story", "text": msg})
 
     def attach_host(self, client):
@@ -449,6 +471,7 @@ class Room:
         pending = self.board.get("pending") or {}
         if phase == "turn" and self.board.get("turnPlayerId") == pid:
             self.board["lastLog"] = f"{self.players[pid]['name']} ist offline. Zug wird übersprungen."
+            self.board_story(self.board["lastLog"])
             self.send_board_update()
             self.end_board_turn()
             return
@@ -513,13 +536,19 @@ class Room:
             "owners": b.get("owners", {}),
             "players": self.public_players(),
             "log": b.get("lastLog", ""),
+            "history": b.get("history", []),
+            "tempo": b.get("tempo", "normal"),
         }
 
     def send_board_update(self):
         self.broadcast(self.board_payload())
 
-    def start_board_game(self, rounds, games):
+    def start_board_game(self, rounds, games, tempo="normal"):
         rounds = max(1, min(20, int(rounds)))
+        tempo_key = str(tempo or "normal").lower()
+        if tempo_key not in BOARD_TEMPO_PRESETS:
+            tempo_key = "normal"
+        preset = BOARD_TEMPO_PRESETS[tempo_key]
         for pid in self.order:
             p = self.players[pid]
             p["stars"] = 3
@@ -536,8 +565,12 @@ class Room:
             "pending": None,
             "phase": "turn",
             "lastLog": "Monopoly-Modus gestartet. Alle starten mit 3 Sternen.",
+            "history": ["Monopoly-Modus gestartet. Alle starten mit 3 Sternen."],
             "duel": None,
             "global": None,
+            "tempo": tempo_key,
+            "actionDelay": float(preset["actionDelay"]),
+            "introDelay": float(preset["introDelay"]),
             "startHandle": None,
             "flowHandle": None,
         }
@@ -552,7 +585,7 @@ class Room:
         self.cancel_board_flow_handle()
         connected = self.connected_players()
         if len(connected) < 2:
-            self.board["lastLog"] = "Zu wenige verbundene Spieler."
+            self.board_story("Zu wenige verbundene Spieler.")
             self.send_board_update()
             return
         # Nächsten verbundenen Spieler finden
@@ -564,7 +597,7 @@ class Room:
         self.board["turnPlayerId"] = pid
         self.board["phase"] = "turn"
         p = self.players[pid]
-        self.board["lastLog"] = f"{p['name']} ist am Zug und würfelt."
+        self.board_story(f"🎯 {p['name']} ist am Zug und würfelt.")
         self.send_board_update()
         if p.get("client"):
             p["client"].send({"type": "board:yourTurn", "action": "roll", "message": "Du bist dran. Würfle jetzt!"})
@@ -599,7 +632,7 @@ class Room:
         connected = self.connected_players()
         if not connected:
             return {"text": "Ereignis ausgelöst.", "triggerGlobal": False}
-        effect = random.choice(BOARD_EVENT_EFFECTS)
+        effect = random.choices(BOARD_EVENT_EFFECTS, weights=[max(1, int(e.get("weight", 1))) for e in BOARD_EVENT_EFFECTS], k=1)[0]
         trigger = self.players.get(trigger_pid)
         txt = "🎲 Ereignis ausgelöst."
         trigger_global = False
@@ -607,6 +640,13 @@ class Room:
 
         if not trigger:
             return {"text": txt, "triggerGlobal": False}
+
+        self.broadcast({
+            "type": "board:eventReveal",
+            "title": effect.get("title", "Ereignis"),
+            "rarity": effect.get("rarity", "Gewoehnlich"),
+            "triggerName": trigger.get("name", "Spieler"),
+        })
 
         if effect["id"] == "give_lowest":
             low = min((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
@@ -806,6 +846,7 @@ class Room:
 
     def begin_board_duel(self, challenger, owner, tile_idx):
         self.cancel_board_flow_handle()
+        intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
         game_pool = (self.settings or {}).get("games") or []
         game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         duel_id = uuid.uuid4().hex[:8]
@@ -821,8 +862,9 @@ class Room:
         }
         cp = self.players[challenger]
         op = self.players[owner]
-        self.board["lastLog"] = f"Duell startet in {int(ROUND_INTRO_DELAY)}s: {cp['name']} vs {op['name']} um Feld {tile_idx}."
+        self.board["lastLog"] = f"Duell startet in {int(intro_delay)}s: {cp['name']} vs {op['name']} um Feld {tile_idx}."
         self.broadcast({"type": "board:announce", "text": self.board["lastLog"]})
+        self.board_story(self.board["lastLog"])
         for pid in (challenger, owner):
             c = self.players[pid].get("client")
             if c:
@@ -835,11 +877,11 @@ class Room:
             "ownerName": op["name"],
             "tile": tile_idx,
             "game": game,
-            "startsIn": int(ROUND_INTRO_DELAY),
+            "startsIn": int(intro_delay),
         })
         self.send_board_update()
         self.cancel_board_start_handle()
-        self.board["startHandle"] = loop.call_later(ROUND_INTRO_DELAY, self.begin_board_duel_start)
+        self.board["startHandle"] = loop.call_later(intro_delay, self.begin_board_duel_start)
 
     def begin_board_duel_start(self):
         if self.state != "board" or not self.board or not self.board.get("duel"):
@@ -862,6 +904,7 @@ class Room:
 
     def start_global_board_round(self, trigger="lap", resume="begin_turn"):
         self.cancel_board_flow_handle()
+        intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
         game_pool = (self.settings or {}).get("games") or []
         game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         participants = self.connected_players()
@@ -886,10 +929,11 @@ class Room:
         else:
             self.board["lastLog"] = f"Runden-Minispiel startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
         self.broadcast({"type": "board:announce", "text": self.board["lastLog"]})
+        self.board_story(self.board["lastLog"])
         self.broadcast({"type": "roundIntro", "round": self.board["lapsDone"], "total": self.board["lapsTotal"], "game": game})
         self.send_board_update()
         self.cancel_board_start_handle()
-        self.board["startHandle"] = loop.call_later(ROUND_INTRO_DELAY, self.begin_global_board_start)
+        self.board["startHandle"] = loop.call_later(intro_delay, self.begin_global_board_start)
 
     def begin_global_board_start(self):
         if self.state != "board" or not self.board or not self.board.get("global"):
@@ -1023,7 +1067,7 @@ class Room:
         self.begin_board_turn()
 
     # ---- Spielstart ----
-    def start_game(self, rounds, order_mode, games, mode="classic"):
+    def start_game(self, rounds, order_mode, games, mode="classic", tempo="normal"):
         self._ensure_host_player()
         required = 1 if self.host_participates else 2
         if len(self.connected_players()) < 2:
@@ -1036,9 +1080,9 @@ class Room:
             return
         self.mode = mode or "classic"
         rounds = max(1, min(20, int(rounds)))
-        self.settings = {"rounds": rounds, "order": order_mode, "games": games}
+        self.settings = {"rounds": rounds, "order": order_mode, "games": games, "tempo": tempo}
         if self.mode == "board":
-            self.start_board_game(rounds, games)
+            self.start_board_game(rounds, games, tempo=tempo)
             return
         # Queue bauen
         self.queue = []
@@ -1291,6 +1335,7 @@ def handle_message(client, msg):
             msg.get("order", "random"),
             msg.get("games", []),
             msg.get("mode", "classic"),
+            msg.get("tempo", "normal"),
         )
     elif t == "host:beginRound" and client.role == "host":
         room.begin_round()
