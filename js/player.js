@@ -29,10 +29,48 @@
   const centerActions = { text: '', buttons: [] };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const storyPopup = { queue: [], showing: false };
+  let turnNoticeEl = null;
   let boardModeActive = false;
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
   let autoJoinTried = false;
+
+  function ensureTurnNotice() {
+    if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
+    turnNoticeEl = document.createElement('div');
+    turnNoticeEl.className = 'turn-notice';
+    turnNoticeEl.hidden = true;
+    document.body.appendChild(turnNoticeEl);
+    return turnNoticeEl;
+  }
+
+  function hideTurnNotice() {
+    const wrap = ensureTurnNotice();
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+  }
+
+  function showTurnNotice(text, actions = []) {
+    const wrap = ensureTurnNotice();
+    wrap.innerHTML = '';
+    const card = el('div', 'turn-notice-card');
+    const msg = el('div', 'turn-notice-text', escapeHtml(text || 'Du bist dran.'));
+    const btns = el('div', 'turn-notice-buttons');
+    actions.forEach(cfg => {
+      const klass = cfg.kind === 'ghost' ? 'btn btn-ghost' : 'btn btn-primary';
+      const b = el('button', klass, cfg.label || 'OK');
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        if (typeof cfg.action === 'function') cfg.action();
+        hideTurnNotice();
+      });
+      btns.appendChild(b);
+    });
+    card.appendChild(msg);
+    card.appendChild(btns);
+    wrap.appendChild(card);
+    wrap.hidden = false;
+  }
 
   /* ---------- Code aus URL vorbefüllen ---------- */
   const params = new URLSearchParams(location.search);
@@ -171,6 +209,7 @@
       (board.phase === 'decision' && board.pendingPlayerId === me.id);
     if (!myActionable) {
       showBoardPrompt('Warte auf deinen Zug…');
+      hideTurnNotice();
     }
     renderBoardGrid();
     const keepGameScreen =
@@ -186,6 +225,9 @@
       showBoardPrompt(m.message || 'Du bist dran! Würfeln?', [
         { label: '🎲 Würfeln', action: () => Net.send({ type: 'board:roll' }) },
       ]);
+      showTurnNotice('Du bist dran, bitte wuerfeln.', [
+        { label: '🎲 Jetzt wuerfeln', kind: 'primary', action: () => Net.send({ type: 'board:roll' }) },
+      ]);
       FX.Sound.go();
     }
   });
@@ -197,10 +239,18 @@
         { label: '⭐ Kaufen (1)', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
         { label: 'Weiterziehen', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
+      showTurnNotice('Du bist dran: Feld kaufen oder weiterziehen?', [
+        { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+        { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
+      ]);
     } else if (m.kind === 'rentOrDuel') {
       showBoardPrompt(m.message || 'Zahlen oder Duell?', [
         { label: '⭐ Zahlen (1)', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
+      ]);
+      showTurnNotice('Du bist dran: Zahlen oder Duell starten?', [
+        { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
       ]);
     }
   });
@@ -260,6 +310,7 @@
     const status = $('#board-status');
     if (status) status.textContent = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
     bumpPlayerBoardBadge('ranking');
+    hideTurnNotice();
     showScreen('board');
     switchPlayerBoardPanel('ranking');
   });
@@ -268,6 +319,7 @@
     const actions = $('#board-actions');
     if (actions) actions.innerHTML = '';
     showBoardPrompt('Duell beendet. Weiter geht es mit dem nächsten Zug.');
+    hideTurnNotice();
     FX.Sound.whoosh();
   });
 
@@ -761,20 +813,17 @@
     }
     storyPopup.showing = true;
     const msg = storyPopup.queue.shift();
-    const popup = el('div', 'msg-modal-backdrop');
-    popup.innerHTML = `<div class="msg-modal">
-      <div class="msg-modal-title">${escapeHtml(msg.title || '📣 Update')}</div>
-      <div class="msg-modal-text">${escapeHtml(msg.text || '')}</div>
-      <button class="btn btn-primary msg-modal-btn" type="button">✅ Gelesen</button>
-    </div>`;
+    const popup = el('div', 'board-story-popup top-edge');
+    popup.innerHTML = `<div class="board-story-card"><strong>${escapeHtml(msg.title || 'Update')}</strong> ${escapeHtml(msg.text || '')}</div>`;
     document.body.appendChild(popup);
-    FX.Sound.tap();
-    const btn = popup.querySelector('.msg-modal-btn');
-    const close = () => {
-      if (popup.parentNode) popup.remove();
-      showNextBoardStory();
-    };
-    btn.addEventListener('click', close);
+    FX.Sound.whoosh();
+    setTimeout(() => {
+      popup.classList.add('hide');
+      setTimeout(() => {
+        if (popup.parentNode) popup.remove();
+        showNextBoardStory();
+      }, 220);
+    }, 1800);
   }
 
   function escapeHtml(s) {

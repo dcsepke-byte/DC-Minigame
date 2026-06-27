@@ -45,12 +45,13 @@
     boardPanel: 'map',
     hostParticipates: false,
     hostProfile: { name: 'Host', figure: '🎩' },
-    boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
+    boardBadges: { action: 0, ranking: 0, profile: 0, map: 0 },
     boardAction: { text: 'Warte auf deinen Zug…', buttons: [] },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const hostGame = { active: false, lastScoreSent: 0, scoreThrottle: 0 };
   const storyPopup = { queue: [], showing: false };
+  let turnNoticeEl = null;
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
   function setBoardLogText(text) {
@@ -59,6 +60,42 @@
     if (top) top.textContent = value;
     const panel = $('#board-log-panel');
     if (panel) panel.textContent = value;
+  }
+
+  function ensureTurnNotice() {
+    if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
+    turnNoticeEl = el('div', 'turn-notice');
+    turnNoticeEl.hidden = true;
+    document.body.appendChild(turnNoticeEl);
+    return turnNoticeEl;
+  }
+
+  function hideTurnNotice() {
+    const wrap = ensureTurnNotice();
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+  }
+
+  function showTurnNotice(text, actions = []) {
+    const wrap = ensureTurnNotice();
+    wrap.innerHTML = '';
+    const card = el('div', 'turn-notice-card');
+    const msg = el('div', 'turn-notice-text', escapeHtml(text || 'Du bist dran.'));
+    const btns = el('div', 'turn-notice-buttons');
+    actions.forEach(cfg => {
+      const klass = cfg.kind === 'ghost' ? 'btn btn-ghost' : 'btn btn-primary';
+      const b = el('button', klass, cfg.label || 'OK');
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        if (typeof cfg.action === 'function') cfg.action();
+        hideTurnNotice();
+      });
+      btns.appendChild(b);
+    });
+    card.appendChild(msg);
+    card.appendChild(btns);
+    wrap.appendChild(card);
+    wrap.hidden = false;
   }
 
   function applyBoardCompactMode() {
@@ -215,9 +252,11 @@
     state.boardHistory = [];
     renderBoardGrid();
     renderBoardRanking();
-    renderBoardPlayerInfo();
+    renderHostProfileCard();
+    updateHostBoardStats();
     renderHostBoardTimeline();
     showHostBoardPrompt('Warte auf deinen Zug…');
+    hideTurnNotice();
     showScreen('board');
   });
 
@@ -236,7 +275,8 @@
     state.lapsTotal = m.lapsTotal || 0;
     renderBoardGrid();
     renderBoardRanking();
-    renderBoardPlayerInfo();
+    renderHostProfileCard();
+    updateHostBoardStats();
     renderHostBoardTimeline();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
@@ -249,6 +289,7 @@
     if (!(state.boardPhase === 'decision' && state.pendingPlayerId === HOST_PID) &&
       !(state.boardPhase === 'turn' && state.turnPlayerId === HOST_PID)) {
       showHostBoardPrompt(waitingText);
+      hideTurnNotice();
     }
     // During board mini-games, keep the host on the active play screen.
     if (!hostGame.active) showScreen('board');
@@ -270,8 +311,7 @@
     setBoardLogText(state.boardLog);
     showHostBoardPrompt(state.boardLog || 'Neue Phase startet…');
     showScreen('board');
-    bumpHostBoardBadge('events');
-    switchHostBoardPanel('events');
+    bumpHostBoardBadge('action');
   });
 
   Net.on('board:story', m => {
@@ -307,6 +347,9 @@
       showHostBoardPrompt(state.boardLog, [
         { label: '🎲 Würfeln', kind: 'primary', action: () => Net.send({ type: 'board:roll' }) },
       ]);
+      showTurnNotice('Du bist dran, bitte wuerfeln.', [
+        { label: '🎲 Jetzt wuerfeln', kind: 'primary', action: () => Net.send({ type: 'board:roll' }) },
+      ]);
       switchHostBoardPanel('action');
       renderBoardGrid();
     }
@@ -322,8 +365,16 @@
         { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
+      showTurnNotice('Du bist dran: Feld kaufen oder weiterziehen?', [
+        { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+        { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
+      ]);
     } else {
       showHostBoardPrompt(state.boardLog, [
+        { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
+      ]);
+      showTurnNotice('Du bist dran: Zahlen oder Duell starten?', [
         { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
       ]);
@@ -334,12 +385,14 @@
 
   Net.on('board:duelResult', () => {
     stopHostPlay();
+    hideTurnNotice();
     FX.Sound.fanfare();
     FX.celebrate();
   });
 
   Net.on('board:globalResult', m => {
     stopHostPlay();
+    hideTurnNotice();
     if (m && Array.isArray(m.ranking)) {
       const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
       state.boardLog = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
@@ -810,20 +863,17 @@
     }
     storyPopup.showing = true;
     const msg = storyPopup.queue.shift();
-    const popup = el('div', 'msg-modal-backdrop');
-    popup.innerHTML = `<div class="msg-modal">
-      <div class="msg-modal-title">${escapeHtml(msg.title || '📣 Update')}</div>
-      <div class="msg-modal-text">${escapeHtml(msg.text || '')}</div>
-      <button class="btn btn-primary msg-modal-btn" type="button">✅ Gelesen</button>
-    </div>`;
+    const popup = el('div', 'board-story-popup top-edge');
+    popup.innerHTML = `<div class="board-story-card"><strong>${escapeHtml(msg.title || 'Update')}</strong> ${escapeHtml(msg.text || '')}</div>`;
     document.body.appendChild(popup);
-    FX.Sound.tap();
-    const btn = popup.querySelector('.msg-modal-btn');
-    const close = () => {
-      if (popup.parentNode) popup.remove();
-      showNextBoardStory();
-    };
-    btn.addEventListener('click', close);
+    FX.Sound.whoosh();
+    setTimeout(() => {
+      popup.classList.add('hide');
+      setTimeout(() => {
+        if (popup.parentNode) popup.remove();
+        showNextBoardStory();
+      }, 220);
+    }, 1800);
   }
 
   function animateBoardMove(playerId, from, to) {
@@ -878,20 +928,37 @@
     });
   }
 
-  function renderBoardPlayerInfo() {
-    const list = $('#host-board-player-info');
+  function renderHostProfileCard() {
+    const list = $('#host-board-profile');
     if (!list) return;
     list.innerHTML = '';
-    const arr = [...state.players].sort((a, b) => (b.stars || 0) - (a.stars || 0));
-    arr.forEach((p, i) => {
-      const row = el('div', 'rank-row' + (i === 0 ? ' first' : ''));
-      row.innerHTML = `
-        <span class="rank-pos">${i + 1}</span>
-        <span class="rank-avatar" style="background:${p.color}">${p.figure || initials(p.name)}</span>
-        <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
-        <span class="rank-stars">⭐ ${p.stars || 0} · 🧮 ${p.totalPoints || 0}</span>`;
-      list.appendChild(row);
-    });
+    const me = (state.players || []).find(p => p.id === HOST_PID);
+    if (!me) {
+      list.innerHTML = '<div class="rank-row"><span class="rank-name">Host spielt aktuell nicht mit.</span></div>';
+      return;
+    }
+    const row = el('div', 'rank-row first');
+    row.innerHTML = `
+      <span class="rank-avatar" style="background:${me.color}">${me.figure || '🎩'}</span>
+      <span class="rank-name">${escapeHtml(me.name)} · Feld ${me.position ?? 0}</span>
+      <span class="rank-stars">⭐ ${me.stars || 0} · 🧮 ${me.totalPoints || 0}</span>`;
+    list.appendChild(row);
+  }
+
+  function updateHostBoardStats() {
+    const me = (state.players || []).find(p => p.id === HOST_PID);
+    const avatar = $('#host-board-avatar');
+    const name = $('#host-board-name');
+    const stats = $('#host-board-me-stats');
+    if (me) {
+      if (avatar) { avatar.textContent = me.figure || '🎩'; avatar.style.background = me.color || '#ffd34e'; }
+      if (name) name.textContent = me.name || 'Host';
+      if (stats) stats.textContent = `⭐ ${me.stars || 0} · 🧮 ${me.totalPoints || 0} Punkte`;
+    } else {
+      if (avatar) { avatar.textContent = '🎩'; avatar.style.background = '#ffd34e'; }
+      if (name) name.textContent = state.hostProfile.name || 'Host';
+      if (stats) stats.textContent = '⭐ 0 · 🧮 0 Punkte';
+    }
   }
 
   function switchHostBoardPanel(panel) {

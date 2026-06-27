@@ -181,10 +181,12 @@
 
     <!-- ============ BOARD MODE ============ -->
     <section class="screen" data-screen="board">
-      <div class="board-topbar">
+      <div class="board-topbar player-board-topbar">
         <div class="board-topbar-main">
-          <span class="board-chip">🎲 Monopoly</span>
+          <span class="board-avatar-mini" id="host-board-avatar">🎩</span>
+          <span class="board-chip" id="host-board-name">Host</span>
           <span class="board-chip" id="board-lap">Runde 0 / 0</span>
+          <span class="board-chip" id="host-board-me-stats">⭐ 0 · 🧮 0 Punkte</span>
         </div>
         <div class="board-topbar-side">
           <span class="board-chip board-chip-dim" id="board-log">Warte auf den Start…</span>
@@ -195,8 +197,7 @@
           <button class="board-nav-btn active" data-panel="map">🧩 Spielfeld</button>
           <button class="board-nav-btn" data-panel="action">🎯 Aktion</button>
           <button class="board-nav-btn" data-panel="ranking">⭐ Scoreboard</button>
-          <button class="board-nav-btn" data-panel="events">📣 Ereignisse</button>
-          <button class="board-nav-btn" data-panel="players">👥 Spieler-Infos</button>
+          <button class="board-nav-btn" data-panel="profile">👤 Meine Infos</button>
         </aside>
         <div class="board-panels">
           <div class="board-panel active" data-panel="map">
@@ -207,18 +208,15 @@
             <h2 class="card-title">🎯 Aktion</h2>
             <p class="hint" id="host-board-prompt">Warte auf deinen Zug…</p>
             <div class="board-actions" id="host-board-actions"></div>
+            <div class="board-timeline" id="host-board-timeline"></div>
           </div>
           <div class="board-panel" data-panel="ranking">
             <h2 class="card-title">⭐ Scoreboard</h2>
             <div class="ranking" id="board-ranking"></div>
           </div>
-          <div class="board-panel" data-panel="events">
-            <h2 class="card-title">📣 Ereignisse</h2>
-            <div class="board-timeline" id="host-board-timeline"></div>
-          </div>
-          <div class="board-panel" data-panel="players">
-            <h2 class="card-title">👥 Spieler-Infos</h2>
-            <div class="ranking" id="host-board-player-info"></div>
+          <div class="board-panel" data-panel="profile">
+            <h2 class="card-title">👤 Meine Infos</h2>
+            <div class="ranking" id="host-board-profile"></div>
           </div>
         </div>
       </div>
