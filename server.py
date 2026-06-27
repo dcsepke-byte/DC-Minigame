@@ -32,12 +32,19 @@ WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 PALETTE = ["#ff3cac", "#00f0ff", "#2bffb9", "#ffd34e", "#7b2ff7", "#ff6a00", "#3a86ff", "#ff4d6d"]
 BOARD_FIGURES = ["🚀", "🐱", "🦊", "🐸", "🐼", "🦄", "🤖", "🐙"]
 
-CHAOS_EFFECTS = [
-    {"id": "give_lowest", "text": "Der Spieler mit den wenigsten Sternen bekommt +1 Stern."},
-    {"id": "step_back", "text": "Du gehst 5 Felder zurück."},
-    {"id": "step_forward", "text": "Du gehst 3 Felder vor."},
-    {"id": "rich_tax", "text": "Der führende Spieler verliert 1 Stern."},
-    {"id": "all_bonus", "text": "Alle Spieler bekommen +1 Stern."},
+BOARD_EVENT_EFFECTS = [
+    {"id": "give_lowest"},
+    {"id": "step_back"},
+    {"id": "step_forward"},
+    {"id": "rich_tax"},
+    {"id": "all_bonus"},
+    {"id": "swap_random"},
+    {"id": "star_rain"},
+    {"id": "steal_from_leader"},
+    {"id": "lottery"},
+    {"id": "claim_free_tile"},
+    {"id": "bonus_duel"},
+    {"id": "trigger_global"},
 ]
 
 # Sicherheits-Cap (Sekunden) pro Mini-Spiel: Falls ein Spieler nicht meldet,
@@ -51,6 +58,7 @@ GAME_CAPS = {
 DEFAULT_CAP = 60
 HOST_RECONNECT_GRACE = 120
 ROUND_INTRO_DELAY = 4.0
+BOARD_ACTION_DELAY = 1.35
 
 ROUTES = {
     "/": "player.html",
@@ -191,6 +199,7 @@ class Room:
         self.host_reconnect_handle = None
         if self.host is None:
             self.cancel_board_start_handle()
+            self.cancel_board_flow_handle()
             self.cancel_timers()
             self.broadcast({"type": "hostLeft"}, include_host=False)
             rooms.pop(self.code, None)
@@ -199,6 +208,23 @@ class Room:
         if self.board and self.board.get("startHandle"):
             self.board["startHandle"].cancel()
             self.board["startHandle"] = None
+
+    def cancel_board_flow_handle(self):
+        if self.board and self.board.get("flowHandle"):
+            self.board["flowHandle"].cancel()
+            self.board["flowHandle"] = None
+
+    def schedule_board_continue(self, cb, delay=BOARD_ACTION_DELAY):
+        if not self.board:
+            return
+        self.cancel_board_flow_handle()
+        self.board["flowHandle"] = loop.call_later(delay, cb)
+
+    def board_story(self, text):
+        msg = (text or "").strip()
+        if not msg:
+            return
+        self.broadcast({"type": "board:story", "text": msg})
 
     def attach_host(self, client):
         self.cancel_host_reconnect_timeout()
@@ -513,6 +539,7 @@ class Room:
             "duel": None,
             "global": None,
             "startHandle": None,
+            "flowHandle": None,
         }
         self.state = "board"
         self.broadcast({"type": "board:init", "players": self.public_players(), "tiles": self.board["tiles"]})
@@ -522,6 +549,7 @@ class Room:
     def begin_board_turn(self):
         if self.state != "board" or not self.board:
             return
+        self.cancel_board_flow_handle()
         connected = self.connected_players()
         if len(connected) < 2:
             self.board["lastLog"] = "Zu wenige verbundene Spieler."
@@ -556,6 +584,7 @@ class Room:
         p["position"] = new_pos
         tile = self.board["tiles"][new_pos]
         self.board["lastLog"] = f"{p['name']} würfelt {roll} und landet auf {tile['icon']} {tile['name']}."
+        self.board_story(self.board["lastLog"])
         self.broadcast({
             "type": "board:rolled",
             "playerId": pid,
@@ -569,52 +598,105 @@ class Room:
     def apply_chaos(self, trigger_pid):
         connected = self.connected_players()
         if not connected:
-            return None
-        effect = random.choice(CHAOS_EFFECTS)
+            return {"text": "Ereignis ausgelöst.", "triggerGlobal": False}
+        effect = random.choice(BOARD_EVENT_EFFECTS)
         trigger = self.players.get(trigger_pid)
-        txt = effect.get("text", "Ereignis ausgelöst.")
+        txt = "🎲 Ereignis ausgelöst."
+        trigger_global = False
+        size = max(1, len((self.board or {}).get("tiles", [])))
+
         if not trigger:
-            return txt
+            return {"text": txt, "triggerGlobal": False}
 
         if effect["id"] == "give_lowest":
             low = min((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
             self.players[low]["stars"] += 1
-            txt = f"🎁 {self.players[low]['name']} hat die wenigsten Sterne und bekommt +1 Stern."
+            txt = f"🎁 Lucky Boost: {self.players[low]['name']} hat die wenigsten Sterne und bekommt +1 Stern."
         elif effect["id"] == "step_back":
-            size = max(1, len(self.board.get("tiles", [])))
             trigger["position"] = (trigger.get("position", 0) - 5) % size
-            txt = f"↩️ {trigger['name']} geht 5 Felder zurück."
+            txt = f"↩️ Zeitreise: {trigger['name']} geht 5 Felder zurück."
         elif effect["id"] == "step_forward":
-            size = max(1, len(self.board.get("tiles", [])))
             trigger["position"] = (trigger.get("position", 0) + 3) % size
-            txt = f"⏩ {trigger['name']} geht 3 Felder vor."
+            txt = f"⏩ Rückenwind: {trigger['name']} springt 3 Felder vor."
         elif effect["id"] == "rich_tax":
             high = max((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
             self.players[high]["stars"] = max(0, self.players[high].get("stars", 0) - 1)
-            txt = f"💸 {self.players[high]['name']} führt und verliert 1 Stern."
+            txt = f"💸 Reichensteuer: {self.players[high]['name']} verliert 1 Stern."
         elif effect["id"] == "all_bonus":
             for pid in connected:
                 self.players[pid]["stars"] += 1
-            txt = "🌟 Alle Spieler bekommen +1 Stern."
+            txt = "🌟 Team-Mood: Alle Spieler bekommen +1 Stern."
+        elif effect["id"] == "swap_random" and len(connected) >= 2:
+            a, b = random.sample(connected, 2)
+            self.players[a]["position"], self.players[b]["position"] = self.players[b].get("position", 0), self.players[a].get("position", 0)
+            txt = f"🌀 Positionswechsel: {self.players[a]['name']} und {self.players[b]['name']} tauschen ihre Felder."
+        elif effect["id"] == "star_rain":
+            lucky = random.choice(connected)
+            self.players[lucky]["stars"] += 2
+            txt = f"🌠 Sternenregen: {self.players[lucky]['name']} bekommt +2 Sterne."
+        elif effect["id"] == "steal_from_leader" and len(connected) >= 2:
+            leader = max((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
+            if leader != trigger_pid and self.players[leader].get("stars", 0) > 0:
+                self.players[leader]["stars"] -= 1
+                trigger["stars"] += 1
+                txt = f"🕶️ Coup: {trigger['name']} stiehlt 1 Stern von {self.players[leader]['name']}."
+            else:
+                txt = f"🕶️ Coup vereitelt: {trigger['name']} findet kein Ziel."
+        elif effect["id"] == "lottery":
+            win = random.randint(0, 2)
+            lose = random.randint(0, 1)
+            trigger["stars"] = max(0, trigger.get("stars", 0) + win - lose)
+            txt = f"🎰 Sternenlotterie: {trigger['name']} gewinnt +{win} und verliert -{lose} Sterne."
+        elif effect["id"] == "claim_free_tile":
+            free_tiles = [t for t in (self.board or {}).get("tiles", []) if t.get("type") == "property" and str(t.get("idx")) not in (self.board or {}).get("owners", {})]
+            if free_tiles and trigger.get("stars", 0) >= 1:
+                tile = random.choice(free_tiles)
+                trigger["stars"] -= 1
+                self.board["owners"][str(tile["idx"])] = trigger_pid
+                txt = f"🏷️ Blitz-Kauf: {trigger['name']} sichert sich Feld {tile['idx']} für 1 Stern."
+            else:
+                txt = f"🏷️ Blitz-Kauf: Keine freien Felder oder zu wenig Sterne für {trigger['name']}."
+        elif effect["id"] == "bonus_duel":
+            eligible = [pid for pid in connected if pid != trigger_pid]
+            if eligible:
+                rival = random.choice(eligible)
+                delta = random.randint(1, 2)
+                take = min(delta, self.players[rival].get("stars", 0))
+                self.players[rival]["stars"] -= take
+                trigger["stars"] += take
+                txt = f"🥊 Power-Duell: {trigger['name']} gewinnt {take} Stern(e) von {self.players[rival]['name']}."
+            else:
+                txt = f"🥊 Power-Duell: Kein Gegner für {trigger['name']} verfügbar."
+        elif effect["id"] == "trigger_global":
+            trigger_global = True
+            txt = "🎮 Event-Karte! Sofort startet ein globales Minispiel für alle."
 
         self.broadcast({"type": "board:chaos", "targetId": trigger_pid, "text": txt})
-        return txt
+        self.board_story(txt)
+        return {"text": txt, "triggerGlobal": trigger_global}
 
     def resolve_board_tile(self, pid, tile):
         b = self.board
         p = self.players[pid]
         if tile["type"] == "start":
-            self.end_board_turn()
+            b["lastLog"] = f"🏁 {p['name']} landet auf START."
+            self.board_story(b["lastLog"])
+            self.send_board_update()
+            self.schedule_board_continue(self.end_board_turn)
             return
         if tile["type"] == "event":
-            txt = self.apply_chaos(pid)
+            event_outcome = self.apply_chaos(pid)
+            txt = event_outcome.get("text") if isinstance(event_outcome, dict) else str(event_outcome)
             if txt:
                 b["lastLog"] = txt
             self.send_board_update()
-            self.end_board_turn()
+            if isinstance(event_outcome, dict) and event_outcome.get("triggerGlobal"):
+                self.schedule_board_continue(lambda: self.start_global_board_round(trigger="chaos", resume="end_turn"))
+            else:
+                self.schedule_board_continue(self.end_board_turn)
             return
         if tile["type"] != "property":
-            self.end_board_turn()
+            self.schedule_board_continue(self.end_board_turn)
             return
 
         owner = b["owners"].get(str(tile["idx"]))
@@ -642,8 +724,9 @@ class Room:
 
         if owner == pid:
             b["lastLog"] = f"{p['name']} landet auf eigenem Feld."
+            self.board_story(b["lastLog"])
             self.send_board_update()
-            self.end_board_turn()
+            self.schedule_board_continue(self.end_board_turn)
             return
 
         owner_p = self.players.get(owner)
@@ -687,11 +770,13 @@ class Room:
                 player["stars"] -= 1
                 self.board["owners"][tile_idx] = pid
                 self.board["lastLog"] = f"{player['name']} kauft Feld {int(tile_idx)}."
+                self.board_story(self.board["lastLog"])
             else:
                 self.board["lastLog"] = f"{player['name']} kauft nicht."
+                self.board_story(self.board["lastLog"])
             self.board["pending"] = None
             self.send_board_update()
-            self.end_board_turn()
+            self.schedule_board_continue(self.end_board_turn)
             return
 
         if kind == "rentOrDuel":
@@ -703,6 +788,7 @@ class Room:
                 return
             if action == "duel":
                 self.board["pending"] = None
+                self.board_story(f"⚔️ {player['name']} fordert {owner_p['name']} zum Duell um Feld {tile_idx} heraus.")
                 self.begin_board_duel(pid, owner, int(tile_idx))
                 return
             # default: rent
@@ -710,13 +796,16 @@ class Room:
                 player["stars"] -= 1
                 owner_p["stars"] += 1
                 self.board["lastLog"] = f"{player['name']} zahlt 1 Stern an {owner_p['name']}."
+                self.board_story(self.board["lastLog"])
             else:
                 self.board["lastLog"] = f"{player['name']} hat keine Sterne zum Zahlen."
+                self.board_story(self.board["lastLog"])
             self.board["pending"] = None
             self.send_board_update()
-            self.end_board_turn()
+            self.schedule_board_continue(self.end_board_turn)
 
     def begin_board_duel(self, challenger, owner, tile_idx):
+        self.cancel_board_flow_handle()
         game_pool = (self.settings or {}).get("games") or []
         game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         duel_id = uuid.uuid4().hex[:8]
@@ -772,6 +861,7 @@ class Room:
             self.finish_board_duel()
 
     def start_global_board_round(self, trigger="lap", resume="begin_turn"):
+        self.cancel_board_flow_handle()
         game_pool = (self.settings or {}).get("games") or []
         game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         participants = self.connected_players()
@@ -873,16 +963,18 @@ class Room:
         if cs > os:
             self.board["owners"][tile] = challenger
             self.board["lastLog"] = f"{cp['name']} gewinnt das Duell und übernimmt Feld {tile}."
+            self.board_story(f"🏆 {cp['name']} gewinnt gegen {op['name']} und übernimmt Feld {tile}.")
         else:
             pay = min(2, cp.get("stars", 0))
             cp["stars"] -= pay
             op["stars"] += pay
             self.board["lastLog"] = f"{cp['name']} verliert das Duell und zahlt {pay} Sterne an {op['name']}."
+            self.board_story(f"💥 {op['name']} verteidigt Feld {tile}. {cp['name']} zahlt {pay} Stern(e).")
         self.broadcast({"type": "board:duelResult", "challenger": challenger, "owner": owner, "challengerScore": cs, "ownerScore": os, "tile": int(tile)})
         self.board["duel"] = None
         self.board["phase"] = "turn"
         self.send_board_update()
-        self.end_board_turn()
+        self.schedule_board_continue(self.end_board_turn)
 
     def finish_global_board_round(self):
         g = self.board.get("global") or {}
@@ -900,15 +992,20 @@ class Room:
             for r in ranking:
                 if r["score"] == top and top > 0:
                     self.players[r["id"]]["stars"] += 1
+            winner_names = [r["name"] for r in ranking if r["score"] == top and top > 0]
+            if winner_names:
+                self.board_story(f"🎉 Runden-Minispiel beendet: {', '.join(winner_names)} gewinnt/gewinnen +1 Stern.")
+            else:
+                self.board_story("🎉 Runden-Minispiel beendet: Keine Sterne vergeben.")
         self.broadcast({"type": "board:globalResult", "ranking": ranking})
         self.board["global"] = None
         self.board["phase"] = "turn"
         self.send_board_update()
         resume = g.get("resume", "begin_turn")
         if resume == "end_turn":
-            self.end_board_turn()
+            self.schedule_board_continue(self.end_board_turn)
         else:
-            self.begin_board_turn()
+            self.schedule_board_continue(self.begin_board_turn)
 
     def end_board_turn(self):
         if self.state != "board" or not self.board:
@@ -1092,6 +1189,7 @@ class Room:
     def play_again(self):
         self.cancel_timers()
         self.cancel_board_start_handle()
+        self.cancel_board_flow_handle()
         self.mode = "classic"
         self.board = None
         self.state = "lobby"
@@ -1108,6 +1206,7 @@ class Room:
     def end_game(self):
         self.cancel_timers()
         self.cancel_board_start_handle()
+        self.cancel_board_flow_handle()
         self.broadcast({"type": "hostLeft"}, include_host=True)
         rooms.pop(self.code, None)
 

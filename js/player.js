@@ -28,6 +28,7 @@
   };
   const centerActions = { text: '', buttons: [] };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
+  const storyPopup = { queue: [], showing: false };
   let boardModeActive = false;
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
@@ -218,6 +219,11 @@
     showBoardPrompt(m.text || 'Neue Phase startet…');
   });
 
+  Net.on('board:story', m => {
+    if (!m || !m.text) return;
+    pushBoardStory(m.text);
+  });
+
   Net.on('board:duel', m => {
     const meInDuel = me.id && (me.id === m.challenger || me.id === m.owner);
     if (meInDuel) {
@@ -344,8 +350,19 @@
     const ready = el('div', 'stage-center');
     ready.innerHTML = `<div class="stage-big-text">${gameMeta.icon} ${escapeHtml(gameMeta.name)}</div>
       <div class="stage-sub">Bereit? Klicke auf Bereit.</div>`;
+    const helpBtn = el('button', 'btn btn-ghost ready-help-btn', '? Spiel erklären');
+    helpBtn.type = 'button';
+    const helpBox = el('div', 'ready-help-box', gameMeta.rules || 'Keine weiteren Regeln vorhanden.');
+    helpBox.hidden = true;
+    helpBtn.addEventListener('click', () => {
+      helpBox.hidden = !helpBox.hidden;
+      helpBtn.textContent = helpBox.hidden ? '? Spiel erklären' : '✖ Erklärung schließen';
+      FX.Sound.tap();
+    });
     const readyBtn = el('button', 'btn btn-primary btn-big', '✅ Bereit');
     readyBtn.type = 'button';
+    ready.appendChild(helpBtn);
+    ready.appendChild(helpBox);
     ready.appendChild(readyBtn);
     stage.appendChild(ready);
     readyBtn.addEventListener('click', () => {
@@ -696,6 +713,31 @@
     wrap.appendChild(label);
     document.body.appendChild(wrap);
     setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, 1300);
+  }
+
+  function pushBoardStory(text) {
+    storyPopup.queue.push(String(text));
+    if (!storyPopup.showing) showNextBoardStory();
+  }
+
+  function showNextBoardStory() {
+    if (!storyPopup.queue.length) {
+      storyPopup.showing = false;
+      return;
+    }
+    storyPopup.showing = true;
+    const msg = storyPopup.queue.shift();
+    const popup = el('div', 'board-story-popup');
+    popup.innerHTML = `<div class="board-story-card">${escapeHtml(msg)}</div>`;
+    document.body.appendChild(popup);
+    FX.Sound.whoosh();
+    setTimeout(() => {
+      popup.classList.add('hide');
+      setTimeout(() => {
+        if (popup.parentNode) popup.remove();
+        showNextBoardStory();
+      }, 260);
+    }, 2200);
   }
 
   function escapeHtml(s) {

@@ -44,9 +44,11 @@
     hostParticipates: false,
     hostProfile: { name: 'Host', figure: '🎩' },
     boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
+    boardAction: { text: 'Warte auf deinen Zug…', buttons: [] },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const hostGame = { active: false, lastScoreSent: 0, scoreThrottle: 0 };
+  const storyPopup = { queue: [], showing: false };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
   function setBoardLogText(text) {
@@ -208,6 +210,7 @@
     renderBoardGrid();
     renderBoardRanking();
     renderBoardPlayerInfo();
+    showHostBoardPrompt('Warte auf deinen Zug…');
     showScreen('board');
   });
 
@@ -229,6 +232,15 @@
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     setBoardLogText(state.boardLog);
+    const waitingText = state.boardPhase === 'decision' && state.pendingPlayerId === HOST_PID
+      ? (state.boardLog || 'Entscheidung offen')
+      : state.boardPhase === 'turn' && state.turnPlayerId === HOST_PID
+        ? (state.boardLog || 'Du bist dran. Würfeln?')
+        : 'Warte auf deinen Zug…';
+    if (!(state.boardPhase === 'decision' && state.pendingPlayerId === HOST_PID) &&
+      !(state.boardPhase === 'turn' && state.turnPlayerId === HOST_PID)) {
+      showHostBoardPrompt(waitingText);
+    }
     // During board mini-games, keep the host on the active play screen.
     if (!hostGame.active) showScreen('board');
   });
@@ -247,9 +259,15 @@
   Net.on('board:announce', m => {
     state.boardLog = (m && m.text) || state.boardLog;
     setBoardLogText(state.boardLog);
+    showHostBoardPrompt(state.boardLog || 'Neue Phase startet…');
     showScreen('board');
     bumpHostBoardBadge('events');
     switchHostBoardPanel('events');
+  });
+
+  Net.on('board:story', m => {
+    if (!m || !m.text) return;
+    pushBoardStory(m.text);
   });
 
   Net.on('board:duel', m => {
@@ -266,7 +284,10 @@
       state.hostPendingKind = 'roll';
       state.boardLog = m.message || 'Du bist dran. Würfeln?';
       setBoardLogText(state.boardLog);
-      switchHostBoardPanel('map');
+      showHostBoardPrompt(state.boardLog, [
+        { label: '🎲 Würfeln', kind: 'primary', action: () => Net.send({ type: 'board:roll' }) },
+      ]);
+      switchHostBoardPanel('action');
       renderBoardGrid();
     }
   });
@@ -276,7 +297,18 @@
     state.hostPendingKind = (m && m.kind) || 'decision';
     state.boardLog = (m && m.message) || 'Entscheidung offen';
     setBoardLogText(state.boardLog);
-    switchHostBoardPanel('map');
+    if (state.hostPendingKind === 'buy') {
+      showHostBoardPrompt(state.boardLog, [
+        { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+        { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
+      ]);
+    } else {
+      showHostBoardPrompt(state.boardLog, [
+        { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
+      ]);
+    }
+    switchHostBoardPanel('action');
     renderBoardGrid();
   });
 
@@ -674,8 +706,7 @@
       (posMap[pos] = posMap[pos] || []).push({ p, isMoving });
     });
     state.boardTiles.forEach(t => {
-      let cls = 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : '');
-      cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : '');
+      let cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : '');
       if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
       if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
       const tile = el('div', cls);
@@ -686,46 +717,60 @@
       const owner = ownerId ? state.players.find(p => p.id === ownerId) : null;
       tile.innerHTML = `
         <div class="bt-top">
-          <span>${t.icon} ${escapeHtml(t.name)}</span>
+          <span>${t.icon}</span>
           <span>#${t.idx}</span>
         </div>
-        <div class="bt-owner">${owner ? `Besitzer: ${escapeHtml(owner.name)}` : 'Frei'}</div>
+        <div class="bt-owner">${owner ? `👑 ${escapeHtml(owner.name)}` : 'Frei'}</div>
         <div class="bt-pawns">${(posMap[t.idx] || []).map(x => `<span class="bt-pawn${x.isMoving ? ' moving' : ''}" style="background:${x.p.color}">${x.p.figure || initials(x.p.name)}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+  }
 
-    if (state.hostParticipates) {
-      const canRoll = state.boardPhase === 'turn' && state.turnPlayerId === HOST_PID;
-      const canDecide = state.boardPhase === 'decision' && state.pendingPlayerId === HOST_PID;
-      if (canRoll || canDecide) {
-        const box = el('div', 'board-center-action');
-        const txt = el('div', 'board-center-action-text', escapeHtml(state.boardLog || 'Du bist am Zug.'));
-        const btnWrap = el('div', 'board-center-action-buttons');
-        if (canRoll || state.hostPendingKind === 'roll') {
-          const rb = el('button', 'btn btn-primary', '🎲 Würfeln');
-          rb.type = 'button';
-          rb.addEventListener('click', () => Net.send({ type: 'board:roll' }));
-          btnWrap.appendChild(rb);
-        } else if (state.hostPendingKind === 'buy') {
-          const b1 = el('button', 'btn btn-primary', '⭐ Kaufen');
-          const b2 = el('button', 'btn btn-ghost', 'Weiter');
-          b1.type = 'button'; b2.type = 'button';
-          b1.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'buy' }));
-          b2.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'skip' }));
-          btnWrap.appendChild(b1); btnWrap.appendChild(b2);
-        } else {
-          const b1 = el('button', 'btn btn-primary', '⭐ Zahlen');
-          const b2 = el('button', 'btn btn-ghost', '⚔️ Duell');
-          b1.type = 'button'; b2.type = 'button';
-          b1.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'rent' }));
-          b2.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'duel' }));
-          btnWrap.appendChild(b1); btnWrap.appendChild(b2);
-        }
-        box.appendChild(txt);
-        box.appendChild(btnWrap);
-        center.appendChild(box);
-      }
+  function showHostBoardPrompt(text, buttons = []) {
+    const prompt = $('#host-board-prompt');
+    const panel = $('#host-board-actions');
+    const msg = text || 'Warte auf deinen Zug…';
+    if (prompt) prompt.textContent = msg;
+    state.boardAction.text = msg;
+    state.boardAction.buttons = buttons.map(b => ({
+      label: b.label,
+      kind: b.kind || 'primary',
+      action: b.action,
+    }));
+    if (!panel) return;
+    panel.innerHTML = '';
+    state.boardAction.buttons.forEach(cfg => {
+      const btnClass = cfg.kind === 'ghost' ? 'btn btn-ghost' : 'btn btn-primary';
+      const b = el('button', btnClass, cfg.label);
+      b.type = 'button';
+      b.addEventListener('click', cfg.action);
+      panel.appendChild(b);
+    });
+  }
+
+  function pushBoardStory(text) {
+    storyPopup.queue.push(String(text));
+    if (!storyPopup.showing) showNextBoardStory();
+  }
+
+  function showNextBoardStory() {
+    if (!storyPopup.queue.length) {
+      storyPopup.showing = false;
+      return;
     }
+    storyPopup.showing = true;
+    const msg = storyPopup.queue.shift();
+    const popup = el('div', 'board-story-popup');
+    popup.innerHTML = `<div class="board-story-card">${escapeHtml(msg)}</div>`;
+    document.body.appendChild(popup);
+    FX.Sound.whoosh();
+    setTimeout(() => {
+      popup.classList.add('hide');
+      setTimeout(() => {
+        if (popup.parentNode) popup.remove();
+        showNextBoardStory();
+      }, 260);
+    }, 2200);
   }
 
   function animateBoardMove(playerId, from, to) {
@@ -913,8 +958,19 @@
     const ready = el('div', 'stage-center');
     ready.innerHTML = `<div class="stage-big-text">${gameMeta.icon} ${escapeHtml(gameMeta.name)}</div>
       <div class="stage-sub">Bereit? Klicke zum Starten.</div>`;
+    const helpBtn = el('button', 'btn btn-ghost ready-help-btn', '? Spiel erklären');
+    helpBtn.type = 'button';
+    const helpBox = el('div', 'ready-help-box', gameMeta.rules || 'Keine weiteren Regeln vorhanden.');
+    helpBox.hidden = true;
+    helpBtn.addEventListener('click', () => {
+      helpBox.hidden = !helpBox.hidden;
+      helpBtn.textContent = helpBox.hidden ? '? Spiel erklären' : '✖ Erklärung schließen';
+      FX.Sound.tap();
+    });
     const btn = el('button', 'btn btn-primary btn-big', '✅ Bereit');
     btn.type = 'button';
+    ready.appendChild(helpBtn);
+    ready.appendChild(helpBox);
     ready.appendChild(btn);
     stage.appendChild(ready);
     btn.addEventListener('click', () => {

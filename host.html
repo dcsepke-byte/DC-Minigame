@@ -185,6 +185,7 @@
       <div class="board-layout card live-card">
         <aside class="board-nav" id="host-board-nav">
           <button class="board-nav-btn active" data-panel="map">🧩 Spielfeld</button>
+          <button class="board-nav-btn" data-panel="action">🎯 Aktion</button>
           <button class="board-nav-btn" data-panel="ranking">⭐ Scoreboard</button>
           <button class="board-nav-btn" data-panel="events">📣 Ereignisse</button>
           <button class="board-nav-btn" data-panel="players">👥 Spieler-Infos</button>
@@ -193,6 +194,11 @@
           <div class="board-panel active" data-panel="map">
             <h2 class="card-title">🧩 Spielfeld</h2>
             <div class="board-grid board-grid-iso" id="host-board-grid"></div>
+          </div>
+          <div class="board-panel" data-panel="action">
+            <h2 class="card-title">🎯 Aktion</h2>
+            <p class="hint" id="host-board-prompt">Warte auf deinen Zug…</p>
+            <div class="board-actions" id="host-board-actions"></div>
           </div>
           <div class="board-panel" data-panel="ranking">
             <h2 class="card-title">⭐ Scoreboard</h2>
