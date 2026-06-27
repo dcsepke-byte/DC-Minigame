@@ -13,12 +13,14 @@
     const playing = screens['playing'];
     if (!playing) return;
     playing.classList.toggle('game-fixed', !!hostGame.active);
+    document.body.classList.toggle('host-playing-active', !!hostGame.active);
   }
   function showScreen(name) {
     Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
     if (screens[name]) screens[name].classList.add('active');
     document.body.classList.toggle('host-lobby-scroll', name === 'lobby');
     document.body.classList.toggle('in-game', name !== 'lobby');
+    if (name !== 'playing') document.body.classList.remove('host-playing-active');
     if (name === 'playing') syncHostGameFixed();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }

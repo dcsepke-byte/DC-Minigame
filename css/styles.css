@@ -73,6 +73,16 @@ body { overflow-x: hidden; overflow-y: auto; }
   overflow: hidden;
 }
 
+/* Host can show both local game and live ranking at once, so allow scrolling there. */
+body.host-playing-active .screen[data-screen="playing"] {
+  overflow-y: auto;
+  align-items: stretch;
+}
+
+body.host-playing-active #host-play-card .game-stage {
+  min-height: clamp(280px, 50dvh, 460px);
+}
+
 @keyframes screenIn {
   from { opacity: 0; transform: translateY(30px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
