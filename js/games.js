@@ -875,6 +875,476 @@ const Games = (() => {
     });
   }
 
+  /* =========================================================
+     QUICK QUIZ ENGINE — Basis für viele neue Mini-Spiele
+     ========================================================= */
+  function runQuizRush(stage, api, cfg) {
+    const total = cfg.total || 20000;
+    const base = cfg.basePoints || 12;
+    const combo = cfg.combo || 2;
+    const penaltyMs = cfg.penaltyMs || 1600;
+    let score = 0, streak = 0, endTime = performance.now() + total, locked = false;
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="qz-bar"></div>
+      <div class="math-streak" id="qz-streak"></div>
+      <div class="seq-info" id="qz-title">${cfg.title || 'Quiz-Rush'}</div>
+      <div class="math-question" id="qz-prompt">Bereit…</div>
+      <div class="choice-grid" id="qz-choices"></div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#qz-bar');
+    const streakEl = wrap.querySelector('#qz-streak');
+    const prompt = wrap.querySelector('#qz-prompt');
+    const choices = wrap.querySelector('#qz-choices');
+
+    function nextRound() {
+      locked = false;
+      const round = cfg.makeRound();
+      prompt.innerHTML = round.prompt;
+      const items = round.choices.map(c => ({
+        label: typeof c === 'string' ? c : c.label,
+        ok: typeof c === 'string' ? c === round.correct : !!c.ok,
+      }));
+      choices.innerHTML = '';
+      items.forEach(item => {
+        const b = el('button', 'choice-btn', item.label);
+        b.addEventListener('pointerdown', () => choose(item.ok, b));
+        choices.appendChild(b);
+      });
+    }
+
+    function choose(ok, btn) {
+      if (locked) return;
+      locked = true;
+      if (ok) {
+        streak++;
+        const pts = base + Math.min(10, streak) * combo;
+        score += pts; api.setScore(score);
+        btn.classList.add('correct');
+        streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        api.timeout(nextRound, 220);
+      } else {
+        streak = 0;
+        streakEl.textContent = '';
+        endTime -= penaltyMs;
+        btn.classList.add('wrong');
+        btn.disabled = true;
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, `−${(penaltyMs / 1000).toFixed(1)}s`, '#ff4d6d');
+        locked = false;
+      }
+    }
+
+    nextRound();
+    api.frameLoop(() => {
+      const rem = endTime - performance.now();
+      bar.style.width = Math.max(0, rem / total * 100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
+    });
+  }
+
+  function gameEvenOdd(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Gerade oder Ungerade?', total: 19000, makeRound() {
+        const n = rand(10, 999);
+        const even = n % 2 === 0;
+        return {
+          prompt: `${n} ist …?`,
+          choices: [{ label: 'Gerade', ok: even }, { label: 'Ungerade', ok: !even }],
+        };
+      },
+    });
+  }
+
+  function gamePrimeHunter(stage, api) {
+    const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+    runQuizRush(stage, api, {
+      title: 'Primzahl-Jagd', total: 21000, makeRound() {
+        const correct = primes[rand(0, primes.length - 1)];
+        const options = new Set([correct]);
+        while (options.size < 4) {
+          const v = rand(4, 60);
+          if (!primes.includes(v)) options.add(v);
+        }
+        const arr = shuffle([...options]);
+        return { prompt: 'Welche Zahl ist eine <strong>Primzahl</strong>?', choices: arr.map(v => ({ label: String(v), ok: v === correct })) };
+      },
+    });
+  }
+
+  function gameBiggerNumber(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Wer ist größer?', total: 20000, makeRound() {
+        const a = rand(10, 99), b = rand(10, 99);
+        return {
+          prompt: `Welche Zahl ist größer? <strong>${a}</strong> vs <strong>${b}</strong>`,
+          choices: [{ label: String(a), ok: a > b }, { label: String(b), ok: b > a }],
+        };
+      },
+    });
+  }
+
+  function gameSmallerNumber(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Wer ist kleiner?', total: 20000, makeRound() {
+        const a = rand(10, 99), b = rand(10, 99);
+        return {
+          prompt: `Welche Zahl ist kleiner? <strong>${a}</strong> vs <strong>${b}</strong>`,
+          choices: [{ label: String(a), ok: a < b }, { label: String(b), ok: b < a }],
+        };
+      },
+    });
+  }
+
+  function gameDiceSum(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Würfel-Summe', total: 22000, makeRound() {
+        const a = rand(1, 6), b = rand(1, 6), sum = a + b;
+        const options = new Set([sum]);
+        while (options.size < 4) options.add(Math.max(2, Math.min(12, sum + rand(-3, 3))));
+        const arr = shuffle([...options]);
+        return {
+          prompt: `🎲 ${a} + 🎲 ${b} = ?`,
+          choices: arr.map(v => ({ label: String(v), ok: v === sum })),
+        };
+      },
+    });
+  }
+
+  function gameFractionSnap(stage, api) {
+    const modes = [
+      { t: '50%', f: n => n / 2 },
+      { t: '25%', f: n => n / 4 },
+      { t: '10%', f: n => n / 10 },
+    ];
+    runQuizRush(stage, api, {
+      title: 'Prozent-Snap', total: 22000, makeRound() {
+        const m = modes[rand(0, modes.length - 1)];
+        const base = [20, 40, 60, 80, 100, 120, 140][rand(0, 6)];
+        const correct = m.f(base);
+        const options = new Set([correct]);
+        while (options.size < 4) options.add(Math.max(1, correct + rand(-12, 12)));
+        const arr = shuffle([...options]);
+        return {
+          prompt: `Wie viel sind <strong>${m.t}</strong> von ${base}?`,
+          choices: arr.map(v => ({ label: String(v), ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameMissingNumber(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Fehlende Zahl', total: 22000, makeRound() {
+        const start = rand(1, 20), step = rand(2, 8), miss = rand(1, 4);
+        const seq = [0, 1, 2, 3, 4].map(i => start + i * step);
+        const correct = seq[miss];
+        const shown = seq.map((v, i) => i === miss ? '?' : v).join(' · ');
+        const options = new Set([correct]);
+        while (options.size < 4) options.add(correct + rand(-10, 10));
+        const arr = shuffle([...options]);
+        return {
+          prompt: `Finde die fehlende Zahl:<br><strong>${shown}</strong>`,
+          choices: arr.map(v => ({ label: String(v), ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameNextSequence(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Nächstes Glied', total: 22000, makeRound() {
+        const type = rand(0, 1);
+        if (type === 0) {
+          const start = rand(2, 14), mul = rand(2, 4);
+          const seq = [start, start * mul, start * mul * mul];
+          const correct = start * mul * mul * mul;
+          const options = shuffle([correct, correct + mul, correct - mul, correct + mul * 2]);
+          return {
+            prompt: `Was kommt als Nächstes? <strong>${seq.join(' · ')}</strong>`,
+            choices: options.map(v => ({ label: String(v), ok: v === correct })),
+          };
+        }
+        const a = rand(1, 8), b = rand(2, 6), c = rand(7, 12);
+        const correct = a + b + c;
+        const options = shuffle([correct, correct + 2, correct - 3, correct + 5]);
+        return {
+          prompt: `Nächstes Glied: <strong>${a} · ${a + b} · ${a + b + c}</strong>`,
+          choices: options.map(v => ({ label: String(v), ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameWordLength(stage, api) {
+    const words = ['Katze', 'Flugzeug', 'Schmetterling', 'Baum', 'Rakete', 'Mikroskop', 'Regenschirm', 'Komet'];
+    runQuizRush(stage, api, {
+      title: 'Wortlängen-Duell', total: 21000, makeRound() {
+        const pick = shuffle(words.slice()).slice(0, 4);
+        const correct = pick.reduce((a, b) => b.length > a.length ? b : a, pick[0]);
+        return {
+          prompt: 'Welches Wort ist am <strong>längsten</strong>?',
+          choices: shuffle(pick).map(w => ({ label: w, ok: w === correct })),
+        };
+      },
+    });
+  }
+
+  function gameAlphabet(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Alphabet-Blitz', total: 21000, makeRound() {
+        const c = String.fromCharCode(rand(65, 88));
+        const correct = String.fromCharCode(c.charCodeAt(0) + 1);
+        const options = shuffle([correct, String.fromCharCode(c.charCodeAt(0) + 2), String.fromCharCode(c.charCodeAt(0) - 1), String.fromCharCode(c.charCodeAt(0) + 3)]);
+        return {
+          prompt: `Welcher Buchstabe kommt nach <strong>${c}</strong>?`,
+          choices: options.map(v => ({ label: v, ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameCompass(stage, api) {
+    const dirs = ['Norden', 'Osten', 'Sueden', 'Westen'];
+    runQuizRush(stage, api, {
+      title: 'Kompass-Rush', total: 20000, makeRound() {
+        const idx = rand(0, 3);
+        const correct = dirs[(idx + 1) % 4];
+        return {
+          prompt: `Was ist 90° im Uhrzeigersinn von <strong>${dirs[idx]}</strong>?`,
+          choices: shuffle(dirs).map(v => ({ label: v, ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameColorCount(stage, api) {
+    const blocks = ['🟥', '🟦', '🟩', '🟨'];
+    runQuizRush(stage, api, {
+      title: 'Farb-Zaehler', total: 22000, makeRound() {
+        const target = blocks[rand(0, 3)];
+        const n = 12;
+        const cnt = rand(3, 7);
+        const arr = [];
+        for (let i = 0; i < cnt; i++) arr.push(target);
+        while (arr.length < n) {
+          const b = blocks[rand(0, 3)];
+          arr.push(b === target ? blocks[(blocks.indexOf(b) + 1) % 4] : b);
+        }
+        shuffle(arr);
+        const options = shuffle([cnt, cnt + 1, Math.max(0, cnt - 1), cnt + 2]);
+        return {
+          prompt: `Wie oft kommt <strong>${target}</strong> vor?<br>${arr.join(' ')}`,
+          choices: options.map(v => ({ label: String(v), ok: v === cnt })),
+        };
+      },
+    });
+  }
+
+  function gameCompareSums(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Summen-Duell', total: 22000, makeRound() {
+        const a = rand(1, 9), b = rand(1, 9), c = rand(1, 9), d = rand(1, 9);
+        const l = a + b, r = c + d;
+        const correct = l === r ? '=' : (l > r ? '>' : '<');
+        return {
+          prompt: `${a}+${b} ? ${c}+${d}`,
+          choices: [{ label: '<', ok: correct === '<' }, { label: '=', ok: correct === '=' }, { label: '>', ok: correct === '>' }],
+        };
+      },
+    });
+  }
+
+  function gameEstimate(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Naeheste Zahl', total: 21000, makeRound() {
+        const target = rand(100, 999);
+        const options = shuffle([target + rand(-12, 12), target + rand(-60, -20), target + rand(20, 60), target + rand(70, 120)]);
+        const best = options.reduce((bestVal, v) => Math.abs(v - target) < Math.abs(bestVal - target) ? v : bestVal, options[0]);
+        return {
+          prompt: `Welche Zahl liegt am naechsten bei <strong>${target}</strong>?`,
+          choices: options.map(v => ({ label: String(v), ok: v === best })),
+        };
+      },
+    });
+  }
+
+  function gameRoman(stage, api) {
+    const rows = [['I', 1], ['V', 5], ['X', 10], ['L', 50], ['C', 100]];
+    runQuizRush(stage, api, {
+      title: 'Roemische Zahlen', total: 21000, makeRound() {
+        const r = rows[rand(0, rows.length - 1)];
+        const options = shuffle([r[1], r[1] + 1, Math.max(1, r[1] - 1), r[1] * 2]);
+        return {
+          prompt: `Wofuer steht <strong>${r[0]}</strong>?`,
+          choices: options.map(v => ({ label: String(v), ok: v === r[1] })),
+        };
+      },
+    });
+  }
+
+  function gameMirrorArrow(stage, api) {
+    const arrows = [
+      { s: '⬅️', m: '➡️' }, { s: '➡️', m: '⬅️' },
+      { s: '↖️', m: '↗️' }, { s: '↗️', m: '↖️' },
+      { s: '↙️', m: '↘️' }, { s: '↘️', m: '↙️' }
+    ];
+    runQuizRush(stage, api, {
+      title: 'Spiegel-Pfeil', total: 21000, makeRound() {
+        const a = arrows[rand(0, arrows.length - 1)];
+        const opts = shuffle([a.m, arrows[rand(0, arrows.length - 1)].m, arrows[rand(0, arrows.length - 1)].m, arrows[rand(0, arrows.length - 1)].m]);
+        return {
+          prompt: `Welcher Pfeil ist das Spiegelbild von <strong>${a.s}</strong>?`,
+          choices: opts.map(v => ({ label: v, ok: v === a.m })),
+        };
+      },
+    });
+  }
+
+  function gameEmojiClass(stage, api) {
+    const sets = [
+      { q: 'Welches ist ein Tier?', options: ['🐘', '🍕', '🚗', '🎸'], a: '🐘' },
+      { q: 'Welches ist ein Essen?', options: ['🌮', '🛰️', '🧱', '🎯'], a: '🌮' },
+      { q: 'Welches ist ein Fahrzeug?', options: ['🚲', '🌲', '🎁', '📌'], a: '🚲' },
+      { q: 'Welches ist ein Instrument?', options: ['🎻', '🧊', '🧸', '🪵'], a: '🎻' },
+    ];
+    runQuizRush(stage, api, {
+      title: 'Emoji-Kategorie', total: 20000, makeRound() {
+        const s = sets[rand(0, sets.length - 1)];
+        return { prompt: s.q, choices: shuffle(s.options).map(v => ({ label: v, ok: v === s.a })) };
+      },
+    });
+  }
+
+  function gameClock(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Uhrzeit-Plus', total: 22000, makeRound() {
+        const h = rand(1, 11), m = [0, 15, 30, 45][rand(0, 3)], add = [15, 30, 45][rand(0, 2)];
+        const totalMin = (h * 60 + m + add) % (12 * 60);
+        const nh = Math.floor(totalMin / 60) || 12;
+        const nm = totalMin % 60;
+        const correct = `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+        const opts = shuffle([correct,
+          `${String(h).padStart(2, '0')}:${String((m + add + 15) % 60).padStart(2, '0')}`,
+          `${String((h % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+          `${String(h).padStart(2, '0')}:${String((m + 30) % 60).padStart(2, '0')}`]);
+        return {
+          prompt: `Startzeit <strong>${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}</strong>, plus ${add} min = ?`,
+          choices: opts.map(v => ({ label: v, ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameRemainder(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Restrechner', total: 21000, makeRound() {
+        const a = rand(12, 99), b = rand(2, 9);
+        const r = a % b;
+        const opts = shuffle([r, (r + 1) % b, (r + 2) % b, (r + b - 1) % b]);
+        return {
+          prompt: `Welchen Rest hat <strong>${a} : ${b}</strong>?`,
+          choices: opts.map(v => ({ label: String(v), ok: v === r })),
+        };
+      },
+    });
+  }
+
+  function gameMathChain(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Rechenkette', total: 22000, makeRound() {
+        const a = rand(2, 20), b = rand(2, 20), c = rand(2, 12);
+        const correct = a + b - c;
+        const opts = shuffle([correct, correct + 2, correct - 3, correct + 5]);
+        return {
+          prompt: `<strong>${a} + ${b} − ${c}</strong> = ?`,
+          choices: opts.map(v => ({ label: String(v), ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameDoubleTrouble(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Verdoppeln!', total: 19000, makeRound() {
+        const n = rand(3, 70);
+        const correct = n * 2;
+        const opts = shuffle([correct, n * 2 + 4, n * 2 - 6, n + 2]);
+        return {
+          prompt: `Was ist das Doppelte von <strong>${n}</strong>?`,
+          choices: opts.map(v => ({ label: String(v), ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameTripleThreat(stage, api) {
+    runQuizRush(stage, api, {
+      title: 'Dreifach-Alarm', total: 19000, makeRound() {
+        const n = rand(2, 35);
+        const correct = n * 3;
+        const opts = shuffle([correct, n * 3 + 3, n * 3 - 3, n * 2]);
+        return {
+          prompt: `Was ist das Dreifache von <strong>${n}</strong>?`,
+          choices: opts.map(v => ({ label: String(v), ok: v === correct })),
+        };
+      },
+    });
+  }
+
+  function gameNumberMemory(stage, api) {
+    const total = 20000;
+    let score = 0, endTime = performance.now() + total;
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="nm-bar"></div>
+      <div class="seq-info" id="nm-info">Merke dir die Zahl!</div>
+      <div class="math-question" id="nm-number">---</div>
+      <div class="choice-grid" id="nm-choices"></div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#nm-bar');
+    const info = wrap.querySelector('#nm-info');
+    const numEl = wrap.querySelector('#nm-number');
+    const choices = wrap.querySelector('#nm-choices');
+
+    function round() {
+      const n = rand(100, 999);
+      numEl.textContent = String(n);
+      info.textContent = 'Merken…';
+      choices.innerHTML = '';
+      api.timeout(() => {
+        numEl.textContent = '???';
+        info.textContent = 'Welche Zahl war es?';
+        const opts = shuffle([n, n + rand(4, 25), n - rand(4, 25), n + rand(26, 55)]);
+        opts.forEach(v => {
+          const b = el('button', 'choice-btn', String(v));
+          b.addEventListener('pointerdown', () => {
+            if (v === n) {
+              score += 24;
+              api.setScore(score);
+              FX.Sound.correct();
+              FX.toast(stage, '+24', '#2bffb9');
+            } else {
+              endTime -= 1800;
+              FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.8s', '#ff4d6d');
+            }
+            round();
+          }, { once: true });
+          choices.appendChild(b);
+        });
+      }, 900);
+    }
+
+    round();
+    api.frameLoop(() => {
+      const rem = endTime - performance.now();
+      bar.style.width = Math.max(0, rem / total * 100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
+    });
+  }
+
   /* ---------- leichter Ton für Simon (ohne FX-Abhängigkeitschaos) ---------- */
   let _ac = null;
   function _beep(freq) {
@@ -923,7 +1393,53 @@ const Games = (() => {
     { id: 'countvision', name: 'Count-Vision', icon: '🧮', desc: 'Zähle blitzschnell die Zielsymbole und wähle die richtige Zahl.',
       rules: 'Du siehst ein Symbol-Ziel (z. B. ⭐). Zähle, wie oft es im Raster vorkommt, und tippe die richtige Zahl. Falsche Antworten kosten Zeit.', play: gameCountVision },
     { id: 'reflexlanes', name: 'Reflex-Lanes', icon: '🎯', desc: 'Tippe nur das Zielsymbol im wechselnden Raster.',
-      rules: 'Nur das angezeigte Zielsymbol zählt. Falsche Treffer kosten Punkte, Bomben kosten extra viel. Schnell und präzise spielen!', play: gameReflexLanes }
+      rules: 'Nur das angezeigte Zielsymbol zählt. Falsche Treffer kosten Punkte, Bomben kosten extra viel. Schnell und präzise spielen!', play: gameReflexLanes },
+    { id: 'evenodd', name: 'Gerade/Ungerade', icon: '➗', desc: 'Erkenne blitzschnell, ob eine Zahl gerade ist.',
+      rules: 'Tippe auf <strong>Gerade</strong> oder <strong>Ungerade</strong>. Jede richtige Antwort erhöht deine Combo.', play: gameEvenOdd },
+    { id: 'primehunter', name: 'Primzahl-Jagd', icon: '🧪', desc: 'Finde die Primzahl unter mehreren Zahlen.',
+      rules: 'Wähle die <strong>einzige Primzahl</strong>. Falsche Antworten kosten Zeit.', play: gamePrimeHunter },
+    { id: 'biggernumber', name: 'Groesser gewinnt', icon: '📈', desc: 'Wähle die größere von zwei Zahlen.',
+      rules: 'Zwei Zahlen erscheinen. Tippe die <strong>größere</strong>. Schnell bleiben für Combo-Bonus.', play: gameBiggerNumber },
+    { id: 'smallernumber', name: 'Kleiner gewinnt', icon: '📉', desc: 'Wähle die kleinere von zwei Zahlen.',
+      rules: 'Zwei Zahlen erscheinen. Tippe die <strong>kleinere</strong>. Jeder Fehler kostet Zeit.', play: gameSmallerNumber },
+    { id: 'dicesum', name: 'Wuerfel-Summe', icon: '🎲', desc: 'Berechne die Summe aus zwei Würfeln.',
+      rules: 'Du siehst zwei Würfelwerte. Wähle die <strong>richtige Summe</strong>.', play: gameDiceSum },
+    { id: 'fractionsnap', name: 'Prozent-Snap', icon: '💯', desc: 'Rechne Prozentwerte in Sekunden aus.',
+      rules: 'Fragen wie 25%, 50% oder 10% von einer Zahl. Tippe schnell die richtige Antwort.', play: gameFractionSnap },
+    { id: 'missingnumber', name: 'Fehlende Zahl', icon: '🧩', desc: 'Finde das fehlende Element einer Reihe.',
+      rules: 'Eine Zahlenreihe mit Lücke erscheint. Wähle die fehlende Zahl.', play: gameMissingNumber },
+    { id: 'nextsequence', name: 'Naechstes Glied', icon: '🧠', desc: 'Erkenne Muster und setze die Reihe fort.',
+      rules: 'Folgen wachsen nach einer Regel. Finde das nächste Glied.', play: gameNextSequence },
+    { id: 'wordlength', name: 'Wortlaengen-Duell', icon: '📚', desc: 'Finde das längste Wort.',
+      rules: 'Mehrere Wörter werden angezeigt. Tippe das <strong>längste</strong>.', play: gameWordLength },
+    { id: 'alphabet', name: 'Alphabet-Blitz', icon: '🔤', desc: 'Welcher Buchstabe kommt als Nächstes?',
+      rules: 'Dir wird ein Buchstabe gezeigt. Wähle den <strong>direkten Nachfolger</strong>.', play: gameAlphabet },
+    { id: 'compass', name: 'Kompass-Rush', icon: '🧭', desc: 'Richtungen schnell richtig zuordnen.',
+      rules: 'Finde die Richtung nach 90° Drehung im Uhrzeigersinn.', play: gameCompass },
+    { id: 'colorcount', name: 'Farb-Zaehler', icon: '🎨', desc: 'Zähle farbige Blöcke im Wirrwarr.',
+      rules: 'Ein Zielfarbblock wird genannt. Zähle ihn in der Reihe korrekt.', play: gameColorCount },
+    { id: 'comparesums', name: 'Summen-Duell', icon: '⚖️', desc: 'Vergleiche zwei Summen mit <, = oder >.',
+      rules: 'Entscheide, welche Summe größer ist oder ob beide gleich sind.', play: gameCompareSums },
+    { id: 'estimate', name: 'Naeheste Zahl', icon: '📌', desc: 'Tippe die Zahl, die am nächsten am Ziel liegt.',
+      rules: 'Mehrere Zahlen stehen zur Auswahl. Finde die <strong>naechste</strong> zum Ziel.', play: gameEstimate },
+    { id: 'roman', name: 'Roemische Zahlen', icon: '🏛️', desc: 'Übersetze römische Ziffern blitzschnell.',
+      rules: 'Dir wird ein roemisches Zeichen gezeigt. Wähle den passenden Zahlenwert.', play: gameRoman },
+    { id: 'mirrorarrow', name: 'Spiegel-Pfeil', icon: '🪞', desc: 'Finde das horizontale Spiegelbild eines Pfeils.',
+      rules: 'Ein Pfeil wird gezeigt. Tippe den <strong>gespiegelten</strong> Pfeil.', play: gameMirrorArrow },
+    { id: 'emojiclass', name: 'Emoji-Kategorie', icon: '😀', desc: 'Ordne Emojis der richtigen Kategorie zu.',
+      rules: 'Fragen wie "Welches ist ein Tier?". Wähle das passende Emoji.', play: gameEmojiClass },
+    { id: 'clockplus', name: 'Uhrzeit-Plus', icon: '🕒', desc: 'Rechne Minuten auf Uhrzeiten drauf.',
+      rules: 'Eine Startzeit plus Minuten wird gezeigt. Wähle die korrekte Zielzeit.', play: gameClock },
+    { id: 'remainder', name: 'Restrechner', icon: '♻️', desc: 'Finde den Divisionsrest.',
+      rules: 'Berechne den <strong>Rest</strong> bei einer Division.', play: gameRemainder },
+    { id: 'mathchain', name: 'Rechenkette', icon: '🔗', desc: 'Kurze Rechenkette unter Zeitdruck lösen.',
+      rules: 'Löse eine kurze Rechnung mit + und −. Schnell und fehlerfrei!', play: gameMathChain },
+    { id: 'doubletrouble', name: 'Verdoppeln!', icon: '2️⃣', desc: 'Finde blitzschnell das Doppelte.',
+      rules: 'Dir wird eine Zahl gezeigt. Wähle das richtige <strong>Doppelte</strong>.', play: gameDoubleTrouble },
+    { id: 'triplethreat', name: 'Dreifach-Alarm', icon: '3️⃣', desc: 'Finde blitzschnell das Dreifache.',
+      rules: 'Dir wird eine Zahl gezeigt. Wähle das richtige <strong>Dreifache</strong>.', play: gameTripleThreat },
+    { id: 'numbermemory', name: 'Zahlen-Memory', icon: '🔐', desc: 'Merke dir kurz eine Zahl und finde sie wieder.',
+      rules: 'Eine Zahl wird kurz eingeblendet und verschwindet wieder. Wähle die richtige Zahl.', play: gameNumberMemory }
   ];
 
   return { list };
