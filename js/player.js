@@ -22,6 +22,7 @@
     panel: 'map',
     badges: { action: 0, ranking: 0, profile: 0, map: 0 },
   };
+  const centerActions = { text: '', buttons: [] };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   let boardModeActive = false;
   const hudScore = $('#hud-score');
@@ -51,6 +52,8 @@
   }
 
   $('#btn-join').addEventListener('click', doJoin);
+  const btnHostCreate = $('#btn-host-create');
+  if (btnHostCreate) btnHostCreate.addEventListener('click', () => { location.href = '/host'; });
   $('#code-input').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
   $('#name-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('#code-input').focus(); });
 
@@ -63,8 +66,10 @@
     try { localStorage.setItem('pa_figure', me.figure); } catch (_) {}
     try { localStorage.setItem('pa_last_code', code); } catch (_) {}
     let pid = null;
+    let token = '';
     try { pid = localStorage.getItem('pa_pid_' + code); } catch (_) {}
-    Net.send({ type: 'player:join', name, code, playerId: pid, figure: me.figure });
+    try { token = localStorage.getItem('pa_ptok_' + code) || ''; } catch (_) {}
+    Net.send({ type: 'player:join', name, code, playerId: pid, reconnectToken: token, figure: me.figure });
     FX.Sound.click();
   }
   function showJoinError(msg) {
@@ -79,6 +84,7 @@
     me.id = m.playerId; me.name = m.name; me.color = m.color;
     me.figure = m.figure || me.figure;
     try { localStorage.setItem('pa_pid_' + m.code, m.playerId); } catch (_) {}
+    try { if (m.reconnectToken) localStorage.setItem('pa_ptok_' + m.code, m.reconnectToken); } catch (_) {}
     try { localStorage.setItem('pa_last_code', m.code); } catch (_) {}
     $('#lobby-avatar').textContent = initials(me.name);
     $('#lobby-avatar').style.background = me.color;
@@ -161,8 +167,6 @@
 
   Net.on('board:yourTurn', m => {
     showScreen('board');
-    setPlayerBoardBadge('action', 0);
-    switchPlayerBoardPanel('action');
     if (m.action === 'roll') {
       showBoardPrompt(m.message || 'Du bist dran! Würfeln?', [
         { label: '🎲 Würfeln', action: () => Net.send({ type: 'board:roll' }) },
@@ -173,8 +177,6 @@
 
   Net.on('board:decision', m => {
     showScreen('board');
-    setPlayerBoardBadge('action', 0);
-    switchPlayerBoardPanel('action');
     if (m.kind === 'buy') {
       showBoardPrompt(m.message || 'Feld kaufen?', [
         { label: '⭐ Kaufen (1)', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
@@ -328,22 +330,31 @@
 
     if (!game) { finishGame(0); return; }
 
-    // Countdown 3-2-1-GO
-    let n = 3;
-    const cd = el('div', 'stage-center');
-    cd.innerHTML = `<div class="countdown-num">${n}</div>`;
-    stage.appendChild(cd);
-    FX.Sound.countdown();
-    const cdTimer = setInterval(() => {
-      n--;
-      if (n > 0) { cd.innerHTML = `<div class="countdown-num">${n}</div>`; FX.Sound.countdown(); }
-      else {
-        clearInterval(cdTimer);
-        cd.innerHTML = `<div class="countdown-num" style="color:var(--good)">GO!</div>`;
-        FX.Sound.go();
-        setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage); }, 600);
-      }
-    }, 800);
+    const ready = el('div', 'stage-center');
+    ready.innerHTML = `<div class="stage-big-text">${gameMeta.icon} ${escapeHtml(gameMeta.name)}</div>
+      <div class="stage-sub">Bereit? Klicke auf Bereit.</div>`;
+    const readyBtn = el('button', 'btn btn-primary btn-big', '✅ Bereit');
+    readyBtn.type = 'button';
+    ready.appendChild(readyBtn);
+    stage.appendChild(ready);
+    readyBtn.addEventListener('click', () => {
+      let n = 3;
+      const cd = el('div', 'stage-center');
+      cd.innerHTML = `<div class="countdown-num">${n}</div>`;
+      stage.innerHTML = '';
+      stage.appendChild(cd);
+      FX.Sound.countdown();
+      const cdTimer = setInterval(() => {
+        n--;
+        if (n > 0) { cd.innerHTML = `<div class="countdown-num">${n}</div>`; FX.Sound.countdown(); }
+        else {
+          clearInterval(cdTimer);
+          cd.innerHTML = `<div class="countdown-num" style="color:var(--good)">GO!</div>`;
+          FX.Sound.go();
+          setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage); }, 600);
+        }
+      }, 800);
+    });
   }
 
   function launchGame(game, stage) {
@@ -479,19 +490,23 @@
     let code = '';
     let name = '';
     let pid = '';
+    let token = '';
     try {
       code = (($('#code-input') && $('#code-input').value) || localStorage.getItem('pa_last_code') || '').trim().toUpperCase();
       name = (($('#name-input') && $('#name-input').value) || localStorage.getItem('pa_name') || '').trim();
       pid = localStorage.getItem('pa_pid_' + code) || '';
+      token = localStorage.getItem('pa_ptok_' + code) || '';
     } catch (_) {}
-    if (code.length !== 4 || !name || !pid) return;
-    Net.send({ type: 'player:join', name, code, playerId: pid, figure: me.figure });
+    if (code.length !== 4 || !name || (!pid && !token)) return;
+    Net.send({ type: 'player:join', name, code, playerId: pid, reconnectToken: token, figure: me.figure });
   }
 
   function showBoardPrompt(text, actions = []) {
     const prompt = $('#board-prompt');
     const panel = $('#board-actions');
     if (prompt) prompt.textContent = text || 'Warte auf deinen Zug…';
+    centerActions.text = text || '';
+    centerActions.buttons = actions.map(a => ({ label: a.label, action: a.action }));
     if (!panel) return;
     panel.innerHTML = '';
     if (actions.length > 0 && board.panel !== 'action') bumpPlayerBoardBadge('action');
@@ -501,13 +516,14 @@
       b.addEventListener('click', a.action);
       panel.appendChild(b);
     });
+    renderBoardGrid();
   }
 
   function renderBoardGrid() {
     const grid = $('#player-board-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    const center = el('div', 'board-center', '<span>PARTY</span><span>ARENA</span>');
+    const center = el('div', 'board-center', '<span>MONOPOLY</span><span>ARENA</span>');
     grid.appendChild(center);
     const posMap = {};
     (board.players || []).forEach(p => {
@@ -516,7 +532,7 @@
       (posMap[pos] = posMap[pos] || []).push({ p, isMoving });
     });
     (board.tiles || []).forEach(t => {
-      let cls = 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : '');
+      let cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : '');
       if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
       if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
       const tile = el('div', cls);
@@ -531,6 +547,20 @@
         <div class="bt-pawns">${(posMap[t.idx] || []).map(x => `<span class="bt-pawn${x.isMoving ? ' moving' : ''}" style="background:${x.p.color}">${x.p.figure || '🙂'}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+
+    if (centerActions.text) {
+      const box = el('div', 'board-center-action');
+      box.appendChild(el('div', 'board-center-action-text', escapeHtml(centerActions.text)));
+      const btnWrap = el('div', 'board-center-action-buttons');
+      centerActions.buttons.forEach(a => {
+        const b = el('button', 'btn btn-primary', a.label);
+        b.type = 'button';
+        b.addEventListener('click', a.action);
+        btnWrap.appendChild(b);
+      });
+      box.appendChild(btnWrap);
+      center.appendChild(box);
+    }
   }
 
   function animateBoardMove(playerId, from, to) {
@@ -634,9 +664,10 @@
 
   function boardCellPosition(idx) {
     const map = [
-      [5, 1], [5, 2], [5, 3], [5, 4], [5, 5],
-      [4, 5], [3, 5], [2, 5], [1, 5], [1, 4],
-      [1, 3], [1, 2], [1, 1], [2, 1], [3, 1], [4, 1],
+      [7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6], [7, 7],
+      [6, 7], [5, 7], [4, 7], [3, 7], [2, 7], [1, 7],
+      [1, 6], [1, 5], [1, 4], [1, 3], [1, 2], [1, 1],
+      [2, 1], [3, 1], [4, 1], [5, 1], [6, 1],
     ];
     const p = map[Math.max(0, Math.min(map.length - 1, idx))];
     return { row: p[0], col: p[1] };

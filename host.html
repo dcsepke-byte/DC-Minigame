@@ -99,7 +99,7 @@
             <label>Spielmodus</label>
             <div class="toggle-pills" id="mode-pills">
               <button class="pill active" data-mode="classic">⚡ Classic</button>
-              <button class="pill" data-mode="board">🎲 Board Chaos</button>
+              <button class="pill" data-mode="board">🎲 Monopoly</button>
             </div>
           </div>
           <div class="option-group">
@@ -119,6 +119,7 @@
         </div>
 
         <button class="btn btn-primary btn-big" id="btn-start-game" disabled>🚀 Spiel starten</button>
+        <button class="btn btn-ghost btn-big" id="btn-end-game">⛔ Spiel beenden</button>
       </div>
 
       <div class="card games-preview">
@@ -148,6 +149,20 @@
         <h2 class="intro-game-name" id="live-name">Reaktion</h2>
         <p class="tagline">Alle spielen gerade…</p>
       </div>
+      <div class="card live-card" id="host-play-card" hidden>
+        <div class="play-hud">
+          <div class="hud-player">
+            <span class="hud-avatar" id="host-hud-avatar">🎩</span>
+            <span class="hud-name" id="host-hud-name">Host</span>
+          </div>
+          <div class="hud-game" id="host-hud-game">⚡</div>
+          <div class="hud-score">
+            <span class="hud-score-label">Punkte</span>
+            <span class="hud-score-value" id="host-hud-score">0</span>
+          </div>
+        </div>
+        <div class="game-stage" id="host-game-stage"></div>
+      </div>
       <div class="card live-card">
         <h2 class="card-title">📊 Live-Rangliste</h2>
         <div class="ranking" id="live-ranking"></div>
@@ -158,7 +173,7 @@
     <section class="screen" data-screen="board">
       <div class="board-topbar">
         <div class="board-topbar-main">
-          <span class="board-chip">🎲 Board Chaos</span>
+          <span class="board-chip">🎲 Monopoly</span>
           <span class="board-chip" id="board-lap">Runde 0 / 0</span>
         </div>
         <div class="board-topbar-side">

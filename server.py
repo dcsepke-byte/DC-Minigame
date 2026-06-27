@@ -33,10 +33,11 @@ PALETTE = ["#ff3cac", "#00f0ff", "#2bffb9", "#ffd34e", "#7b2ff7", "#ff6a00", "#3
 BOARD_FIGURES = ["🚀", "🐱", "🦊", "🐸", "🐼", "🦄", "🤖", "🐙"]
 
 CHAOS_EFFECTS = [
-    {"id": "tax", "text": "Chaos-Steuer! -1 Stern", "delta": -1},
-    {"id": "gift", "text": "Glückspilz! +1 Stern", "delta": 1},
-    {"id": "storm", "text": "Sternensturm! -2 Sterne", "delta": -2},
-    {"id": "swap", "text": "Verwirrung! Tausche Position mit Zufallsspieler", "delta": 0},
+    {"id": "give_lowest", "text": "Der Spieler mit den wenigsten Sternen bekommt +1 Stern."},
+    {"id": "step_back", "text": "Du gehst 5 Felder zurück."},
+    {"id": "step_forward", "text": "Du gehst 3 Felder vor."},
+    {"id": "rich_tax", "text": "Der führende Spieler verliert 1 Stern."},
+    {"id": "all_bonus", "text": "Alle Spieler bekommen +1 Stern."},
 ]
 
 # Sicherheits-Cap (Sekunden) pro Mini-Spiel: Falls ein Spieler nicht meldet,
@@ -286,9 +287,19 @@ class Room:
         self.send_lobby()
 
     # ---- Spieler-Verwaltung ----
-    def add_player(self, client, name, pid=None, figure=None):
+    def add_player(self, client, name, pid=None, figure=None, reconnect_token=None):
+        # Reconnect per Token (robuster als nur pid)
+        if reconnect_token:
+            for existing_pid, existing in self.players.items():
+                if existing.get("reconnectToken") == reconnect_token:
+                    pid = existing_pid
+                    break
+
         # Reconnect?
         if pid and pid in self.players:
+            if pid == self.host_pid:
+                client.send({"type": "joinError", "message": "Ungültige Reconnect-Session."})
+                return
             p = self.players[pid]
             if figure:
                 p["figure"] = figure
@@ -299,7 +310,8 @@ class Room:
             client.pid = pid
             client.send({"type": "joined", "playerId": pid, "name": p["name"],
                          "color": p["color"], "figure": p.get("figure", "🙂"),
-                         "code": self.code, "state": self.state})
+                         "code": self.code, "state": self.state,
+                         "reconnectToken": p.get("reconnectToken", "")})
             self.send_lobby()
             if self.state == "board" and self.board:
                 client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", [])})
@@ -351,6 +363,7 @@ class Room:
         self.players[new_pid] = {
             "name": name, "color": color, "stars": 0, "totalPoints": 0,
             "position": 0, "figure": figure,
+            "reconnectToken": uuid.uuid4().hex,
             "client": client, "connected": True,
         }
         self.order.append(new_pid)
@@ -359,7 +372,8 @@ class Room:
         client.pid = new_pid
         client.send({"type": "joined", "playerId": new_pid, "name": name,
                      "color": color, "figure": figure,
-                     "code": self.code, "state": self.state})
+                     "code": self.code, "state": self.state,
+                     "reconnectToken": self.players[new_pid]["reconnectToken"]})
         self.send_lobby()
 
     def remove_client(self, client):
@@ -424,13 +438,13 @@ class Room:
         default_game = {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         game_pool = games[:] if games else [default_game]
         tiles = []
-        chaos_slots = {3, 7, 11, 15}
-        for i in range(16):
+        event_slots = {4, 9, 14, 19}
+        for i in range(24):
             if i == 0:
                 tiles.append({"idx": i, "type": "start", "name": "START", "icon": "🏁"})
                 continue
-            if i in chaos_slots:
-                tiles.append({"idx": i, "type": "chaos", "name": "Chaos", "icon": "🌀"})
+            if i in event_slots:
+                tiles.append({"idx": i, "type": "event", "name": "Ereignis", "icon": "🎲"})
                 continue
             g = game_pool[(i - 1) % len(game_pool)]
             tiles.append({
@@ -479,7 +493,7 @@ class Room:
             "owners": {},
             "pending": None,
             "phase": "turn",
-            "lastLog": "Board-Modus gestartet. Alle starten mit 3 Sternen.",
+            "lastLog": "Monopoly-Modus gestartet. Alle starten mit 3 Sternen.",
             "duel": None,
             "global": None,
             "startHandle": None,
@@ -508,10 +522,10 @@ class Room:
         p = self.players[pid]
         self.board["lastLog"] = f"{p['name']} ist am Zug und würfelt."
         self.send_board_update()
-        if pid == self.host_pid and self.host_participates:
-            loop.call_later(0.9, lambda: self.board_roll(pid))
-        elif p.get("client"):
+        if p.get("client"):
             p["client"].send({"type": "board:yourTurn", "action": "roll", "message": "Du bist dran. Würfle jetzt!"})
+        elif pid == self.host_pid and self.host and self.host_participates:
+            self.host.send({"type": "board:yourTurn", "action": "roll", "message": "Du bist dran. Würfle jetzt!"})
 
     def board_roll(self, pid):
         if self.state != "board" or not self.board:
@@ -536,33 +550,38 @@ class Room:
         })
         self.resolve_board_tile(pid, tile)
 
-    def apply_chaos(self):
+    def apply_chaos(self, trigger_pid):
         connected = self.connected_players()
         if not connected:
             return None
-        weights = []
-        for pid in connected:
-            s = max(0, int(self.players[pid].get("stars", 0)))
-            weights.append(1 + s)
-        target = random.choices(connected, weights=weights, k=1)[0]
         effect = random.choice(CHAOS_EFFECTS)
-        tp = self.players[target]
-        if effect["id"] == "swap":
-            others = [pid for pid in connected if pid != target]
-            if others:
-                other = random.choice(others)
-                tp_pos = tp.get("position", 0)
-                op = self.players[other]
-                tp["position"] = op.get("position", 0)
-                op["position"] = tp_pos
-                txt = f"Chaos trifft {tp['name']}: Positionstausch mit {op['name']}!"
-            else:
-                txt = f"Chaos trifft {tp['name']}, aber niemand zum Tauschen da."
-        else:
-            delta = effect.get("delta", 0)
-            tp["stars"] = max(0, tp.get("stars", 0) + delta)
-            txt = f"Chaos trifft {tp['name']}: {effect['text']}"
-        self.broadcast({"type": "board:chaos", "targetId": target, "text": txt})
+        trigger = self.players.get(trigger_pid)
+        txt = effect.get("text", "Ereignis ausgelöst.")
+        if not trigger:
+            return txt
+
+        if effect["id"] == "give_lowest":
+            low = min((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
+            self.players[low]["stars"] += 1
+            txt = f"🎁 {self.players[low]['name']} hat die wenigsten Sterne und bekommt +1 Stern."
+        elif effect["id"] == "step_back":
+            size = max(1, len(self.board.get("tiles", [])))
+            trigger["position"] = (trigger.get("position", 0) - 5) % size
+            txt = f"↩️ {trigger['name']} geht 5 Felder zurück."
+        elif effect["id"] == "step_forward":
+            size = max(1, len(self.board.get("tiles", [])))
+            trigger["position"] = (trigger.get("position", 0) + 3) % size
+            txt = f"⏩ {trigger['name']} geht 3 Felder vor."
+        elif effect["id"] == "rich_tax":
+            high = max((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
+            self.players[high]["stars"] = max(0, self.players[high].get("stars", 0) - 1)
+            txt = f"💸 {self.players[high]['name']} führt und verliert 1 Stern."
+        elif effect["id"] == "all_bonus":
+            for pid in connected:
+                self.players[pid]["stars"] += 1
+            txt = "🌟 Alle Spieler bekommen +1 Stern."
+
+        self.broadcast({"type": "board:chaos", "targetId": trigger_pid, "text": txt})
         return txt
 
     def resolve_board_tile(self, pid, tile):
@@ -571,13 +590,12 @@ class Room:
         if tile["type"] == "start":
             self.end_board_turn()
             return
-        if tile["type"] == "chaos":
-            txt = self.apply_chaos()
+        if tile["type"] == "event":
+            txt = self.apply_chaos(pid)
             if txt:
                 b["lastLog"] = txt
             self.send_board_update()
-            # Chaos-Feld startet sofort eine Chaos-Runde (alle spielen zusammen).
-            self.start_global_board_round(trigger="chaos", resume="end_turn")
+            self.end_board_turn()
             return
         if tile["type"] != "property":
             self.end_board_turn()
@@ -595,9 +613,14 @@ class Room:
                     "cost": 1,
                     "message": f"Dieses Feld ist frei. Für 1 Stern kaufen?",
                 })
-            if pid == self.host_pid and self.host_participates:
-                action = "buy" if p.get("stars", 0) >= 2 else "skip"
-                loop.call_later(0.6, lambda: self.board_decision(pid, action))
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({
+                    "type": "board:decision",
+                    "kind": "buy",
+                    "tile": tile,
+                    "cost": 1,
+                    "message": "Dieses Feld ist frei. Für 1 Stern kaufen?",
+                })
             self.send_board_update()
             return
 
@@ -622,9 +645,14 @@ class Room:
                 "ownerName": owner_p["name"],
                 "message": f"Feld von {owner_p['name']}: 1 Stern zahlen oder zum Duell herausfordern?",
             })
-        if pid == self.host_pid and self.host_participates:
-            action = "rent" if p.get("stars", 0) >= 2 else "duel"
-            loop.call_later(0.6, lambda: self.board_decision(pid, action))
+        elif pid == self.host_pid and self.host and self.host_participates:
+            self.host.send({
+                "type": "board:decision",
+                "kind": "rentOrDuel",
+                "tile": tile,
+                "ownerName": owner_p["name"],
+                "message": f"Feld von {owner_p['name']}: 1 Stern zahlen oder zum Duell herausfordern?",
+            })
         self.send_board_update()
 
     def board_decision(self, pid, action):
@@ -719,9 +747,8 @@ class Room:
             c = self.players.get(pid, {}).get("client")
             if c:
                 c.send({"type": "start", "round": 1, "game": game})
-            elif pid == self.host_pid and self.host_participates:
-                d["scores"][pid] = random.randint(60, 220)
-                d["finished"].add(pid)
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({"type": "start", "round": 1, "game": game})
             else:
                 d["scores"][pid] = 0
                 d["finished"].add(pid)
@@ -749,7 +776,7 @@ class Room:
             "finished": set(),
         }
         if trigger == "chaos":
-            self.board["lastLog"] = f"Chaos-Runde startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
+            self.board["lastLog"] = f"Ereignis-Runde startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
         else:
             self.board["lastLog"] = f"Runden-Minispiel startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
         self.broadcast({"type": "board:announce", "text": self.board["lastLog"]})
@@ -769,9 +796,8 @@ class Room:
             c = self.players.get(pid, {}).get("client")
             if c:
                 c.send({"type": "start", "round": self.board["lapsDone"], "game": game})
-            elif pid == self.host_pid and self.host_participates:
-                g["scores"][pid] = random.randint(70, 260)
-                g["finished"].add(pid)
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({"type": "start", "round": self.board["lapsDone"], "game": game})
             else:
                 g["participants"] = [x for x in g["participants"] if x != pid]
         if not g.get("participants"):
@@ -936,8 +962,6 @@ class Room:
         self.finished = set()
         game = self.queue[self.round]
         self.broadcast({"type": "start", "round": self.round + 1, "game": game})
-        if self.host_participates and self.players.get(self.host_pid, {}).get("connected"):
-            loop.call_later(2.0, lambda: self.player_finished(self.host_pid, random.randint(70, 280)))
         # Live-Leaderboard für Host
         self.schedule_live()
         # Sicherheits-Cap
@@ -1065,6 +1089,12 @@ class Room:
         self._ensure_host_player()
         self.send_lobby()
 
+    def end_game(self):
+        self.cancel_timers()
+        self.cancel_board_start_handle()
+        self.broadcast({"type": "hostLeft"}, include_host=True)
+        rooms.pop(self.code, None)
+
 
 # ============================================================
 #  Nachrichten-Dispatch
@@ -1126,7 +1156,7 @@ def handle_message(client, msg):
         if not room:
             client.send({"type": "joinError", "message": "Raum-Code nicht gefunden."})
             return
-        room.add_player(client, msg.get("name"), msg.get("playerId"), msg.get("figure"))
+        room.add_player(client, msg.get("name"), msg.get("playerId"), msg.get("figure"), msg.get("reconnectToken"))
         return
 
     room = client.room
@@ -1147,22 +1177,28 @@ def handle_message(client, msg):
         room.next_step()
     elif t == "host:playAgain" and client.role == "host":
         room.play_again()
+    elif t == "host:endGame" and client.role == "host":
+        room.end_game()
     elif t == "board:hostNextTurn" and client.role == "host":
         room.begin_board_turn()
-    elif t == "board:roll" and client.role == "player":
-        room.board_roll(client.pid)
-    elif t == "board:decision" and client.role == "player":
-        room.board_decision(client.pid, msg.get("action"))
-    elif t == "player:score" and client.role == "player":
+    elif t == "board:roll" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
+        room.board_roll(pid)
+    elif t == "board:decision" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
+        room.board_decision(pid, msg.get("action"))
+    elif t == "player:score" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
         if room.mode == "board":
-            room.board_player_score(client.pid, msg.get("score", 0))
+            room.board_player_score(pid, msg.get("score", 0))
         else:
-            room.player_score(client.pid, msg.get("score", 0))
-    elif t == "player:finished" and client.role == "player":
+            room.player_score(pid, msg.get("score", 0))
+    elif t == "player:finished" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
         if room.mode == "board":
-            room.board_player_finished(client.pid, msg.get("score", 0))
+            room.board_player_finished(pid, msg.get("score", 0))
         else:
-            room.player_finished(client.pid, msg.get("score", 0))
+            room.player_finished(pid, msg.get("score", 0))
 
 
 # ============================================================

@@ -32,6 +32,7 @@
     boardBadges: { ranking: 0, events: 0, players: 0, map: 0 },
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
+  const hostGame = { active: false, lastScoreSent: 0, scoreThrottle: 0 };
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
   function setBoardLogText(text) {
@@ -225,12 +226,32 @@
     FX.Sound.go();
   });
 
+  Net.on('board:yourTurn', m => {
+    if (!state.hostParticipates) return;
+    if (m && m.action === 'roll') {
+      state.boardLog = m.message || 'Du bist dran. Würfeln?';
+      setBoardLogText(state.boardLog);
+      switchHostBoardPanel('map');
+      renderBoardGrid();
+    }
+  });
+
+  Net.on('board:decision', m => {
+    if (!state.hostParticipates) return;
+    state.boardLog = (m && m.message) || 'Entscheidung offen';
+    setBoardLogText(state.boardLog);
+    switchHostBoardPanel('map');
+    renderBoardGrid();
+  });
+
   Net.on('board:duelResult', () => {
+    stopHostPlay();
     FX.Sound.fanfare();
     FX.celebrate();
   });
 
   Net.on('board:globalResult', m => {
+    stopHostPlay();
     if (m && Array.isArray(m.ranking)) {
       const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
       state.boardLog = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
@@ -253,6 +274,9 @@
   });
 
   Net.on('start', m => {
+    if (state.hostParticipates) {
+      startHostPlay(m.game, state.mode === 'board');
+    }
     if (state.mode === 'board') return;
     $('#live-icon').textContent = m.game.icon;
     $('#live-name').textContent = m.game.name;
@@ -268,6 +292,7 @@
   });
 
   Net.on('roundResult', m => {
+    stopHostPlay();
     if (state.mode === 'board') return;
     $('#round-result-sub').textContent = `Runde ${m.round} / ${m.total} — ${m.game.icon} ${m.game.name}`;
     const rankEl = $('#round-ranking');
@@ -315,7 +340,13 @@
 
   Net.on('final', m => renderFinal(m.ranking));
 
-  Net.on('hostLeft', () => {});
+  Net.on('hostLeft', () => {
+    stopHostPlay();
+    state.mode = 'classic';
+    showScreen('lobby');
+    setConn('⏹️ Spiel beendet.', 'err');
+    if (connStatus) connStatus.style.display = '';
+  });
   Net.on('_close', () => {
     setConn('⚠️ Verbindung getrennt. Läuft der Server noch? Seite neu laden.', 'err');
     if (connStatus) connStatus.style.display = '';
@@ -347,6 +378,13 @@
     if (joined === 0) hint.textContent = `Warte auf Spieler… (mind. ${required} zum Starten)`;
     else if (joined < required) hint.textContent = `Noch ${required - joined} Spieler nötig…`;
     else hint.textContent = `${m.players.length} Spieler bereit! 🎉`;
+    const hostRow = (m.players || []).find(p => p.id === '__host__');
+    const hudAvatar = $('#host-hud-avatar');
+    const hudName = $('#host-hud-name');
+    if (hostRow) {
+      if (hudAvatar) { hudAvatar.textContent = hostRow.figure || '🎩'; hudAvatar.style.background = hostRow.color || '#ffd34e'; }
+      if (hudName) hudName.textContent = hostRow.name || 'Host';
+    }
     updateStartButton();
   }
 
@@ -512,6 +550,11 @@
     FX.Sound.whoosh();
     showScreen('lobby');
   });
+  const btnEnd = $('#btn-end-game');
+  if (btnEnd) btnEnd.addEventListener('click', () => {
+    Net.send({ type: 'host:endGame' });
+    showScreen('lobby');
+  });
 
   $('#sound-toggle').addEventListener('click', () => {
     const on = !FX.isSoundEnabled();
@@ -574,7 +617,7 @@
     const grid = $('#host-board-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    const center = el('div', 'board-center', '<span>BOARD</span><span>CHAOS</span>');
+    const center = el('div', 'board-center', '<span>MONOPOLY</span><span>ARENA</span>');
     grid.appendChild(center);
     const posMap = {};
     state.players.forEach(p => {
@@ -584,6 +627,7 @@
     });
     state.boardTiles.forEach(t => {
       let cls = 'board-tile' + (t.type === 'chaos' ? ' chaos' : t.type === 'start' ? ' start' : '');
+      cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : '');
       if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
       if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
       const tile = el('div', cls);
@@ -601,6 +645,39 @@
         <div class="bt-pawns">${(posMap[t.idx] || []).map(x => `<span class="bt-pawn${x.isMoving ? ' moving' : ''}" style="background:${x.p.color}">${x.p.figure || initials(x.p.name)}</span>`).join('')}</div>`;
       grid.appendChild(tile);
     });
+
+    if (state.hostParticipates) {
+      const b = state.boardLog || '';
+      const pendingAction = /würfle|kaufen\?|zahlen oder duell/i.test(b);
+      if (pendingAction) {
+        const box = el('div', 'board-center-action');
+        const txt = el('div', 'board-center-action-text', escapeHtml(b));
+        const btnWrap = el('div', 'board-center-action-buttons');
+        if (/würfle/i.test(b)) {
+          const rb = el('button', 'btn btn-primary', '🎲 Würfeln');
+          rb.type = 'button';
+          rb.addEventListener('click', () => Net.send({ type: 'board:roll' }));
+          btnWrap.appendChild(rb);
+        } else if (/kaufen\?/i.test(b)) {
+          const b1 = el('button', 'btn btn-primary', '⭐ Kaufen');
+          const b2 = el('button', 'btn btn-ghost', 'Weiter');
+          b1.type = 'button'; b2.type = 'button';
+          b1.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'buy' }));
+          b2.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'skip' }));
+          btnWrap.appendChild(b1); btnWrap.appendChild(b2);
+        } else if (/zahlen oder duell/i.test(b)) {
+          const b1 = el('button', 'btn btn-primary', '⭐ Zahlen');
+          const b2 = el('button', 'btn btn-ghost', '⚔️ Duell');
+          b1.type = 'button'; b2.type = 'button';
+          b1.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'rent' }));
+          b2.addEventListener('click', () => Net.send({ type: 'board:decision', action: 'duel' }));
+          btnWrap.appendChild(b1); btnWrap.appendChild(b2);
+        }
+        box.appendChild(txt);
+        box.appendChild(btnWrap);
+        center.appendChild(box);
+      }
+    }
   }
 
   function animateBoardMove(playerId, from, to) {
@@ -630,9 +707,10 @@
 
   function boardCellPosition(idx) {
     const map = [
-      [5, 1], [5, 2], [5, 3], [5, 4], [5, 5],
-      [4, 5], [3, 5], [2, 5], [1, 5], [1, 4],
-      [1, 3], [1, 2], [1, 1], [2, 1], [3, 1], [4, 1],
+      [7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6], [7, 7],
+      [6, 7], [5, 7], [4, 7], [3, 7], [2, 7], [1, 7],
+      [1, 6], [1, 5], [1, 4], [1, 3], [1, 2], [1, 1],
+      [2, 1], [3, 1], [4, 1], [5, 1], [6, 1],
     ];
     const p = map[Math.max(0, Math.min(map.length - 1, idx))];
     return { row: p[0], col: p[1] };
@@ -706,5 +784,110 @@
       b.dataset.badge = n > 0 ? String(n) : '';
       b.classList.toggle('has-badge', n > 0);
     });
+  }
+
+  function startHostPlay(gameMeta, keepBoardScreen) {
+    const card = $('#host-play-card');
+    const stage = $('#host-game-stage');
+    const scoreEl = $('#host-hud-score');
+    const gameLabel = $('#host-hud-game');
+    if (!card || !stage || !scoreEl) return;
+    card.hidden = false;
+    hostGame.active = true;
+    hostGame.lastScoreSent = 0;
+    hostGame.scoreThrottle = 0;
+    scoreEl.textContent = '0';
+    if (gameLabel) gameLabel.textContent = `${gameMeta.icon} ${gameMeta.name}`;
+    if (!keepBoardScreen) showScreen('playing');
+
+    const game = Games.list.find(g => g.id === gameMeta.id);
+    if (!game) {
+      Net.send({ type: 'player:finished', score: 0 });
+      hostGame.active = false;
+      return;
+    }
+
+    stage.innerHTML = '';
+    const ready = el('div', 'stage-center');
+    ready.innerHTML = `<div class="stage-big-text">${gameMeta.icon} ${escapeHtml(gameMeta.name)}</div>
+      <div class="stage-sub">Bereit? Klicke zum Starten.</div>`;
+    const btn = el('button', 'btn btn-primary btn-big', '✅ Bereit');
+    btn.type = 'button';
+    ready.appendChild(btn);
+    stage.appendChild(ready);
+    btn.addEventListener('click', () => {
+      let n = 3;
+      const cd = el('div', 'stage-center');
+      cd.innerHTML = `<div class="countdown-num">${n}</div>`;
+      stage.innerHTML = '';
+      stage.appendChild(cd);
+      const timer = setInterval(() => {
+        n -= 1;
+        if (n > 0) cd.innerHTML = `<div class="countdown-num">${n}</div>`;
+        else {
+          clearInterval(timer);
+          cd.innerHTML = `<div class="countdown-num" style="color:var(--good)">GO!</div>`;
+          setTimeout(() => {
+            stage.innerHTML = '';
+            const api = createHostGameApi(stage, scoreEl);
+            try { game.play(stage, api); }
+            catch (_) { api.finish(0); }
+          }, 500);
+        }
+      }, 750);
+    });
+  }
+
+  function createHostGameApi(stage, scoreEl) {
+    const timeouts = [];
+    const intervals = [];
+    const loops = [];
+    let done = false;
+    const cleanup = () => {
+      timeouts.forEach(clearTimeout);
+      intervals.forEach(clearInterval);
+      loops.forEach(l => l.alive = false);
+    };
+    return {
+      stage,
+      setScore(v) {
+        const val = Math.max(0, Math.round(v || 0));
+        scoreEl.textContent = String(val);
+        const now = performance.now();
+        if (now - hostGame.scoreThrottle > 250 || val - hostGame.lastScoreSent >= 20) {
+          hostGame.scoreThrottle = now;
+          hostGame.lastScoreSent = val;
+          Net.send({ type: 'player:score', score: val });
+        }
+      },
+      finish(score) {
+        if (done) return;
+        done = true;
+        cleanup();
+        const val = Math.max(0, Math.round(score || 0));
+        Net.send({ type: 'player:finished', score: val });
+        hostGame.active = false;
+      },
+      timeout(fn, ms) { const id = setTimeout(fn, ms); timeouts.push(id); return id; },
+      interval(fn, ms) { const id = setInterval(fn, ms); intervals.push(id); return id; },
+      frameLoop(fn) {
+        const st = { alive: true };
+        loops.push(st);
+        function step() {
+          if (!st.alive) return;
+          if (fn() === false) { st.alive = false; return; }
+          requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      },
+    };
+  }
+
+  function stopHostPlay() {
+    hostGame.active = false;
+    const card = $('#host-play-card');
+    const stage = $('#host-game-stage');
+    if (card) card.hidden = true;
+    if (stage) stage.innerHTML = '';
   }
 })();
