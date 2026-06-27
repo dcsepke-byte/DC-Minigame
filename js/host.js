@@ -356,7 +356,7 @@
       showTurnNotice('Du bist dran, bitte wuerfeln.', [
         { label: '🎲 Jetzt wuerfeln', kind: 'primary', action: () => Net.send({ type: 'board:roll' }) },
       ]);
-      switchHostBoardPanel('action');
+      bumpHostBoardBadge('action');
       renderBoardGrid();
     }
   });
@@ -385,7 +385,7 @@
         { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
       ]);
     }
-    switchHostBoardPanel('action');
+    bumpHostBoardBadge('action');
     renderBoardGrid();
   });
 
@@ -406,7 +406,6 @@
     }
     FX.Sound.whoosh();
     bumpHostBoardBadge('ranking');
-    switchHostBoardPanel('ranking');
   });
 
   Net.on('roundIntro', m => {

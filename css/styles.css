@@ -84,17 +84,21 @@ body.host-playing-active #host-play-card .game-stage {
 }
 
 body.host-mirror-player-view .screen[data-screen="playing"] {
-  max-width: 860px;
+  max-width: min(980px, 100%);
   gap: 14px;
 }
 
 body.host-mirror-player-view #host-play-card {
   display: block;
   width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 body.host-mirror-player-view #host-play-card .game-stage {
-  min-height: clamp(320px, 58dvh, 520px);
+  min-height: clamp(340px, 66dvh, 620px);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 @keyframes screenIn {
@@ -1712,6 +1716,10 @@ body.board-compact .board-center {
 @media (max-height: 760px) {
   .game-stage {
     min-height: clamp(280px, 52dvh, 390px);
+  }
+
+  body.host-mirror-player-view #host-play-card .game-stage {
+    min-height: clamp(300px, 60dvh, 520px);
   }
 
   body .screen[data-screen="board"] {
