@@ -292,9 +292,9 @@
     duelState.owner = m.owner || null;
     duelState.challengerName = m.challengerName || '?';
     duelState.ownerName = m.ownerName || '?';
+    removeBoardDuelSpectator();
     const meInDuel = me.id && (me.id === m.challenger || me.id === m.owner);
     if (meInDuel) {
-      removeBoardDuelSpectator();
       showBoardPrompt(`⚔️ Duell gegen ${me.id === m.challenger ? m.ownerName : m.challengerName}. Start in ${m.startsIn || 4}s…`);
     } else {
       showBoardPrompt(`👀 Zuschauer: ${m.challengerName} vs ${m.ownerName}. Start in ${m.startsIn || 4}s…`);
