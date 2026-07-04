@@ -555,12 +555,17 @@
     if ($('.ios-fs-hint')) return;
     const hint = document.createElement('div');
     hint.className = 'ios-fs-hint';
-    hint.innerHTML = '📱 Vollbild auf iPhone/iPad:<br><strong>Teilen ↑ → Zum Home-Bildschirm</strong><br><span style="font-size:12px;color:var(--txt-dim)">Dann als App öffnen für echtes Vollbild</span>';
+    const line1 = document.createElement('div');
+    line1.textContent = '📱 Vollbild auf iPhone/iPad:';
+    const line2 = document.createElement('strong');
+    line2.textContent = 'Teilen ↑ → Zum Home-Bildschirm';
+    const line3 = document.createElement('div');
+    line3.textContent = 'Dann als App öffnen für echtes Vollbild';
+    line3.style.cssText = 'font-size:12px;color:var(--txt-dim)';
+    hint.append(line1, line2, document.createElement('br'), line3);
     document.body.appendChild(hint);
     setTimeout(() => hint.remove(), 5000);
   }
-
-  async function toggleFullscreenPlayer() {
     const root = document.documentElement;
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) {
