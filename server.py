@@ -644,6 +644,7 @@ class Room:
         self.broadcast({
             "type": "board:eventReveal",
             "title": effect.get("title", "Ereignis"),
+            "desc": effect.get("desc", ""),
             "rarity": effect.get("rarity", "Gewoehnlich"),
             "triggerName": trigger.get("name", "Spieler"),
         })
@@ -969,6 +970,8 @@ class Room:
                     "type": "board:duelLive",
                     "challenger": d["challenger"],
                     "owner": d["owner"],
+                    "challengerName": self.players.get(d["challenger"], {}).get("name", "?"),
+                    "ownerName": self.players.get(d["owner"], {}).get("name", "?"),
                     "scores": d["scores"],
                 })
         elif self.board.get("phase") == "global" and self.board.get("global"):
@@ -1016,7 +1019,7 @@ class Room:
             op["stars"] += pay
             self.board["lastLog"] = f"{cp['name']} verliert das Duell und zahlt {pay} Sterne an {op['name']}."
             self.board_story(f"💥 {op['name']} verteidigt Feld {tile}. {cp['name']} zahlt {pay} Stern(e).")
-        self.broadcast({"type": "board:duelResult", "challenger": challenger, "owner": owner, "challengerScore": cs, "ownerScore": os, "tile": int(tile)})
+        self.broadcast({"type": "board:duelResult", "challenger": challenger, "owner": owner, "challengerName": cp["name"], "ownerName": op["name"], "challengerScore": cs, "ownerScore": os, "tile": int(tile)})
         self.board["duel"] = None
         self.board["phase"] = "turn"
         self.send_board_update()
