@@ -345,15 +345,37 @@
         FX.Sound.whoosh();
       }
     }
+    const rankEl = $('#p-round-ranking');
+    rankEl.innerHTML = '';
+    m.ranking.forEach((entry, pos) => {
+      const row = el('div', 'rank-row' + (entry.id === me.id ? ' first' : ''));
+      row.style.animationDelay = (pos * 0.08) + 's';
+      row.innerHTML = `
+        <span class="rank-pos">${pos + 1}</span>
+        <span class="rank-avatar" style="background:${entry.color}">${initials(entry.name)}</span>
+        <span class="rank-name">${escapeHtml(entry.name)}</span>
+        <span class="rank-score">${entry.score}</span>
+        ${entry.star ? '<span class="rank-stars">⭐</span>' : ''}`;
+      rankEl.appendChild(row);
+    });
     showScreen('result');
   });
 
   Net.on('standings', m => {
-    const idx = m.ranking.findIndex(r => r.id === me.id);
-    const r = idx >= 0 ? m.ranking[idx] : null;
     $('#p-standings-sub').textContent = `Nach Runde ${m.round} von ${m.total}`;
-    $('#p-standings-place').textContent = `#${idx + 1}`;
-    $('#p-standings-stars').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne` : '';
+    const rankEl = $('#p-standings-ranking');
+    rankEl.innerHTML = '';
+    m.ranking.forEach((entry, pos) => {
+      const row = el('div', 'rank-row' + (entry.id === me.id ? ' first' : ''));
+      row.style.animationDelay = (pos * 0.08) + 's';
+      row.innerHTML = `
+        <span class="rank-pos">${pos + 1}</span>
+        <span class="rank-avatar" style="background:${entry.color}">${initials(entry.name)}</span>
+        <span class="rank-name">${escapeHtml(entry.name)}</span>
+        <span class="rank-stars">${'⭐'.repeat(entry.stars) || '–'}</span>
+        <span class="rank-score">${entry.stars}</span>`;
+      rankEl.appendChild(row);
+    });
     showScreen('standings');
     FX.Sound.whoosh();
   });
@@ -361,18 +383,45 @@
   Net.on('final', m => {
     boardModeActive = false;
     const idx = m.ranking.findIndex(r => r.id === me.id);
-    const r = idx >= 0 ? m.ranking[idx] : null;
-    $('#p-final-avatar').textContent = initials(me.name);
-    $('#p-final-avatar').style.background = me.color;
-    $('#p-final-place').textContent = `#${idx + 1}`;
+    const podium = $('#p-podium');
+    podium.innerHTML = '';
+    document.querySelectorAll('.p-final-others').forEach(e => e.remove());
+    const order = [1, 0, 2];
+    const medals = { 0: 'gold', 1: 'silver', 2: 'bronze' };
+    order.forEach(pos => {
+      if (pos >= m.ranking.length) return;
+      const r = m.ranking[pos];
+      const col = el('div', 'podium-col');
+      col.innerHTML = `
+        ${pos === 0 ? '<div class="podium-crown">👑</div>' : ''}
+        <div class="podium-avatar" style="background:${r.color}">${initials(r.name)}</div>
+        <div class="podium-name">${escapeHtml(r.name)}</div>
+        <div class="podium-stars">${'⭐'.repeat(r.stars) || '–'}</div>
+        <div class="podium-block ${medals[pos]}" style="animation-delay:${pos * 0.2}s">${pos === 0 ? '🏆' : (pos + 1)}</div>`;
+      podium.appendChild(col);
+    });
+    const winner = m.ranking[0];
+    $('#p-final-banner').textContent = `🎉 ${winner.name} gewinnt PARTY ARENA! 🎉`;
+    if (m.ranking.length > 3) {
+      const rest = el('div', 'ranking p-final-others');
+      m.ranking.slice(3).forEach((r, i) => {
+        const row = el('div', 'rank-row');
+        row.innerHTML = `
+          <span class="rank-pos">${i + 4}</span>
+          <span class="rank-avatar" style="background:${r.color}">${initials(r.name)}</span>
+          <span class="rank-name">${escapeHtml(r.name)}</span>
+          <span class="rank-stars">${'⭐'.repeat(r.stars) || '–'}</span>`;
+        rest.appendChild(row);
+      });
+      podium.after(rest);
+    }
     if (idx === 0) {
       $('#p-final-title').textContent = '🏆 GEWONNEN! 🏆';
-      $('#p-final-banner').textContent = `Du bist der Champion!`;
       FX.Sound.fanfare(); FX.celebrate();
       setTimeout(() => FX.celebrate(), 900);
+      setTimeout(() => FX.celebrate(), 1800);
     } else {
-      $('#p-final-title').textContent = '🎉 Vorbei!';
-      $('#p-final-banner').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne` : '';
+      $('#p-final-title').textContent = '🏆 SIEGEREHRUNG 🏆';
       FX.Sound.whoosh();
     }
     showScreen('final');
