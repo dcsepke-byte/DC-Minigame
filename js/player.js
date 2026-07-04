@@ -348,7 +348,7 @@
     const rankEl = $('#p-round-ranking');
     rankEl.innerHTML = '';
     m.ranking.forEach((entry, pos) => {
-      const row = el('div', 'rank-row' + (entry.id === me.id ? ' first' : ''));
+      const row = el('div', 'rank-row' + (entry.star ? ' first' : ''));
       row.style.animationDelay = (pos * 0.08) + 's';
       row.innerHTML = `
         <span class="rank-pos">${pos + 1}</span>
@@ -366,7 +366,7 @@
     const rankEl = $('#p-standings-ranking');
     rankEl.innerHTML = '';
     m.ranking.forEach((entry, pos) => {
-      const row = el('div', 'rank-row' + (entry.id === me.id ? ' first' : ''));
+      const row = el('div', 'rank-row' + (pos === 0 && entry.stars > 0 ? ' first' : ''));
       row.style.animationDelay = (pos * 0.08) + 's';
       row.innerHTML = `
         <span class="rank-pos">${pos + 1}</span>
