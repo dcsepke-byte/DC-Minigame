@@ -553,6 +553,42 @@ body.in-game .in-game-end-toggle {
 .fullscreen-toggle:hover { background: rgba(255,255,255,0.16); }
 .fullscreen-toggle:active { transform: scale(0.9); }
 
+/* ---------- iOS safe-area support (notch / Dynamic Island) ---------- */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .fullscreen-toggle, .sound-toggle, .in-game-end-toggle {
+    top: calc(16px + env(safe-area-inset-top));
+  }
+  #app {
+    padding-top: calc(14px + env(safe-area-inset-top));
+    padding-left: calc(16px + env(safe-area-inset-left));
+    padding-right: calc(16px + env(safe-area-inset-right));
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- iOS Fullscreen Hint Toast ---------- */
+.ios-fs-hint {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background: rgba(20, 20, 58, 0.95);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px);
+  border-radius: 16px;
+  padding: 14px 20px;
+  max-width: min(92vw, 360px);
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--txt);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: toastIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+}
+.ios-fs-hint strong { color: var(--accent-3); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
 body.host-lobby-scroll .screen[data-screen="lobby"] {
   align-items: stretch;
   justify-content: flex-start;

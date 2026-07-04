@@ -144,16 +144,37 @@
     } catch (_) {}
   }
 
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.navigator.standalone === true;
+
+  function showIosHint() {
+    if ($('.ios-fs-hint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'ios-fs-hint';
+    hint.innerHTML = '📱 Vollbild auf iPhone/iPad:<br><strong>Teilen ↑ → Zum Home-Bildschirm</strong><br><span style="font-size:12px;color:var(--txt-dim)">Dann als App öffnen für echtes Vollbild</span>';
+    document.body.appendChild(hint);
+    setTimeout(() => hint.remove(), 5000);
+  }
+
   async function toggleFullscreen(forceOn) {
     const root = document.documentElement;
-    const wantOn = typeof forceOn === 'boolean' ? forceOn : !document.fullscreenElement;
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const wantOn = typeof forceOn === 'boolean' ? forceOn : !isFullscreen;
     try {
       if (wantOn) {
-        if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
-      } else if (document.fullscreenElement && document.exitFullscreen) {
-        await document.exitFullscreen();
+        if (!isFullscreen) {
+          if (root.requestFullscreen) await root.requestFullscreen();
+          else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+          else if (isIOS && !isStandalone) showIosHint();
+        }
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       }
-    } catch (_) {}
+    } catch (_) {
+      if (isIOS && !isStandalone) showIosHint();
+    }
   }
 
   function syncLobbyControls() {
@@ -726,12 +747,12 @@
   const fsBtn = $('#fullscreen-toggle');
   if (fsBtn) {
     const root = document.documentElement;
-    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen);
+    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen) || isIOS;
     if (!canFs) {
       fsBtn.style.display = 'none';
     } else {
       const updateFsBtn = () => {
-        const active = !!document.fullscreenElement;
+        const active = !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
         fsBtn.textContent = active ? '🗗' : '⛶';
         fsBtn.title = active ? 'Vollbild beenden' : 'Vollbild';
       };
@@ -740,6 +761,7 @@
         updateFsBtn();
       });
       document.addEventListener('fullscreenchange', updateFsBtn);
+      document.addEventListener('webkitfullscreenchange', updateFsBtn);
       updateFsBtn();
     }
   }

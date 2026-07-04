@@ -545,29 +545,57 @@
     FX.setSoundEnabled(on);
     $('#sound-toggle').textContent = on ? '🔊' : '🔇';
   });
+
+  /* ---------- Fullscreen (inkl. iOS-Fallback) ---------- */
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.navigator.standalone === true;
+
+  function showIosHint() {
+    if ($('.ios-fs-hint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'ios-fs-hint';
+    hint.innerHTML = '📱 Vollbild auf iPhone/iPad:<br><strong>Teilen ↑ → Zum Home-Bildschirm</strong><br><span style="font-size:12px;color:var(--txt-dim)">Dann als App öffnen für echtes Vollbild</span>';
+    document.body.appendChild(hint);
+    setTimeout(() => hint.remove(), 5000);
+  }
+
+  async function toggleFullscreenPlayer() {
+    const root = document.documentElement;
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      } else if (root.requestFullscreen) {
+        await root.requestFullscreen();
+      } else if (root.webkitRequestFullscreen) {
+        root.webkitRequestFullscreen();
+      } else if (isIOS && !isStandalone) {
+        showIosHint();
+      }
+    } catch (_) {
+      if (isIOS && !isStandalone) showIosHint();
+    }
+  }
+
   const fsBtn = $('#fullscreen-toggle');
   if (fsBtn) {
     const root = document.documentElement;
-    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen);
+    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen) || isIOS;
     if (!canFs) {
       fsBtn.style.display = 'none';
     } else {
       const updateFsBtn = () => {
-        const active = !!document.fullscreenElement;
+        const active = !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
         fsBtn.textContent = active ? '🗗' : '⛶';
         fsBtn.title = active ? 'Vollbild beenden' : 'Vollbild';
       };
       fsBtn.addEventListener('click', async () => {
-        try {
-          if (document.fullscreenElement) {
-            if (document.exitFullscreen) await document.exitFullscreen();
-          } else if (root.requestFullscreen) {
-            await root.requestFullscreen();
-          }
-        } catch (_) {}
+        await toggleFullscreenPlayer();
         updateFsBtn();
       });
       document.addEventListener('fullscreenchange', updateFsBtn);
+      document.addEventListener('webkitfullscreenchange', updateFsBtn);
       updateFsBtn();
     }
   }
@@ -575,14 +603,7 @@
     if (e.key.toLowerCase() !== 'f' || e.repeat) return;
     const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
-    const root = document.documentElement;
-    try {
-      if (document.fullscreenElement) {
-        if (document.exitFullscreen) await document.exitFullscreen();
-      } else if (root.requestFullscreen) {
-        await root.requestFullscreen();
-      }
-    } catch (_) {}
+    await toggleFullscreenPlayer();
   });
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
   document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
