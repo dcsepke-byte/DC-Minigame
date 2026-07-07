@@ -878,34 +878,121 @@ const Games = (() => {
   /* =========================================================
      QUICK QUIZ ENGINE — Basis für viele neue Mini-Spiele
      ========================================================= */
+  const QUIZ_POOL_SIZE = 1000;
+  const QUIZ_QUESTIONS_PER_ROUND = 5;
+  const quizBankCache = new Map();
+  const quizBankCursor = new Map();
+
+  function normalizeQuizRound(round) {
+    if (!round || typeof round.prompt !== 'string' || !Array.isArray(round.choices) || round.choices.length < 2) return null;
+    let items = round.choices.map(c => {
+      if (typeof c === 'string') return { label: c, ok: c === round.correct };
+      return { label: String(c && c.label != null ? c.label : ''), ok: !!(c && c.ok) };
+    }).filter(c => c.label.length > 0);
+    if (items.length < 2) return null;
+    if (!items.some(c => c.ok) && round.correct != null) {
+      const corr = String(round.correct);
+      items = items.map(c => ({ ...c, ok: c.label === corr }));
+    }
+    if (!items.some(c => c.ok)) {
+      items[0].ok = true;
+    }
+    return { prompt: round.prompt, choices: items };
+  }
+
+  function getQuizBank(cfg) {
+    const key = cfg.id || cfg.title || 'quiz';
+    if (quizBankCache.has(key)) return quizBankCache.get(key);
+
+    if (Array.isArray(cfg.questionPool) && cfg.questionPool.length) {
+      const normalizedPool = cfg.questionPool
+        .map(normalizeQuizRound)
+        .filter(Boolean);
+      if (!normalizedPool.length) return [];
+      const bank = [];
+      for (let i = 0; i < QUIZ_POOL_SIZE; i++) {
+        bank.push(normalizedPool[i % normalizedPool.length]);
+      }
+      quizBankCache.set(key, bank);
+      return bank;
+    }
+
+    const bank = [];
+    const seen = new Set();
+    let guard = 0;
+    while (bank.length < QUIZ_POOL_SIZE && guard < QUIZ_POOL_SIZE * 40) {
+      guard++;
+      const normalized = normalizeQuizRound(cfg.makeRound());
+      if (!normalized) continue;
+      const sig = `${normalized.prompt}||${normalized.choices.map(c => `${c.label}:${c.ok ? 1 : 0}`).join('|')}`;
+      if (seen.has(sig)) continue;
+      seen.add(sig);
+      bank.push(normalized);
+    }
+
+    while (bank.length < QUIZ_POOL_SIZE) {
+      const normalized = normalizeQuizRound(cfg.makeRound());
+      if (!normalized) continue;
+      bank.push(normalized);
+    }
+
+    quizBankCache.set(key, bank);
+    return bank;
+  }
+
+  function pickQuizSet(cfg, amount) {
+    const key = cfg.id || cfg.title || 'quiz';
+    const bank = getQuizBank(cfg);
+    const start = quizBankCursor.get(key) || 0;
+    const picked = [];
+    for (let i = 0; i < amount; i++) {
+      picked.push(bank[(start + i) % bank.length]);
+    }
+    quizBankCursor.set(key, (start + amount) % bank.length);
+    return picked;
+  }
+
   function runQuizRush(stage, api, cfg) {
-    const total = cfg.total || 20000;
-    const base = cfg.basePoints || 12;
-    const combo = cfg.combo || 2;
-    const penaltyMs = cfg.penaltyMs || 1600;
-    let score = 0, streak = 0, endTime = performance.now() + total, locked = false;
+    const totalQuestions = cfg.questionsPerRound || QUIZ_QUESTIONS_PER_ROUND;
+    let correctCount = 0;
+    let streak = 0;
+    let questionIndex = 0;
+    let locked = false;
+    const rounds = pickQuizSet(cfg, totalQuestions);
 
     const wrap = el('div', 'stage-center');
     wrap.innerHTML = `
       <div class="generic-timer-bar" id="qz-bar"></div>
       <div class="math-streak" id="qz-streak"></div>
-      <div class="seq-info" id="qz-title">${cfg.title || 'Quiz-Rush'}</div>
+      <div class="seq-info" id="qz-title">${cfg.title || 'Quiz-Rush'} · ${totalQuestions} Fragen</div>
+      <div class="seq-info" id="qz-progress">Frage 1 / ${totalQuestions}</div>
       <div class="math-question" id="qz-prompt">Bereit…</div>
       <div class="choice-grid" id="qz-choices"></div>`;
     stage.appendChild(wrap);
     const bar = wrap.querySelector('#qz-bar');
     const streakEl = wrap.querySelector('#qz-streak');
+    const progressEl = wrap.querySelector('#qz-progress');
     const prompt = wrap.querySelector('#qz-prompt');
     const choices = wrap.querySelector('#qz-choices');
 
+    function updateProgress() {
+      bar.style.width = `${Math.min(100, (questionIndex / totalQuestions) * 100)}%`;
+      if (progressEl) {
+        const shown = Math.min(totalQuestions, questionIndex + 1);
+        progressEl.textContent = `Frage ${shown} / ${totalQuestions}`;
+      }
+    }
+
     function nextRound() {
+      if (questionIndex >= totalQuestions) {
+        if (progressEl) progressEl.textContent = `Fertig: ${correctCount} / ${totalQuestions} richtig`;
+        api.finish(correctCount);
+        return;
+      }
       locked = false;
-      const round = cfg.makeRound();
+      const round = rounds[questionIndex];
       prompt.innerHTML = round.prompt;
-      const items = round.choices.map(c => ({
-        label: typeof c === 'string' ? c : c.label,
-        ok: typeof c === 'string' ? c === round.correct : !!c.ok,
-      }));
+      const items = round.choices;
       choices.innerHTML = '';
       items.forEach(item => {
         const b = el('button', 'choice-btn', item.label);
@@ -919,29 +1006,25 @@ const Games = (() => {
       locked = true;
       if (ok) {
         streak++;
-        const pts = base + Math.min(10, streak) * combo;
-        score += pts; api.setScore(score);
+        correctCount++;
+        api.setScore(correctCount);
         btn.classList.add('correct');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
-        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
-        api.timeout(nextRound, 220);
+        FX.Sound.correct(); FX.toast(stage, '+1 richtig', '#2bffb9');
       } else {
         streak = 0;
         streakEl.textContent = '';
-        endTime -= penaltyMs;
         btn.classList.add('wrong');
-        btn.disabled = true;
-        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, `−${(penaltyMs / 1000).toFixed(1)}s`, '#ff4d6d');
-        locked = false;
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, 'Falsch', '#ff4d6d');
       }
+
+      questionIndex++;
+      updateProgress();
+      api.timeout(nextRound, 260);
     }
 
+    updateProgress();
     nextRound();
-    api.frameLoop(() => {
-      const rem = endTime - performance.now();
-      bar.style.width = Math.max(0, rem / total * 100) + '%';
-      if (rem <= 0) { api.finish(score); return false; }
-    });
   }
 
   function gameEvenOdd(stage, api) {
@@ -1345,6 +1428,30 @@ const Games = (() => {
     });
   }
 
+  function gameQuizDuel(stage, api) {
+    const extPool = Array.isArray(window.QuizDuelQuestionPool)
+      ? window.QuizDuelQuestionPool
+      : [];
+    runQuizRush(stage, api, {
+      id: 'quizduel',
+      title: 'Quiz Duell',
+      questionsPerRound: 5,
+      questionPool: extPool,
+      makeRound() {
+        if (extPool.length) return extPool[rand(0, extPool.length - 1)];
+        return {
+          prompt: 'Quiz Duell Fragenpool fehlt. Bitte Seite neu laden.',
+          choices: [
+            { label: 'OK', ok: true },
+            { label: 'A', ok: false },
+            { label: 'B', ok: false },
+            { label: 'C', ok: false },
+          ],
+        };
+      },
+    });
+  }
+
   /* ---------- leichter Ton für Simon (ohne FX-Abhängigkeitschaos) ---------- */
   let _ac = null;
   function _beep(freq) {
@@ -1438,6 +1545,8 @@ const Games = (() => {
       rules: 'Dir wird eine Zahl gezeigt. Wähle das richtige <strong>Doppelte</strong>.', play: gameDoubleTrouble },
     { id: 'triplethreat', name: 'Dreifach-Alarm', icon: '3️⃣', desc: 'Finde blitzschnell das Dreifache.',
       rules: 'Dir wird eine Zahl gezeigt. Wähle das richtige <strong>Dreifache</strong>.', play: gameTripleThreat },
+    { id: 'quizduel', name: 'Quiz Duell', icon: '🧠', desc: 'Nur Quizfragen: 5 pro Runde, die meisten richtigen erhalten den Stern.',
+      rules: 'Jede Runde hat <strong>5 Fragen</strong>. Pro richtiger Antwort gibt es 1 Punkt. Wer am Ende der Runde die meisten richtigen Antworten hat, bekommt einen <strong>Stern</strong>. Fragen stammen aus einem Pool mit <strong>1000</strong> Einträgen.', play: gameQuizDuel },
     { id: 'numbermemory', name: 'Zahlen-Memory', icon: '🔐', desc: 'Merke dir kurz eine Zahl und finde sie wieder.',
       rules: 'Eine Zahl wird kurz eingeblendet und verschwindet wieder. Wähle die richtige Zahl.', play: gameNumberMemory }
   ];

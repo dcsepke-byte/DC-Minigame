@@ -59,7 +59,7 @@ GAME_CAPS = {
     "reaction": 35, "simon": 80, "math": 30, "tap": 14, "targets": 24,
     "stroop": 30, "precision": 45, "bombcode": 80, "sequence": 34,
     "oddone": 30, "arrows": 30, "highlow": 32,
-    "countvision": 32, "reflexlanes": 30,
+    "countvision": 32, "reflexlanes": 30, "quizduel": 45,
 }
 DEFAULT_CAP = 60
 HOST_RECONNECT_GRACE = 120
@@ -1077,11 +1077,20 @@ class Room:
             missing = max(1, required - joined)
             self.host.send({"type": "joinError", "message": f"Mindestens {missing} weiterer Spieler nötig."})
             return
-        if not games:
+        if not games and mode != "quizduell":
             self.host.send({"type": "joinError", "message": "Mindestens 1 Spiel auswählen."})
             return
         self.mode = mode or "classic"
         rounds = max(1, min(20, int(rounds)))
+        if self.mode == "quizduell":
+            games = [{
+                "id": "quizduel",
+                "name": "Quiz Duell",
+                "icon": "🧠",
+                "desc": "5 Quizfragen pro Runde. Die meisten richtigen Antworten erhalten einen Stern.",
+                "rules": "Beantworte 5 Fragen. Jeder richtige Treffer zählt 1 Punkt. Wer in der Runde die meisten richtigen Antworten hat, bekommt einen Stern.",
+            }]
+            order_mode = "fixed"
         self.settings = {"rounds": rounds, "order": order_mode, "games": games, "tempo": tempo}
         if self.mode == "board":
             self.start_board_game(rounds, games, tempo=tempo)

@@ -136,7 +136,7 @@
       const s = JSON.parse(raw);
       if (Number.isFinite(s.rounds)) state.rounds = Math.max(1, Math.min(20, Number(s.rounds) || 5));
       if (s.order === 'random' || s.order === 'fixed') state.order = s.order;
-      if (s.mode === 'classic' || s.mode === 'board') state.mode = s.mode;
+      if (s.mode === 'classic' || s.mode === 'board' || s.mode === 'quizduell') state.mode = s.mode;
       if (s.tempo === 'slow' || s.tempo === 'normal' || s.tempo === 'fast') state.tempo = s.tempo;
       state.hostParticipates = true;
       if ((s.hostName || '').trim()) state.hostProfile.name = String(s.hostName).trim().slice(0, 14);
