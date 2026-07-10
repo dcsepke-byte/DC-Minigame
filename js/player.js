@@ -7,6 +7,7 @@
 
   const $ = s => document.querySelector(s);
   const FIGURES = ['🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
+  const UI_MODES = ['compact', 'normal', 'large'];
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
@@ -35,6 +36,45 @@
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
   let autoJoinTried = false;
+  let uiMode = 'compact';
+
+  function updateUiSizeButton() {
+    const btn = $('#ui-size-toggle');
+    if (!btn) return;
+    const map = {
+      compact: { text: 'A-', title: 'Anzeige: Kompakt' },
+      normal: { text: 'A', title: 'Anzeige: Normal' },
+      large: { text: 'A+', title: 'Anzeige: Groß' },
+    };
+    const cfg = map[uiMode] || map.compact;
+    btn.textContent = cfg.text;
+    btn.title = `${cfg.title} (tippen zum Wechseln)`;
+  }
+
+  function applyUiMode(mode, persist = true) {
+    uiMode = UI_MODES.includes(mode) ? mode : 'compact';
+    document.body.classList.remove('player-ui-compact', 'player-ui-normal', 'player-ui-large');
+    document.body.classList.add(`player-ui-${uiMode}`);
+    if (persist) {
+      try { localStorage.setItem('pa_ui_mode', uiMode); } catch (_) {}
+    }
+    updateUiSizeButton();
+  }
+
+  function cycleUiMode() {
+    const idx = UI_MODES.indexOf(uiMode);
+    const next = UI_MODES[(idx + 1) % UI_MODES.length];
+    applyUiMode(next, true);
+    FX.Sound.tap();
+  }
+
+  function initUiMode() {
+    let saved = 'compact';
+    try { saved = localStorage.getItem('pa_ui_mode') || 'compact'; } catch (_) {}
+    applyUiMode(saved, false);
+    const btn = $('#ui-size-toggle');
+    if (btn) btn.addEventListener('click', cycleUiMode);
+  }
 
   function ensureTurnNotice() {
     if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
@@ -87,6 +127,7 @@
     if (savedFigure) me.figure = savedFigure;
   } catch (_) {}
   renderFigurePicker();
+  initUiMode();
 
   /* ---------- Verbindung ---------- */
   if (location.protocol === 'file:') {

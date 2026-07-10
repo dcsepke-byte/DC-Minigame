@@ -40,13 +40,21 @@ body { overflow-x: hidden; overflow-y: auto; }
 
 /* Player app should always fit the viewport without page scrolling. */
 body.player-app {
+  --ui-scale: 0.9;
   overflow: hidden;
 }
 
+body.player-app.player-ui-compact { --ui-scale: 0.82; }
+body.player-app.player-ui-normal { --ui-scale: 0.9; }
+body.player-app.player-ui-large { --ui-scale: 1; }
+
 body.player-app #app {
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: calc(100dvh / var(--ui-scale));
+  height: calc(100dvh / var(--ui-scale));
+  width: calc(100% / var(--ui-scale));
   padding: 54px 8px calc(8px + env(safe-area-inset-bottom));
+  transform: scale(var(--ui-scale));
+  transform-origin: top center;
 }
 
 body.player-app .screen {
@@ -180,7 +188,8 @@ body.player-app .figure-pill {
 
 body.player-app .in-game-end-toggle,
 body.player-app .fullscreen-toggle,
-body.player-app .sound-toggle {
+body.player-app .sound-toggle,
+body.player-app .ui-size-toggle {
   top: 8px;
   width: 40px;
   height: 40px;
@@ -188,6 +197,7 @@ body.player-app .sound-toggle {
 }
 
 body.player-app .in-game-end-toggle { left: 8px; }
+body.player-app .ui-size-toggle { right: 100px; }
 body.player-app .fullscreen-toggle { right: 54px; }
 body.player-app .sound-toggle { right: 8px; }
 
@@ -736,6 +746,30 @@ body.in-game .in-game-end-toggle {
 
 .fullscreen-toggle:hover { background: rgba(255,255,255,0.16); }
 .fullscreen-toggle:active { transform: scale(0.9); }
+
+.ui-size-toggle {
+  position: fixed;
+  top: 16px;
+  right: 128px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  color: var(--txt);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s, background 0.2s;
+}
+
+.ui-size-toggle:hover { background: rgba(255,255,255,0.16); }
+.ui-size-toggle:active { transform: scale(0.9); }
 
 body.host-lobby-scroll .screen[data-screen="lobby"] {
   align-items: stretch;
