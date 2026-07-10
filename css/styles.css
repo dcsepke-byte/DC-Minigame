@@ -38,6 +38,127 @@ html, body {
 
 body { overflow-x: hidden; overflow-y: auto; }
 
+/* Player app should always fit the viewport without page scrolling. */
+body.player-app {
+  overflow: hidden;
+}
+
+body.player-app #app {
+  min-height: 100dvh;
+  height: 100dvh;
+  padding: 68px 10px calc(10px + env(safe-area-inset-bottom));
+}
+
+body.player-app .screen {
+  height: 100%;
+  max-width: 720px;
+  overflow: hidden;
+  gap: 12px;
+  justify-content: center;
+}
+
+body.player-app .logo-wrap {
+  margin-top: 0;
+}
+
+body.player-app .card {
+  padding: 16px;
+}
+
+body.player-app .btn-big {
+  margin-top: 12px;
+  padding: 14px 20px;
+  font-size: 18px;
+}
+
+body.player-app .round-intro-content,
+body.player-app .player-turn-content,
+body.player-app .player-result-content,
+body.player-app .standings-content,
+body.player-app .final-content {
+  gap: 10px;
+  padding-top: 0;
+}
+
+body.player-app .game-icon-huge {
+  font-size: clamp(56px, 17vw, 96px);
+}
+
+body.player-app .intro-game-name {
+  font-size: clamp(26px, 8vw, 42px);
+}
+
+body.player-app .intro-game-desc,
+body.player-app .intro-rules {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+body.player-app .intro-rules {
+  padding: 12px 14px;
+}
+
+body.player-app .turn-avatar,
+body.player-app .result-avatar {
+  width: 96px;
+  height: 96px;
+  font-size: 44px;
+}
+
+body.player-app .turn-name,
+body.player-app .result-name {
+  font-size: clamp(28px, 9vw, 46px);
+}
+
+body.player-app .result-score,
+body.player-app .big-place {
+  font-size: clamp(54px, 16vw, 110px);
+}
+
+body.player-app .screen[data-screen="play"] {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+body.player-app .screen[data-screen="play"] .play-hud {
+  flex-shrink: 0;
+}
+
+body.player-app .screen[data-screen="play"] .game-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+body.player-app .screen[data-screen="board"] {
+  justify-content: flex-start;
+}
+
+body.player-app .board-layout {
+  height: calc(100dvh - 132px);
+  min-height: 0;
+}
+
+body.player-app .board-grid {
+  gap: 7px;
+}
+
+body.player-app .board-tile {
+  min-height: 56px;
+  padding: 6px;
+}
+
+body.player-app .bt-top,
+body.player-app .bt-owner {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+body.player-app .bt-pawn {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+}
+
 /* ---------- Canvas Layer ---------- */
 #bg-canvas {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -1739,6 +1860,15 @@ body.board-compact .board-center {
     text-align: center;
     width: 100%;
   }
+
+  body.player-app #app {
+    padding-top: 62px;
+  }
+
+  body.player-app .tagline {
+    font-size: 13px;
+    letter-spacing: 1.2px;
+  }
 }
 
 @media (max-height: 760px) {
@@ -1769,6 +1899,36 @@ body.board-compact .board-center {
 
   body .board-layout {
     height: calc(100dvh - 132px);
+  }
+
+  body.player-app #app {
+    padding-top: 58px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  body.player-app .screen {
+    gap: 8px;
+  }
+
+  body.player-app .turn-avatar,
+  body.player-app .result-avatar {
+    width: 82px;
+    height: 82px;
+    font-size: 36px;
+  }
+
+  body.player-app .round-badge {
+    font-size: 16px;
+    letter-spacing: 2px;
+    padding: 6px 14px;
+  }
+
+  body.player-app .play-hud {
+    padding: 9px 12px;
+  }
+
+  body.player-app .hud-score-value {
+    font-size: 22px;
   }
 }
 
