@@ -1,0 +1,40 @@
+{
+  "name": "Party Arena",
+  "short_name": "PartyArena",
+  "description": "Mehrspieler-Minigames fuer Host und Spieler auf Handy und Desktop.",
+  "lang": "de",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0a1f",
+  "theme_color": "#14143a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Host starten",
+      "short_name": "Host",
+      "url": "/host",
+      "description": "Direkt in den Host-Modus"
+    },
+    {
+      "name": "Als Spieler beitreten",
+      "short_name": "Player",
+      "url": "/",
+      "description": "Direkt als Spieler beitreten"
+    }
+  ]
+}

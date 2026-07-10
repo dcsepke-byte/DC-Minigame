@@ -252,7 +252,6 @@
     syncHostParticipatesUI();
     renderPlayers(m);
     if ((m && m.state) === 'lobby') {
-      state.mode = 'classic';
       showScreen('lobby');
     }
   });
@@ -421,7 +420,10 @@
 
   Net.on('start', m => {
     if (state.hostParticipates) {
-      startHostPlay(m.game);
+      startHostPlay(m.game, {
+        round: m.round || 1,
+        quizSeed: Number.isFinite(Number(m.game && m.game.quizSeed)) ? Number(m.game.quizSeed) : null,
+      });
     }
     if (state.mode === 'board') return;
     $('#live-icon').textContent = m.game.icon;
@@ -1100,7 +1102,7 @@
     });
   }
 
-  function startHostPlay(gameMeta) {
+  function startHostPlay(gameMeta, runMeta = {}) {
     const card = $('#host-play-card');
     const stage = $('#host-game-stage');
     const scoreEl = $('#host-hud-score');
@@ -1157,11 +1159,11 @@
           setTimeout(() => {
             stage.innerHTML = '';
             const api = createHostGameApi(stage, scoreEl);
-            try { game.play(stage, api); }
+            try { game.play(stage, api, runMeta); }
             catch (_) { api.finish(0); }
-          }, 500);
+          }, 600);
         }
-      }, 750);
+      }, 800);
     });
   }
 

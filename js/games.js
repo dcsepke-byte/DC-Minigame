@@ -940,9 +940,45 @@ const Games = (() => {
     return bank;
   }
 
-  function pickQuizSet(cfg, amount) {
+  function hashString(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function makeSeededRng(seed) {
+    let s = (seed >>> 0) || 1;
+    return function next() {
+      s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+
+  function pickQuizSet(cfg, amount, stableSeed) {
     const key = cfg.id || cfg.title || 'quiz';
     const bank = getQuizBank(cfg);
+    if (!bank.length) return [];
+
+    if (Number.isFinite(stableSeed)) {
+      const rng = makeSeededRng((stableSeed >>> 0) ^ hashString(key));
+      const count = Math.max(1, Math.min(amount, bank.length));
+      const out = [];
+      const used = new Set();
+      let guard = 0;
+      while (out.length < count && guard < count * 20) {
+        guard++;
+        const idx = Math.floor(rng() * bank.length);
+        if (used.has(idx)) continue;
+        used.add(idx);
+        out.push(bank[idx]);
+      }
+      while (out.length < count) out.push(bank[out.length % bank.length]);
+      return out;
+    }
+
     const start = quizBankCursor.get(key) || 0;
     const picked = [];
     for (let i = 0; i < amount; i++) {
@@ -952,13 +988,13 @@ const Games = (() => {
     return picked;
   }
 
-  function runQuizRush(stage, api, cfg) {
+  function runQuizRush(stage, api, cfg, runMeta = {}) {
     const totalQuestions = cfg.questionsPerRound || QUIZ_QUESTIONS_PER_ROUND;
     let correctCount = 0;
     let streak = 0;
     let questionIndex = 0;
     let locked = false;
-    const rounds = pickQuizSet(cfg, totalQuestions);
+    const rounds = pickQuizSet(cfg, totalQuestions, runMeta.quizSeed);
 
     const wrap = el('div', 'stage-center');
     wrap.innerHTML = `
@@ -1428,7 +1464,7 @@ const Games = (() => {
     });
   }
 
-  function gameQuizDuel(stage, api) {
+  function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
       : [];
@@ -1449,7 +1485,7 @@ const Games = (() => {
           ],
         };
       },
-    });
+    }, runMeta);
   }
 
   /* ---------- leichter Ton für Simon (ohne FX-Abhängigkeitschaos) ---------- */

@@ -165,12 +165,17 @@
     $('#p-round-badge').textContent = `RUNDE ${m.round} / ${m.total}`;
     $('#p-intro-icon').textContent = m.game.icon;
     $('#p-intro-name').textContent = m.game.name;
+    const desc = $('#p-intro-desc');
+    if (desc) desc.textContent = m.game.desc || '';
     $('#p-intro-rules').innerHTML = m.game.rules;
     FX.Sound.whoosh();
     showScreen('round-intro');
   });
 
-  Net.on('start', m => startPlay(m.game));
+  Net.on('start', m => startPlay(m.game, {
+    round: m.round || 1,
+    quizSeed: Number.isFinite(Number(m.game && m.game.quizSeed)) ? Number(m.game.quizSeed) : null,
+  }));
 
   Net.on('board:init', m => {
     boardModeActive = true;
@@ -398,7 +403,7 @@
   /* ============================================================
      MINI-SPIEL ABSPIELEN (lokal, mit Countdown)
      ============================================================ */
-  function startPlay(gameMeta) {
+  function startPlay(gameMeta, runMeta = {}) {
     const game = Games.list.find(g => g.id === gameMeta.id);
     $('#hud-game').textContent = `${gameMeta.icon} ${gameMeta.name}`;
     hudScore.textContent = '0';
@@ -441,15 +446,15 @@
           clearInterval(cdTimer);
           cd.innerHTML = `<div class="countdown-num" style="color:var(--good)">GO!</div>`;
           FX.Sound.go();
-          setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage); }, 600);
+          setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage, runMeta); }, 600);
         }
       }, 800);
     });
   }
 
-  function launchGame(game, stage) {
+  function launchGame(game, stage, runMeta = {}) {
     const api = createGameApi(stage, score => finishGame(score));
-    try { game.play(stage, api); }
+    try { game.play(stage, api, runMeta); }
     catch (err) { console.error('Spiel-Fehler:', err); finishGame(0); }
   }
 

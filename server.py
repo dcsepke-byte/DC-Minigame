@@ -186,6 +186,7 @@ class Room:
         self.cap_handle = None
         self.live_handle = None
         self.mode = "classic"
+        self.current_game = None
         self.board = None
         self.host_participates = True
         self.host_pid = "__host__"
@@ -540,6 +541,13 @@ class Room:
             "tempo": b.get("tempo", "normal"),
         }
 
+    def prepare_game_instance(self, game):
+        """Create a per-round payload so every client receives identical game metadata."""
+        g = dict(game or {})
+        if g.get("id") == "quizduel":
+            g["quizSeed"] = random.randint(1, 2**31 - 1)
+        return g
+
     def send_board_update(self):
         self.broadcast(self.board_payload())
 
@@ -850,7 +858,8 @@ class Room:
         self.cancel_board_flow_handle()
         intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
         game_pool = (self.settings or {}).get("games") or []
-        game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+        base_game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+        game = self.prepare_game_instance(base_game)
         duel_id = uuid.uuid4().hex[:8]
         self.board["phase"] = "duelIntro"
         self.board["duel"] = {
@@ -908,7 +917,8 @@ class Room:
         self.cancel_board_flow_handle()
         intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
         game_pool = (self.settings or {}).get("games") or []
-        game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+        base_game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+        game = self.prepare_game_instance(base_game)
         participants = self.connected_players()
         if not participants:
             if resume == "end_turn":
@@ -1110,16 +1120,17 @@ class Room:
             self.players[pid]["stars"] = 0
             self.players[pid]["totalPoints"] = 0
         self.round = 0
+        self.current_game = None
         self.start_round()
 
     def start_round(self):
         self.state = "roundIntro"
-        game = self.queue[self.round]
+        self.current_game = self.prepare_game_instance(self.queue[self.round])
         self.broadcast({
             "type": "roundIntro",
             "round": self.round + 1,
             "total": self.settings["rounds"],
-            "game": game,
+            "game": self.current_game,
         })
 
     def begin_round(self):
@@ -1128,7 +1139,8 @@ class Room:
         self.state = "playing"
         self.scores = {}
         self.finished = set()
-        game = self.queue[self.round]
+        game = self.current_game or self.prepare_game_instance(self.queue[self.round])
+        self.current_game = game
         self.broadcast({"type": "start", "round": self.round + 1, "game": game})
         # Live-Leaderboard für Host
         self.schedule_live()
@@ -1183,7 +1195,7 @@ class Room:
             return
         self.cancel_timers()
         self.state = "roundResult"
-        game = self.queue[self.round]
+        game = self.current_game or self.queue[self.round]
 
         ranking = []
         for pid in self.order:
@@ -1250,6 +1262,7 @@ class Room:
         self.state = "lobby"
         self.queue = []
         self.round = 0
+        self.current_game = None
         self.scores = {}
         self.finished = set()
         for pid in self.order:
@@ -1509,6 +1522,7 @@ async def main():
     loop = asyncio.get_running_loop()
     mimetypes.add_type("application/javascript", ".js")
     mimetypes.add_type("text/css", ".css")
+    mimetypes.add_type("application/manifest+json", ".webmanifest")
     server = await asyncio.start_server(handle_connection, HOST, PORT)
     url = lan_url()
     print("=" * 56)

@@ -49,17 +49,18 @@ body { overflow-x: hidden; overflow-y: auto; }
 /* ---------- App / Screens ---------- */
 #app {
   position: relative; z-index: 1;
-  height: 100dvh;
+  min-height: 100dvh;
+  height: auto;
   display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
-  padding: 14px 16px 18px;
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
 }
 
 .screen {
   display: none;
   width: 100%;
   max-width: 860px;
-  height: 100%;
+  min-height: 0;
   flex-direction: column;
   align-items: center;
   gap: 22px;
@@ -1656,7 +1657,7 @@ body.board-compact .board-center {
   .board-layout {
     grid-template-columns: 1fr;
     min-height: 0;
-    height: calc(100dvh - 210px);
+    height: auto;
   }
 
   .board-nav {
@@ -1710,6 +1711,33 @@ body.board-compact .board-center {
   .board-grid-host {
     max-height: calc(100dvh - 340px);
     grid-template-rows: repeat(5, minmax(48px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  #app {
+    padding-top: 74px;
+  }
+
+  .room-code {
+    letter-spacing: 8px;
+    padding-left: 8px;
+    font-size: clamp(46px, 17vw, 84px);
+  }
+
+  .code-field {
+    letter-spacing: 6px;
+    font-size: clamp(22px, 8vw, 30px) !important;
+  }
+
+  .play-hud {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .hud-score {
+    text-align: center;
+    width: 100%;
   }
 }
 
