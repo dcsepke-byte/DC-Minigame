@@ -55,6 +55,9 @@
   const hostGame = { active: false, lastScoreSent: 0, scoreThrottle: 0 };
   const storyPopup = { queue: [], showing: false };
   const eventReveal = { queue: [], showing: false };
+  const duelState = { challenger: null, owner: null, challengerName: '', ownerName: '' };
+  let boardResultUntil = 0;
+  let boardDuelSpectatorEl = null;
   let turnNoticeEl = null;
   const enabledGames = () => Games.list.filter(g => !state.disabledGames.has(g.id));
 
@@ -144,16 +147,44 @@
     } catch (_) {}
   }
 
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.navigator.standalone === true;
+
+  function showIosHint() {
+    if ($('.ios-fs-hint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'ios-fs-hint';
+    const line1 = document.createElement('div');
+    line1.textContent = '📱 Vollbild auf iPhone/iPad:';
+    const line2 = document.createElement('strong');
+    line2.textContent = 'Teilen ↑ → Zum Home-Bildschirm';
+    const line3 = document.createElement('div');
+    line3.textContent = 'Dann als App öffnen für echtes Vollbild';
+    line3.style.cssText = 'font-size:12px;color:var(--txt-dim)';
+    hint.append(line1, line2, document.createElement('br'), line3);
+    document.body.appendChild(hint);
+    setTimeout(() => hint.remove(), 5000);
+  }
+
   async function toggleFullscreen(forceOn) {
     const root = document.documentElement;
-    const wantOn = typeof forceOn === 'boolean' ? forceOn : !document.fullscreenElement;
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const wantOn = typeof forceOn === 'boolean' ? forceOn : !isFullscreen;
     try {
       if (wantOn) {
-        if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen();
-      } else if (document.fullscreenElement && document.exitFullscreen) {
-        await document.exitFullscreen();
+        if (!isFullscreen) {
+          if (root.requestFullscreen) await root.requestFullscreen();
+          else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+          else if (isIOS && !isStandalone) showIosHint();
+        }
+      } else {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       }
-    } catch (_) {}
+    } catch (_) {
+      if (isIOS && !isStandalone) showIosHint();
+    }
   }
 
   function syncLobbyControls() {
@@ -304,7 +335,7 @@
       hideTurnNotice();
     }
     // During board mini-games, keep the host on the active play screen.
-    if (!hostGame.active) showScreen('board');
+    if (!hostGame.active && Date.now() >= boardResultUntil) showScreen('board');
   });
 
   Net.on('board:chaos', () => {
@@ -337,14 +368,33 @@
   });
 
   Net.on('board:duel', m => {
+    duelState.challenger = m && m.challenger;
+    duelState.owner = m && m.owner;
+    duelState.challengerName = (m && m.challengerName) || '?';
+    duelState.ownerName = (m && m.ownerName) || '?';
     if (m && m.challengerName && m.ownerName) {
       state.boardLog = `⚔️ Duell: ${m.challengerName} vs ${m.ownerName} (Start in ${m.startsIn || 4}s)`;
       setBoardLogText(state.boardLog);
     }
+    showBoardDuelSpectator(duelState.challengerName, duelState.ownerName, 0, 0);
     FX.Sound.go();
   });
 
+  Net.on('board:duelLive', m => {
+    if (!m) return;
+    const cs = (m.scores && m.scores[m.challenger]) || 0;
+    const os = (m.scores && m.scores[m.owner]) || 0;
+    updateBoardDuelSpectator(
+      m.challengerName || duelState.challengerName,
+      m.ownerName || duelState.ownerName,
+      cs, os
+    );
+    const logLine = `⚔️ Duell live: ${m.challengerName || duelState.challengerName} ${cs} : ${os} ${m.ownerName || duelState.ownerName}`;
+    setBoardLogText(logLine);
+  });
+
   Net.on('board:yourTurn', m => {
+    boardResultUntil = 0;
     if (!state.hostParticipates) return;
     if (m && m.action === 'roll') {
       state.hostPendingKind = 'roll';
@@ -389,11 +439,24 @@
     renderBoardGrid();
   });
 
-  Net.on('board:duelResult', () => {
+  Net.on('board:duelResult', m => {
+    removeBoardDuelSpectator();
     stopHostPlay();
     hideTurnNotice();
     FX.Sound.fanfare();
     FX.celebrate();
+    if (!m) return;
+    const cName = duelState.challengerName || m.challengerName || '?';
+    const oName = duelState.ownerName || m.ownerName || '?';
+    const cs = m.challengerScore || 0;
+    const os = m.ownerScore || 0;
+    const cPlayer = state.players.find(p => p.id === m.challenger) || {};
+    const oPlayer = state.players.find(p => p.id === m.owner) || {};
+    const ranking = [
+      { id: m.challenger, name: cName, score: cs, color: cPlayer.color || '#888' },
+      { id: m.owner, name: oName, score: os, color: oPlayer.color || '#888' },
+    ].sort((a, b) => b.score - a.score);
+    showHostBoardMiniResult(ranking, true);
   });
 
   Net.on('board:globalResult', m => {
@@ -403,6 +466,7 @@
       const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
       state.boardLog = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
       setBoardLogText(state.boardLog);
+      showHostBoardMiniResult(m.ranking, false);
     }
     FX.Sound.whoosh();
     bumpHostBoardBadge('ranking');
@@ -726,12 +790,12 @@
   const fsBtn = $('#fullscreen-toggle');
   if (fsBtn) {
     const root = document.documentElement;
-    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen);
+    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen) || isIOS;
     if (!canFs) {
       fsBtn.style.display = 'none';
     } else {
       const updateFsBtn = () => {
-        const active = !!document.fullscreenElement;
+        const active = !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
         fsBtn.textContent = active ? '🗗' : '⛶';
         fsBtn.title = active ? 'Vollbild beenden' : 'Vollbild';
       };
@@ -740,6 +804,7 @@
         updateFsBtn();
       });
       document.addEventListener('fullscreenchange', updateFsBtn);
+      document.addEventListener('webkitfullscreenchange', updateFsBtn);
       updateFsBtn();
     }
   }
@@ -1222,5 +1287,72 @@
     const stage = $('#host-game-stage');
     if (card) card.hidden = true;
     if (stage) stage.innerHTML = '';
+  }
+
+  // --- Spectator duel overlay for host (Feature 1) ---
+  function showBoardDuelSpectator(cName, oName, cs, os) {
+    removeBoardDuelSpectator();
+    boardDuelSpectatorEl = el('div', 'board-duel-spectator');
+    boardDuelSpectatorEl.innerHTML = `
+      <div class="bds-label">👀 Duell live</div>
+      <div class="bds-scores">
+        <div class="bds-player">
+          <div class="bds-name">${escapeHtml(cName)}</div>
+          <div class="bds-score" id="bds-cs">${cs}</div>
+        </div>
+        <div class="bds-vs">vs</div>
+        <div class="bds-player">
+          <div class="bds-name">${escapeHtml(oName)}</div>
+          <div class="bds-score" id="bds-os">${os}</div>
+        </div>
+      </div>`;
+    document.body.appendChild(boardDuelSpectatorEl);
+    requestAnimationFrame(() => boardDuelSpectatorEl && boardDuelSpectatorEl.classList.add('show'));
+  }
+
+  function updateBoardDuelSpectator(cName, oName, cs, os) {
+    if (!boardDuelSpectatorEl || !document.body.contains(boardDuelSpectatorEl)) {
+      showBoardDuelSpectator(cName, oName, cs, os);
+      return;
+    }
+    const csEl = boardDuelSpectatorEl.querySelector('#bds-cs');
+    const osEl = boardDuelSpectatorEl.querySelector('#bds-os');
+    if (csEl) csEl.textContent = cs;
+    if (osEl) osEl.textContent = os;
+  }
+
+  function removeBoardDuelSpectator() {
+    if (boardDuelSpectatorEl && boardDuelSpectatorEl.parentNode) boardDuelSpectatorEl.remove();
+    boardDuelSpectatorEl = null;
+  }
+
+  // --- Host board mini-game result screen (Feature 3) ---
+  function showHostBoardMiniResult(ranking, isDuel) {
+    const SHOW_MS = 5000;
+    boardResultUntil = Date.now() + SHOW_MS;
+    const sub = $('#round-result-sub');
+    const rankEl = $('#round-ranking');
+    const sw = $('#star-winner');
+    if (sub) sub.textContent = isDuel ? '⚔️ Duell-Ergebnis' : '🏆 Mini-Spiel beendet';
+    if (rankEl) {
+      rankEl.innerHTML = '';
+      (ranking || []).forEach((r, pos) => {
+        const row = el('div', 'rank-row' + (pos === 0 ? ' first' : ''));
+        row.style.animationDelay = (pos * 0.08) + 's';
+        row.innerHTML = `
+          <span class="rank-pos">${pos + 1}</span>
+          <span class="rank-avatar" style="background:${r.color || '#888'}">${initials(r.name)}</span>
+          <span class="rank-name">${escapeHtml(r.name)}</span>
+          <span class="rank-score">${r.score}</span>`;
+        rankEl.appendChild(row);
+      });
+    }
+    const top = ranking && ranking[0];
+    if (sw) {
+      if (top && top.score > 0) sw.textContent = isDuel ? `🏆 ${escapeHtml(top.name)} gewinnt das Duell!` : `⭐ ${escapeHtml(top.name)} gewinnt die Runde!`;
+      else sw.textContent = 'Kein Sieger dieser Runde.';
+    }
+    showScreen('round-result');
+    FX.celebrate();
   }
 })();

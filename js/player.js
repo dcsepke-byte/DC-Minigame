@@ -30,6 +30,8 @@
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const storyPopup = { queue: [], showing: false };
   const eventReveal = { queue: [], showing: false };
+  const duelState = { challenger: null, owner: null, challengerName: '', ownerName: '' };
+  let boardResultUntil = 0;
   let turnNoticeEl = null;
   let boardModeActive = false;
   const hudScore = $('#hud-score');
@@ -217,10 +219,11 @@
       boardModeActive &&
       (board.phase === 'global' || board.phase === 'duel' || board.phase === 'globalIntro' || board.phase === 'duelIntro') &&
       (isActive('play') || isActive('round-intro') || isActive('waiting'));
-    if (!keepGameScreen) showScreen('board');
+    if (!keepGameScreen && Date.now() >= boardResultUntil) showScreen('board');
   });
 
   Net.on('board:yourTurn', m => {
+    boardResultUntil = 0;
     showScreen('board');
     if (m.action === 'roll') {
       showBoardPrompt(m.message || 'Du bist dran! Würfeln?', [
@@ -285,11 +288,17 @@
   });
 
   Net.on('board:duel', m => {
+    duelState.challenger = m.challenger || null;
+    duelState.owner = m.owner || null;
+    duelState.challengerName = m.challengerName || '?';
+    duelState.ownerName = m.ownerName || '?';
+    removeBoardDuelSpectator();
     const meInDuel = me.id && (me.id === m.challenger || me.id === m.owner);
     if (meInDuel) {
       showBoardPrompt(`⚔️ Duell gegen ${me.id === m.challenger ? m.ownerName : m.challengerName}. Start in ${m.startsIn || 4}s…`);
     } else {
       showBoardPrompt(`👀 Zuschauer: ${m.challengerName} vs ${m.ownerName}. Start in ${m.startsIn || 4}s…`);
+      showBoardDuelSpectator(m.challengerName, m.ownerName, 0, 0);
     }
     showScreen('board');
   });
@@ -299,6 +308,10 @@
     const os = (m.scores && m.scores[m.owner]) || 0;
     const status = $('#board-status');
     if (status) status.textContent = `⚔️ Duell live: ${cs} : ${os}`;
+    const meInDuel = me.id && (me.id === m.challenger || me.id === m.owner);
+    if (!meInDuel) {
+      updateBoardDuelSpectator(m.challengerName || duelState.challengerName, m.ownerName || duelState.ownerName, cs, os);
+    }
   });
 
   Net.on('board:globalResult', m => {
@@ -309,16 +322,26 @@
     if (status) status.textContent = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
     bumpPlayerBoardBadge('ranking');
     hideTurnNotice();
-    showScreen('board');
     switchPlayerBoardPanel('ranking');
+    showBoardMiniResult(m.ranking);
   });
 
-  Net.on('board:duelResult', () => {
+  Net.on('board:duelResult', m => {
+    removeBoardDuelSpectator();
     const actions = $('#board-actions');
     if (actions) actions.innerHTML = '';
-    showBoardPrompt('Duell beendet. Weiter geht es mit dem nächsten Zug.');
     hideTurnNotice();
     FX.Sound.whoosh();
+    if (!m) return;
+    const cName = duelState.challengerName || m.challengerName || '?';
+    const oName = duelState.ownerName || m.ownerName || '?';
+    const cs = m.challengerScore || 0;
+    const os = m.ownerScore || 0;
+    const ranking = [
+      { id: m.challenger, name: cName, score: cs, color: ((board.players || []).find(p => p.id === m.challenger) || {}).color || '#888' },
+      { id: m.owner, name: oName, score: os, color: ((board.players || []).find(p => p.id === m.owner) || {}).color || '#888' },
+    ].sort((a, b) => b.score - a.score);
+    showBoardMiniResult(ranking, true);
   });
 
   Net.on('waiting', m => {
@@ -345,15 +368,37 @@
         FX.Sound.whoosh();
       }
     }
+    const rankEl = $('#p-round-ranking');
+    rankEl.innerHTML = '';
+    m.ranking.forEach((entry, pos) => {
+      const row = el('div', 'rank-row' + (entry.star ? ' first' : ''));
+      row.style.animationDelay = (pos * 0.08) + 's';
+      row.innerHTML = `
+        <span class="rank-pos">${pos + 1}</span>
+        <span class="rank-avatar" style="background:${entry.color}">${initials(entry.name)}</span>
+        <span class="rank-name">${escapeHtml(entry.name)}</span>
+        <span class="rank-score">${entry.score}</span>
+        ${entry.star ? '<span class="rank-stars">⭐</span>' : ''}`;
+      rankEl.appendChild(row);
+    });
     showScreen('result');
   });
 
   Net.on('standings', m => {
-    const idx = m.ranking.findIndex(r => r.id === me.id);
-    const r = idx >= 0 ? m.ranking[idx] : null;
     $('#p-standings-sub').textContent = `Nach Runde ${m.round} von ${m.total}`;
-    $('#p-standings-place').textContent = `#${idx + 1}`;
-    $('#p-standings-stars').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne` : '';
+    const rankEl = $('#p-standings-ranking');
+    rankEl.innerHTML = '';
+    m.ranking.forEach((entry, pos) => {
+      const row = el('div', 'rank-row' + (pos === 0 && entry.stars > 0 ? ' first' : ''));
+      row.style.animationDelay = (pos * 0.08) + 's';
+      row.innerHTML = `
+        <span class="rank-pos">${pos + 1}</span>
+        <span class="rank-avatar" style="background:${entry.color}">${initials(entry.name)}</span>
+        <span class="rank-name">${escapeHtml(entry.name)}</span>
+        <span class="rank-stars">${'⭐'.repeat(entry.stars) || '–'}</span>
+        <span class="rank-score">${entry.stars}</span>`;
+      rankEl.appendChild(row);
+    });
     showScreen('standings');
     FX.Sound.whoosh();
   });
@@ -361,18 +406,45 @@
   Net.on('final', m => {
     boardModeActive = false;
     const idx = m.ranking.findIndex(r => r.id === me.id);
-    const r = idx >= 0 ? m.ranking[idx] : null;
-    $('#p-final-avatar').textContent = initials(me.name);
-    $('#p-final-avatar').style.background = me.color;
-    $('#p-final-place').textContent = `#${idx + 1}`;
+    const podium = $('#p-podium');
+    podium.innerHTML = '';
+    document.querySelectorAll('.p-final-others').forEach(e => e.remove());
+    const order = [1, 0, 2];
+    const medals = { 0: 'gold', 1: 'silver', 2: 'bronze' };
+    order.forEach(pos => {
+      if (pos >= m.ranking.length) return;
+      const r = m.ranking[pos];
+      const col = el('div', 'podium-col');
+      col.innerHTML = `
+        ${pos === 0 ? '<div class="podium-crown">👑</div>' : ''}
+        <div class="podium-avatar" style="background:${r.color}">${initials(r.name)}</div>
+        <div class="podium-name">${escapeHtml(r.name)}</div>
+        <div class="podium-stars">${'⭐'.repeat(r.stars) || '–'}</div>
+        <div class="podium-block ${medals[pos]}" style="animation-delay:${pos * 0.2}s">${pos === 0 ? '🏆' : (pos + 1)}</div>`;
+      podium.appendChild(col);
+    });
+    const winner = m.ranking[0];
+    $('#p-final-banner').textContent = `🎉 ${winner.name} gewinnt PARTY ARENA! 🎉`;
+    if (m.ranking.length > 3) {
+      const rest = el('div', 'ranking p-final-others');
+      m.ranking.slice(3).forEach((r, i) => {
+        const row = el('div', 'rank-row');
+        row.innerHTML = `
+          <span class="rank-pos">${i + 4}</span>
+          <span class="rank-avatar" style="background:${r.color}">${initials(r.name)}</span>
+          <span class="rank-name">${escapeHtml(r.name)}</span>
+          <span class="rank-stars">${'⭐'.repeat(r.stars) || '–'}</span>`;
+        rest.appendChild(row);
+      });
+      podium.after(rest);
+    }
     if (idx === 0) {
       $('#p-final-title').textContent = '🏆 GEWONNEN! 🏆';
-      $('#p-final-banner').textContent = `Du bist der Champion!`;
       FX.Sound.fanfare(); FX.celebrate();
       setTimeout(() => FX.celebrate(), 900);
+      setTimeout(() => FX.celebrate(), 1800);
     } else {
-      $('#p-final-title').textContent = '🎉 Vorbei!';
-      $('#p-final-banner').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne` : '';
+      $('#p-final-title').textContent = '🏆 SIEGEREHRUNG 🏆';
       FX.Sound.whoosh();
     }
     showScreen('final');
@@ -496,29 +568,62 @@
     FX.setSoundEnabled(on);
     $('#sound-toggle').textContent = on ? '🔊' : '🔇';
   });
+
+  /* ---------- Fullscreen (inkl. iOS-Fallback) ---------- */
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.navigator.standalone === true;
+
+  function showIosHint() {
+    if ($('.ios-fs-hint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'ios-fs-hint';
+    const line1 = document.createElement('div');
+    line1.textContent = '📱 Vollbild auf iPhone/iPad:';
+    const line2 = document.createElement('strong');
+    line2.textContent = 'Teilen ↑ → Zum Home-Bildschirm';
+    const line3 = document.createElement('div');
+    line3.textContent = 'Dann als App öffnen für echtes Vollbild';
+    line3.style.cssText = 'font-size:12px;color:var(--txt-dim)';
+    hint.append(line1, line2, document.createElement('br'), line3);
+    document.body.appendChild(hint);
+    setTimeout(() => hint.remove(), 5000);
+  }
+    const root = document.documentElement;
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      } else if (root.requestFullscreen) {
+        await root.requestFullscreen();
+      } else if (root.webkitRequestFullscreen) {
+        root.webkitRequestFullscreen();
+      } else if (isIOS && !isStandalone) {
+        showIosHint();
+      }
+    } catch (_) {
+      if (isIOS && !isStandalone) showIosHint();
+    }
+  }
+
   const fsBtn = $('#fullscreen-toggle');
   if (fsBtn) {
     const root = document.documentElement;
-    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen);
+    const canFs = !!(document.fullscreenEnabled || root.requestFullscreen || root.webkitRequestFullscreen) || isIOS;
     if (!canFs) {
       fsBtn.style.display = 'none';
     } else {
       const updateFsBtn = () => {
-        const active = !!document.fullscreenElement;
+        const active = !!(document.fullscreenElement || document.webkitFullscreenElement) || isStandalone;
         fsBtn.textContent = active ? '🗗' : '⛶';
         fsBtn.title = active ? 'Vollbild beenden' : 'Vollbild';
       };
       fsBtn.addEventListener('click', async () => {
-        try {
-          if (document.fullscreenElement) {
-            if (document.exitFullscreen) await document.exitFullscreen();
-          } else if (root.requestFullscreen) {
-            await root.requestFullscreen();
-          }
-        } catch (_) {}
+        await toggleFullscreenPlayer();
         updateFsBtn();
       });
       document.addEventListener('fullscreenchange', updateFsBtn);
+      document.addEventListener('webkitfullscreenchange', updateFsBtn);
       updateFsBtn();
     }
   }
@@ -526,14 +631,7 @@
     if (e.key.toLowerCase() !== 'f' || e.repeat) return;
     const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
-    const root = document.documentElement;
-    try {
-      if (document.fullscreenElement) {
-        if (document.exitFullscreen) await document.exitFullscreen();
-      } else if (root.requestFullscreen) {
-        await root.requestFullscreen();
-      }
-    } catch (_) {}
+    await toggleFullscreenPlayer();
   });
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
   document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
@@ -873,5 +971,97 @@
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // --- Spectator duel overlay (Feature 1) ---
+  let boardDuelSpectatorEl = null;
+
+  function showBoardDuelSpectator(cName, oName, cs, os) {
+    removeBoardDuelSpectator();
+    boardDuelSpectatorEl = el('div', 'board-duel-spectator');
+    boardDuelSpectatorEl.innerHTML = `
+      <div class="bds-label">👀 Duell live</div>
+      <div class="bds-scores">
+        <div class="bds-player">
+          <div class="bds-name">${escapeHtml(cName)}</div>
+          <div class="bds-score" id="bds-cs">${cs}</div>
+        </div>
+        <div class="bds-vs">vs</div>
+        <div class="bds-player">
+          <div class="bds-name">${escapeHtml(oName)}</div>
+          <div class="bds-score" id="bds-os">${os}</div>
+        </div>
+      </div>`;
+    document.body.appendChild(boardDuelSpectatorEl);
+    requestAnimationFrame(() => boardDuelSpectatorEl && boardDuelSpectatorEl.classList.add('show'));
+  }
+
+  function updateBoardDuelSpectator(cName, oName, cs, os) {
+    if (!boardDuelSpectatorEl || !document.body.contains(boardDuelSpectatorEl)) {
+      showBoardDuelSpectator(cName, oName, cs, os);
+      return;
+    }
+    const csEl = boardDuelSpectatorEl.querySelector('#bds-cs');
+    const osEl = boardDuelSpectatorEl.querySelector('#bds-os');
+    if (csEl) csEl.textContent = cs;
+    if (osEl) osEl.textContent = os;
+  }
+
+  function removeBoardDuelSpectator() {
+    if (boardDuelSpectatorEl && boardDuelSpectatorEl.parentNode) boardDuelSpectatorEl.remove();
+    boardDuelSpectatorEl = null;
+  }
+
+  // --- Board mini-game result overlay (Feature 3) ---
+  function showBoardMiniResult(ranking, isDuel) {
+    const SHOW_MS = 5000;
+    boardResultUntil = Date.now() + SHOW_MS;
+
+    // Fill the player result screen
+    const myRow = (ranking || []).find(r => r.id === me.id);
+    const myIdx = (ranking || []).findIndex(r => r.id === me.id);
+    const resultHeadline = $('#result-headline');
+    const resultAvatar = $('#result-avatar');
+    const resultName = $('#result-name');
+    const resultDetail = $('#result-detail');
+    const resultStar = $('#result-star');
+    const rankEl = $('#p-round-ranking');
+
+    if (resultHeadline) resultHeadline.textContent = isDuel ? '⚔️ Duell-Ergebnis' : '🏆 Mini-Spiel beendet';
+    if (resultAvatar) { resultAvatar.textContent = initials(me.name); resultAvatar.style.background = me.color; }
+    if (resultName) resultName.textContent = me.name;
+    if (resultDetail) {
+      if (myRow) resultDetail.textContent = `${myRow.score} Punkte · Platz ${myIdx + 1}`;
+      else resultDetail.textContent = 'Zuschauer';
+    }
+    if (resultStar) {
+      const top = ranking && ranking[0];
+      if (top && top.id === me.id) {
+        resultStar.textContent = isDuel ? '🏆 Duell gewonnen!' : '⭐ Rundensieger!';
+        FX.Sound.fanfare(); FX.celebrate();
+      } else if (top) {
+        resultStar.textContent = isDuel
+          ? `🏆 ${escapeHtml(top.name)} gewinnt das Duell!`
+          : `⭐ ${escapeHtml(top.name)} gewinnt die Runde!`;
+        FX.Sound.whoosh();
+      } else {
+        resultStar.textContent = '';
+        FX.Sound.whoosh();
+      }
+    }
+    if (rankEl) {
+      rankEl.innerHTML = '';
+      (ranking || []).forEach((r, pos) => {
+        const row = el('div', 'rank-row' + (pos === 0 ? ' first' : ''));
+        row.style.animationDelay = (pos * 0.08) + 's';
+        row.innerHTML = `
+          <span class="rank-pos">${pos + 1}</span>
+          <span class="rank-avatar" style="background:${r.color || '#888'}">${initials(r.name)}</span>
+          <span class="rank-name">${escapeHtml(r.name)}</span>
+          <span class="rank-score">${r.score}</span>`;
+        rankEl.appendChild(row);
+      });
+    }
+    showScreen('result');
   }
 })();

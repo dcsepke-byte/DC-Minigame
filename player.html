@@ -2,7 +2,9 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Party Arena — Mitspielen</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -139,6 +141,7 @@
         <h2 class="result-name" id="result-name">Du</h2>
         <p class="result-label" id="result-detail">erzielt 0 Punkte</p>
         <div class="star-winner" id="result-star"></div>
+        <div class="ranking" id="p-round-ranking"></div>
         <p class="turn-label">Weiter geht's am Host-Bildschirm…</p>
       </div>
     </section>
@@ -146,10 +149,10 @@
     <!-- ============ GESAMTSTAND (Spielersicht) ============ -->
     <section class="screen" data-screen="standings">
       <div class="standings-content">
-        <h2 class="standings-title">⭐ Dein Stand</h2>
+        <h2 class="standings-title">⭐ Gesamtstand</h2>
         <p class="standings-sub" id="p-standings-sub"></p>
-        <div class="big-place" id="p-standings-place">–</div>
-        <p class="turn-label" id="p-standings-stars"></p>
+        <div class="ranking" id="p-standings-ranking"></div>
+        <p class="turn-label">Weiter geht's am Host-Bildschirm…</p>
       </div>
     </section>
 
@@ -157,8 +160,7 @@
     <section class="screen" data-screen="final">
       <div class="final-content">
         <h2 class="final-title" id="p-final-title">🏆</h2>
-        <div class="result-avatar" id="p-final-avatar">P</div>
-        <div class="big-place" id="p-final-place">–</div>
+        <div class="podium" id="p-podium"></div>
         <div class="final-winner-banner" id="p-final-banner"></div>
         <p class="turn-label">Danke fürs Mitspielen! 🎉</p>
       </div>
