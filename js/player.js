@@ -23,6 +23,7 @@
   const board = {
     tiles: [], owners: {}, players: [], lapsDone: 0, lapsTotal: 0, log: '', history: [],
     phase: 'turn', turnPlayerId: null, pendingPlayerId: null,
+    itemPacks: {},
     panel: 'map',
     badges: { action: 0, ranking: 0, profile: 0, map: 0 },
   };
@@ -175,6 +176,7 @@
   Net.on('board:init', m => {
     boardModeActive = true;
     board.tiles = m.tiles || [];
+    board.itemPacks = m.itemPacks || {};
     board.players = m.players || [];
     board.history = [];
     updateMyBoardStats();
@@ -188,6 +190,7 @@
   Net.on('board:update', m => {
     boardModeActive = true;
     board.tiles = m.tiles || board.tiles;
+    board.itemPacks = m.itemPacks || board.itemPacks;
     board.owners = m.owners || {};
     board.players = m.players || [];
     board.phase = m.phase || board.phase;
@@ -245,14 +248,21 @@
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
     } else if (m.kind === 'rentOrDuel') {
-      showBoardPrompt(m.message || 'Zahlen oder Duell?', [
+      const actions = [
         { label: '⭐ Zahlen (1)', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
-      ]);
-      showTurnNotice('Du bist dran: Zahlen oder Duell starten?', [
+      ];
+      const noticeActions = [
         { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
-      ]);
+      ];
+      const myItems = board.itemPacks[me.id] || [];
+      if (myItems.some(item => item.id === 'golden_warp')) {
+        actions.push({ label: '✨ Goldener Warp (+4 Felder)', action: () => Net.send({ type: 'board:decision', action: 'item' }) });
+        noticeActions.push({ label: '✨ Goldener Warp (+4)', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'item' }) });
+      }
+      showBoardPrompt(m.message || 'Zahlen, duellieren oder Item benutzen?', actions);
+      showTurnNotice('Du bist dran: Zahlen, duellieren oder Item benutzen?', noticeActions);
     }
   });
 

@@ -263,7 +263,7 @@ class Room:
         })
         self.send_lobby()
         if self.state == "board" and self.board:
-            client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", [])})
+            client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", []), "itemPacks": self.board.get("itemPacks", {})})
             client.send(self.board_payload())
 
     # ---- Helfer ----
@@ -378,7 +378,7 @@ class Room:
                          "reconnectToken": p.get("reconnectToken", "")})
             self.send_lobby()
             if self.state == "board" and self.board:
-                client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", [])})
+                client.send({"type": "board:init", "players": self.public_players(), "tiles": self.board.get("tiles", []), "itemPacks": self.board.get("itemPacks", {})})
                 client.send(self.board_payload())
                 current = self.board.get("turnPlayerId")
                 pending = (self.board.get("pending") or {}).get("player")
@@ -521,6 +521,9 @@ class Room:
             })
         return tiles
 
+    def send_board_update(self):
+        self.broadcast(self.board_payload())
+
     def board_payload(self):
         b = self.board or {}
         pending = b.get("pending") or {}
@@ -538,10 +541,29 @@ class Room:
             "log": b.get("lastLog", ""),
             "history": b.get("history", []),
             "tempo": b.get("tempo", "normal"),
+            "itemPacks": b.get("itemPacks", {}),
+            "lastLuckyPlayer": b.get("lastLuckyPlayer"),
         }
 
-    def send_board_update(self):
-        self.broadcast(self.board_payload())
+    def grant_board_item(self, pid, item_id, label):
+        if not self.board or pid not in self.players:
+            return
+        packs = self.board.setdefault("itemPacks", {})
+        packs.setdefault(pid, []).append({"id": item_id, "label": label})
+        self.board_story(f"🎁 {self.players[pid]['name']} erhält Item: {label}.")
+        self.send_board_update()
+
+    def use_board_item(self, pid, item_id):
+        if not self.board or pid not in self.players:
+            return {"ok": False, "reason": "no_board"}
+        packs = self.board.setdefault("itemPacks", {})
+        items = packs.get(pid, [])
+        idx = next((i for i, it in enumerate(items) if it.get("id") == item_id), None)
+        if idx is None:
+            return {"ok": False, "reason": "missing"}
+        item = items.pop(idx)
+        self.board_story(f"✨ {self.players[pid]['name']} benutzt {item.get('label', item_id)}.")
+        return {"ok": True, "item": item}
 
     def start_board_game(self, rounds, games, tempo="normal"):
         rounds = max(1, min(20, int(rounds)))
@@ -564,18 +586,21 @@ class Room:
             "owners": {},
             "pending": None,
             "phase": "turn",
-            "lastLog": "Monopoly-Modus gestartet. Alle starten mit 3 Sternen.",
-            "history": ["Monopoly-Modus gestartet. Alle starten mit 3 Sternen."],
+            "lastLog": "Board-Party gestartet. Alle starten mit 3 Sternen.",
+            "history": ["Board-Party gestartet. Alle starten mit 3 Sternen."],
             "duel": None,
             "global": None,
             "tempo": tempo_key,
             "actionDelay": float(preset["actionDelay"]),
             "introDelay": float(preset["introDelay"]),
+            "eventRevealDelay": float(preset["eventRevealDelay"]),
             "startHandle": None,
             "flowHandle": None,
+            "itemPacks": {pid: [] for pid in self.order},
+            "lastLuckyPlayer": None,
         }
         self.state = "board"
-        self.broadcast({"type": "board:init", "players": self.public_players(), "tiles": self.board["tiles"]})
+        self.broadcast({"type": "board:init", "players": self.public_players(), "tiles": self.board["tiles"], "itemPacks": self.board.get("itemPacks", {})})
         self.send_board_update()
         self.begin_board_turn()
 
@@ -722,6 +747,7 @@ class Room:
             b["lastLog"] = f"🏁 {p['name']} landet auf START."
             self.board_story(b["lastLog"])
             self.send_board_update()
+            self.grant_board_item(pid, "golden_warp", "Goldener Warp")
             self.schedule_board_continue(self.end_board_turn)
             return
         if tile["type"] == "event":
@@ -833,6 +859,16 @@ class Room:
                 self.board_story(f"⚔️ {player['name']} fordert {owner_p['name']} zum Duell um Feld {tile_idx} heraus.")
                 self.begin_board_duel(pid, owner, int(tile_idx))
                 return
+            if action == "item":
+                item_result = self.use_board_item(pid, "golden_warp")
+                if item_result.get("ok"):
+                    player["position"] = (player.get("position", 0) + 4) % len(self.board["tiles"])
+                    self.board["lastLog"] = f"{player['name']} nutzt ein Item und bewegt sich extra vor."
+                    self.board_story(self.board["lastLog"])
+                    self.board["pending"] = None
+                    self.send_board_update()
+                    self.schedule_board_continue(self.end_board_turn)
+                    return
             # default: rent
             if player["stars"] >= 1:
                 player["stars"] -= 1

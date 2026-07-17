@@ -50,6 +50,7 @@
     hostProfile: { name: 'Host', figure: '🎩' },
     boardBadges: { action: 0, ranking: 0, profile: 0, map: 0 },
     boardAction: { text: 'Warte auf deinen Zug…', buttons: [] },
+    itemPacks: {},
   };
   const boardAnim = { active: false, playerId: null, pos: 0, to: 0, timer: null };
   const hostGame = { active: false, lastScoreSent: 0, scoreThrottle: 0 };
@@ -260,6 +261,7 @@
   Net.on('board:init', m => {
     state.mode = 'board';
     state.players = m.players || [];
+    state.itemPacks = m.itemPacks || {};
     state.boardTiles = m.tiles || [];
     state.boardHistory = [];
     renderBoardGrid();
@@ -275,6 +277,7 @@
   Net.on('board:update', m => {
     state.mode = 'board';
     state.players = m.players || [];
+    state.itemPacks = m.itemPacks || state.itemPacks;
     state.boardTiles = m.tiles || state.boardTiles;
     state.boardOwners = m.owners || {};
     state.boardHistory = Array.isArray(m.history) ? m.history.slice(-20) : state.boardHistory;
@@ -376,14 +379,16 @@
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
     } else {
-      showHostBoardPrompt(state.boardLog, [
+      const actions = [
         { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
-      ]);
-      showTurnNotice('Du bist dran: Zahlen oder Duell starten?', [
-        { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
-        { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
-      ]);
+      ];
+      const hostItems = state.itemPacks[HOST_PID] || [];
+      if (hostItems.some(item => item.id === 'golden_warp')) {
+        actions.push({ label: '✨ Goldener Warp (+4)', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'item' }) });
+      }
+      showHostBoardPrompt(state.boardLog, actions);
+      showTurnNotice('Du bist dran: Zahlen, duellieren oder Item benutzen?', actions);
     }
     bumpHostBoardBadge('action');
     renderBoardGrid();
