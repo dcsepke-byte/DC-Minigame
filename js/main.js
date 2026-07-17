@@ -205,6 +205,7 @@
     $('#intro-game-name').textContent = game.name;
     $('#intro-game-desc').textContent = game.desc;
     $('#intro-rules').innerHTML = game.rules;
+    if (window.Party3D) Party3D.setGame(game);
     FX.Sound.whoosh();
     showScreen('round-intro');
   }
@@ -243,6 +244,7 @@
     $('#hud-name').textContent = p.name;
     $('#hud-game').textContent = `${game.icon} ${game.name}`;
     hudScore.textContent = '0';
+    if (window.Party3D) Party3D.setGame(game);
 
     const stage = $('#game-stage');
     stage.innerHTML = '';

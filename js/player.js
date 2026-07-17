@@ -210,14 +210,18 @@
     const desc = $('#p-intro-desc');
     if (desc) desc.textContent = m.game.desc || '';
     $('#p-intro-rules').innerHTML = m.game.rules;
+    if (window.Party3D) Party3D.setGame(m.game);
     FX.Sound.whoosh();
     showScreen('round-intro');
   });
 
-  Net.on('start', m => startPlay(m.game, {
-    round: m.round || 1,
-    quizSeed: Number.isFinite(Number(m.game && m.game.quizSeed)) ? Number(m.game.quizSeed) : null,
-  }));
+  Net.on('start', m => {
+    if (window.Party3D) Party3D.setGame(m.game);
+    startPlay(m.game, {
+      round: m.round || 1,
+      quizSeed: Number.isFinite(Number(m.game && m.game.quizSeed)) ? Number(m.game.quizSeed) : null,
+    });
+  });
 
   Net.on('board:init', m => {
     boardModeActive = true;
@@ -225,6 +229,7 @@
     board.itemPacks = m.itemPacks || {};
     board.players = m.players || [];
     board.history = [];
+    if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
     updateMyBoardStats();
     renderBoardGrid();
     renderBoardRanking();
@@ -246,6 +251,7 @@
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
     board.history = Array.isArray(m.history) ? m.history.slice(-20) : board.history;
+    if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners });
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();

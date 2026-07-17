@@ -2036,3 +2036,70 @@ body.board-compact .board-center {
   }
 }
 
+/* ============================================================
+   3D WebGL Stage (Three.js)
+   ============================================================ */
+#party-3d-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.party3d-ready #bg-canvas {
+  opacity: 0.18;
+  transition: opacity 0.6s ease;
+}
+
+body.party3d-ready #app {
+  position: relative;
+  z-index: 2;
+}
+
+body.party3d-ready .screen {
+  background: transparent;
+}
+
+body.party3d-ready .card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(14, 14, 40, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+body.party3d-ready .board-grid {
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.party3d-ready .board-layout {
+  grid-template-columns: 220px 1fr;
+}
+
+body.party3d-ready .board-panel[data-panel="map"] .card-title {
+  visibility: hidden;
+}
+
+body.party3d-fallback #party-3d-canvas {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body.party3d-ready .board-layout {
+    grid-template-columns: 1fr;
+  }
+  body.party3d-ready .board-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  body.party3d-ready .board-nav-btn {
+    flex: 1;
+    min-width: 80px;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+}
+

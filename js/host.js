@@ -263,6 +263,7 @@
     state.itemPacks = m.itemPacks || {};
     state.boardTiles = m.tiles || [];
     state.boardHistory = [];
+    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: {} });
     renderBoardGrid();
     renderBoardRanking();
     renderHostProfileCard();
@@ -284,6 +285,7 @@
     state.boardPhase = m.phase || 'turn';
     state.turnPlayerId = m.turnPlayerId || null;
     state.pendingPlayerId = m.pendingPlayerId || null;
+    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners });
     if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
     state.lapsDone = m.lapsDone || 0;
     state.lapsTotal = m.lapsTotal || 0;
@@ -419,6 +421,7 @@
     $('#intro-game-name').textContent = m.game.name;
     $('#intro-game-desc').textContent = m.game.desc;
     $('#intro-rules').innerHTML = m.game.rules;
+    if (window.Party3D) Party3D.setGame(m.game);
     FX.Sound.whoosh();
     showScreen('round-intro');
   });
@@ -431,6 +434,7 @@
       });
     }
     if (state.mode === 'board') return;
+    if (window.Party3D) Party3D.setGame(m.game);
     $('#live-icon').textContent = m.game.icon;
     $('#live-name').textContent = m.game.name;
     renderLive({ players: state.players, scores: {}, finished: [] });
