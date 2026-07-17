@@ -1251,16 +1251,14 @@ body.board-compact .board-center {
   box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.25) inset;
 }
 .board-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: repeat(7, minmax(56px, auto));
-  gap: 12px;
-  perspective: 1200px;
+  display: flex;
   position: relative;
-  transform-style: preserve-3d;
+  min-height: 0;
+  background: transparent;
+  pointer-events: none;
 }
 .board-grid-mobile {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
 }
 .board-tile {
   border: 1px solid var(--glass-border);
@@ -1669,6 +1667,26 @@ body.board-compact .board-center {
   padding: 14px;
   flex: 1;
   min-height: 0;
+  background: transparent;
+  border-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* 3D board mode: make the "map" panel transparent so the WebGL board shows through */
+.board-panel[data-panel="map"] {
+  background: transparent;
+  min-height: clamp(320px, 55dvh, 600px);
+}
+.board-panel[data-panel="map"] .card-title {
+  pointer-events: auto;
+}
+.board-panel .board-grid {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  transform-origin: center top;
 }
 
 .board-topbar {
@@ -1782,13 +1800,6 @@ body.board-compact .board-center {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.board-panel .board-grid {
-  width: 100%;
-  max-width: 980px;
-  margin: 0 auto;
-  transform-origin: center top;
 }
 
 .dice-drop {

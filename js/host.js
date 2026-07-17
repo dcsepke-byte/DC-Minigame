@@ -787,36 +787,14 @@
   }
 
   function renderBoardGrid() {
-    const grid = $('#host-board-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    const center = el('div', 'board-center', '<span>PARTY</span><span>ARENA</span>');
-    grid.appendChild(center);
-    const posMap = {};
-    state.players.forEach(p => {
-      const isMoving = boardAnim.active && boardAnim.playerId === p.id;
-      const pos = isMoving ? boardAnim.pos : (Number.isFinite(p.position) ? p.position : 0);
-      (posMap[pos] = posMap[pos] || []).push({ p, isMoving });
-    });
-    state.boardTiles.forEach(t => {
-      let cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : t.type === 'starshop' ? ' starshop' : t.type === 'itemshop' ? ' itemshop' : t.type === 'lucky' ? ' lucky' : '');
-      if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
-      if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
-      const tile = el('div', cls);
-      const pos = boardCellPosition(t.idx);
-      tile.style.gridRow = String(pos.row);
-      tile.style.gridColumn = String(pos.col);
-      const ownerId = state.boardOwners[String(t.idx)];
-      const owner = ownerId ? state.players.find(p => p.id === ownerId) : null;
-      tile.innerHTML = `
-        <div class="bt-top">
-          <span>${t.icon}</span>
-          <span>#${t.idx}</span>
-        </div>
-        <div class="bt-owner">${owner ? `👑 ${escapeHtml(owner.name)}` : 'Frei'}</div>
-        <div class="bt-pawns">${(posMap[t.idx] || []).map(x => `<span class="bt-pawn${x.isMoving ? ' moving' : ''}" style="background:${x.p.color}">${x.p.figure || initials(x.p.name)}</span>`).join('')}</div>`;
-      grid.appendChild(tile);
-    });
+    /* 2D grid removed — 3D board is the only Spielfeld now */
+    if (window.Party3D && state.boardTiles && state.boardTiles.length) {
+      Party3D.setBoardState({
+        tiles: state.boardTiles,
+        players: state.players,
+        owners: state.boardOwners,
+      });
+    }
   }
 
   function showHostBoardPrompt(text, buttons = []) {
