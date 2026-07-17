@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Party Arena Icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff3cac"/>
+      <stop offset="0.5" stop-color="#7b2ff7"/>
+      <stop offset="1" stop-color="#00f0ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="#0a0a1f"/>
+  <rect x="28" y="28" width="456" height="456" rx="98" fill="url(#bg)" opacity="0.9"/>
+  <circle cx="158" cy="164" r="48" fill="#ffd34e"/>
+  <circle cx="352" cy="160" r="44" fill="#2bffb9"/>
+  <path d="M122 326h268c0 70-58 126-130 126s-138-56-138-126z" fill="#ffffff"/>
+  <text x="256" y="312" text-anchor="middle" font-size="108" font-family="Verdana, sans-serif" font-weight="700" fill="#11112b">PA</text>
+</svg>

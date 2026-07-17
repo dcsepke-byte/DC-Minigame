@@ -47,6 +47,28 @@ Hinweis: Im gleichen WLAN testen.
 5. Nach jeder Runde werden Punkte und Sterne ausgewertet.
 6. Nach der letzten Runde erscheint die Siegerehrung.
 
+## Als App auf dem Handy installieren (PWA)
+
+Die App ist jetzt als installierbare Progressive Web App eingerichtet.
+
+Wichtig:
+
+- Fuer die Installation ist in der Regel HTTPS noetig.
+- Lokal funktioniert Service Worker nur auf `localhost`.
+- Fuer echte Handy-Installation am besten die Render-URL nutzen.
+
+### Android (Chrome)
+
+1. Oeffne die App-URL im Handy-Browser.
+2. Tippe auf `Zum Startbildschirm hinzufuegen` oder `App installieren`.
+3. Die App erscheint danach wie eine normale App mit eigenem Icon.
+
+### iPhone (Safari)
+
+1. Oeffne die App-URL in Safari.
+2. Tippe auf Teilen -> `Zum Home-Bildschirm`.
+3. Die App startet danach im Vollbild-Layout.
+
 ## Spielmodi
 
 ### Classic

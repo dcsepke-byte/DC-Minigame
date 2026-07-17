@@ -7,6 +7,7 @@
 
   const $ = s => document.querySelector(s);
   const FIGURES = ['🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
+  const UI_MODES = ['compact', 'normal', 'large'];
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
@@ -36,6 +37,45 @@
   const hudScore = $('#hud-score');
   let lastScoreSent = 0, scoreThrottle = 0;
   let autoJoinTried = false;
+  let uiMode = 'compact';
+
+  function updateUiSizeButton() {
+    const btn = $('#ui-size-toggle');
+    if (!btn) return;
+    const map = {
+      compact: { text: 'A-', title: 'Anzeige: Kompakt' },
+      normal: { text: 'A', title: 'Anzeige: Normal' },
+      large: { text: 'A+', title: 'Anzeige: Groß' },
+    };
+    const cfg = map[uiMode] || map.compact;
+    btn.textContent = cfg.text;
+    btn.title = `${cfg.title} (tippen zum Wechseln)`;
+  }
+
+  function applyUiMode(mode, persist = true) {
+    uiMode = UI_MODES.includes(mode) ? mode : 'compact';
+    document.body.classList.remove('player-ui-compact', 'player-ui-normal', 'player-ui-large');
+    document.body.classList.add(`player-ui-${uiMode}`);
+    if (persist) {
+      try { localStorage.setItem('pa_ui_mode', uiMode); } catch (_) {}
+    }
+    updateUiSizeButton();
+  }
+
+  function cycleUiMode() {
+    const idx = UI_MODES.indexOf(uiMode);
+    const next = UI_MODES[(idx + 1) % UI_MODES.length];
+    applyUiMode(next, true);
+    FX.Sound.tap();
+  }
+
+  function initUiMode() {
+    let saved = 'compact';
+    try { saved = localStorage.getItem('pa_ui_mode') || 'compact'; } catch (_) {}
+    applyUiMode(saved, false);
+    const btn = $('#ui-size-toggle');
+    if (btn) btn.addEventListener('click', cycleUiMode);
+  }
 
   function ensureTurnNotice() {
     if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
@@ -88,6 +128,7 @@
     if (savedFigure) me.figure = savedFigure;
   } catch (_) {}
   renderFigurePicker();
+  initUiMode();
 
   /* ---------- Verbindung ---------- */
   if (location.protocol === 'file:') {
@@ -166,12 +207,17 @@
     $('#p-round-badge').textContent = `RUNDE ${m.round} / ${m.total}`;
     $('#p-intro-icon').textContent = m.game.icon;
     $('#p-intro-name').textContent = m.game.name;
+    const desc = $('#p-intro-desc');
+    if (desc) desc.textContent = m.game.desc || '';
     $('#p-intro-rules').innerHTML = m.game.rules;
     FX.Sound.whoosh();
     showScreen('round-intro');
   });
 
-  Net.on('start', m => startPlay(m.game));
+  Net.on('start', m => startPlay(m.game, {
+    round: m.round || 1,
+    quizSeed: Number.isFinite(Number(m.game && m.game.quizSeed)) ? Number(m.game.quizSeed) : null,
+  }));
 
   Net.on('board:init', m => {
     boardModeActive = true;
@@ -408,7 +454,7 @@
   /* ============================================================
      MINI-SPIEL ABSPIELEN (lokal, mit Countdown)
      ============================================================ */
-  function startPlay(gameMeta) {
+  function startPlay(gameMeta, runMeta = {}) {
     const game = Games.list.find(g => g.id === gameMeta.id);
     $('#hud-game').textContent = `${gameMeta.icon} ${gameMeta.name}`;
     hudScore.textContent = '0';
@@ -451,15 +497,15 @@
           clearInterval(cdTimer);
           cd.innerHTML = `<div class="countdown-num" style="color:var(--good)">GO!</div>`;
           FX.Sound.go();
-          setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage); }, 600);
+          setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage, runMeta); }, 600);
         }
       }, 800);
     });
   }
 
-  function launchGame(game, stage) {
+  function launchGame(game, stage, runMeta = {}) {
     const api = createGameApi(stage, score => finishGame(score));
-    try { game.play(stage, api); }
+    try { game.play(stage, api, runMeta); }
     catch (err) { console.error('Spiel-Fehler:', err); finishGame(0); }
   }
 
