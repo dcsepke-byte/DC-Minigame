@@ -36,6 +36,10 @@ html, body {
   touch-action: manipulation;
 }
 
+body.party3d-ready {
+  background: transparent;
+}
+
 body { overflow-x: hidden; overflow-y: auto; }
 
 /* Player app should fit the viewport without page scrolling on lobby/board,
@@ -2098,13 +2102,12 @@ body.board-compact .board-center {
 #party-3d-canvas {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
 }
 
 body.party3d-ready #bg-canvas {
-  opacity: 0.18;
-  transition: opacity 0.6s ease;
+  display: none;
 }
 
 body.party3d-ready #app {
