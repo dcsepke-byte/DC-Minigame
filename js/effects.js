@@ -74,13 +74,14 @@ const FX = (() => {
   function setSoundEnabled(on) { soundEnabled = on; if (on) ensureCtx(); }
   function isSoundEnabled() { return soundEnabled; }
 
-  /* ---------------- Animated Particle Background ---------------- */
+  /* ---------------- Animated Particle Background (disabled — 3D replaces it) ---------------- */
   const bgCanvas = document.getElementById('bg-canvas');
-  const bgCtx = bgCanvas.getContext('2d');
+  const bgCtx = bgCanvas ? bgCanvas.getContext('2d') : null;
   let bgParticles = [];
   let W = 0, H = 0;
 
   function resizeBg() {
+    if (!bgCanvas) return;
     W = bgCanvas.width = window.innerWidth;
     H = bgCanvas.height = window.innerHeight;
   }
@@ -89,6 +90,7 @@ const FX = (() => {
 
   const BG_COLORS = ['#ff3cac', '#7b2ff7', '#00f0ff', '#2bffb9', '#ffd34e'];
   function initBgParticles() {
+    if (!bgCanvas) return;
     const count = Math.min(70, Math.floor((W * H) / 26000));
     bgParticles = [];
     for (let i = 0; i < count; i++) {
@@ -106,6 +108,7 @@ const FX = (() => {
   window.addEventListener('resize', initBgParticles);
 
   function drawBg() {
+    if (!bgCtx) return;
     bgCtx.clearRect(0, 0, W, H);
     for (let i = 0; i < bgParticles.length; i++) {
       const p = bgParticles[i];
@@ -117,7 +120,6 @@ const FX = (() => {
       bgCtx.beginPath();
       bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       bgCtx.fill();
-      // connect nearby
       for (let j = i + 1; j < bgParticles.length; j++) {
         const q = bgParticles[j];
         const dx = p.x - q.x, dy = p.y - q.y;
@@ -136,14 +138,14 @@ const FX = (() => {
     bgCtx.globalAlpha = 1;
     requestAnimationFrame(drawBg);
   }
-  drawBg();
+  if (bgCanvas) drawBg();
 
   /* ---------------- Confetti / FX Layer ---------------- */
   const fxCanvas = document.getElementById('fx-canvas');
-  const fxCtx = fxCanvas.getContext('2d');
+  const fxCtx = fxCanvas ? fxCanvas.getContext('2d') : null;
   let confetti = [];
 
-  function resizeFx() { fxCanvas.width = window.innerWidth; fxCanvas.height = window.innerHeight; }
+  function resizeFx() { if (fxCanvas) { fxCanvas.width = window.innerWidth; fxCanvas.height = window.innerHeight; } }
   window.addEventListener('resize', resizeFx);
   resizeFx();
 
@@ -192,9 +194,10 @@ const FX = (() => {
   }
 
   let fxRunning = false;
-  function ensureFxLoop() { if (!fxRunning) { fxRunning = true; requestAnimationFrame(drawFx); } }
+  function ensureFxLoop() { if (!fxRunning && fxCtx) { fxRunning = true; requestAnimationFrame(drawFx); } }
 
   function drawFx() {
+    if (!fxCtx || !fxCanvas) { fxRunning = false; return; }
     fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
     for (let i = confetti.length - 1; i >= 0; i--) {
       const c = confetti[i];

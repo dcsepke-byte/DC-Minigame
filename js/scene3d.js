@@ -491,7 +491,7 @@
 
   function init() {
     if (!THREE) {
-      document.body.classList.add('party3d-fallback');
+      console.error('Three.js not loaded — 3D only mode');
       return;
     }
     try {
@@ -530,7 +530,6 @@
       state.ready = true;
       activeArenaId = 'reaction';
       syncVisibility();
-      document.body.classList.add('party3d-ready');
 
       const observer = new MutationObserver(syncFromScreen);
       document.querySelectorAll('.screen').forEach(screen => observer.observe(screen, { attributes: true, attributeFilter: ['class'] }));
@@ -547,8 +546,7 @@
       }, { passive: true });
       window.requestAnimationFrame(animate);
     } catch (error) {
-      document.body.classList.add('party3d-fallback');
-      console.warn('Party3D konnte nicht initialisiert werden.', error);
+      console.error('Party3D init failed:', error);
     }
   }
 

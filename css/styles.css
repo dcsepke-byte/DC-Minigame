@@ -30,14 +30,10 @@ html, body {
   height: 100%;
   font-family: var(--font-body);
   color: var(--txt);
-  background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0) 70%);
+  background: transparent;
   overflow-x: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
-}
-
-body.party3d-ready {
-  background: transparent;
 }
 
 body { overflow-x: hidden; overflow-y: auto; }
@@ -2097,7 +2093,7 @@ body.board-compact .board-center {
 }
 
 /* ============================================================
-   3D WebGL Stage (Three.js)
+   3D WebGL Stage (Three.js) — 3D only, no 2D fallback
    ============================================================ */
 #party-3d-canvas {
   position: fixed;
@@ -2106,27 +2102,27 @@ body.board-compact .board-center {
   pointer-events: none;
 }
 
-body.party3d-ready #bg-canvas {
+#bg-canvas {
   display: none;
 }
 
-body.party3d-ready #app {
+#app {
   position: relative;
   z-index: 2;
 }
 
-body.party3d-ready .screen {
+.screen {
   background: transparent;
 }
 
-body.party3d-ready .card {
+.card {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   background: rgba(14, 14, 40, 0.55);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
-body.party3d-ready .board-grid {
+.board-grid {
   opacity: 0;
   pointer-events: none;
   height: 0;
@@ -2134,27 +2130,23 @@ body.party3d-ready .board-grid {
   overflow: hidden;
 }
 
-body.party3d-ready .board-layout {
+.board-layout {
   grid-template-columns: 220px 1fr;
 }
 
-body.party3d-ready .board-panel[data-panel="map"] .card-title {
+.board-panel[data-panel="map"] .card-title {
   visibility: hidden;
 }
 
-body.party3d-fallback #party-3d-canvas {
-  display: none;
-}
-
 @media (max-width: 720px) {
-  body.party3d-ready .board-layout {
+  .board-layout {
     grid-template-columns: 1fr;
   }
-  body.party3d-ready .board-nav {
+  .board-nav {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  body.party3d-ready .board-nav-btn {
+  .board-nav-btn {
     flex: 1;
     min-width: 80px;
     font-size: 13px;
