@@ -790,7 +790,7 @@
     const grid = $('#host-board-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    const center = el('div', 'board-center', '<span>MONOPOLY</span><span>ARENA</span>');
+    const center = el('div', 'board-center', '<span>PARTY</span><span>ARENA</span>');
     grid.appendChild(center);
     const posMap = {};
     state.players.forEach(p => {
@@ -799,7 +799,7 @@
       (posMap[pos] = posMap[pos] || []).push({ p, isMoving });
     });
     state.boardTiles.forEach(t => {
-      let cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : '');
+      let cls = 'board-tile' + (t.type === 'event' ? ' chaos' : t.type === 'start' ? ' start' : t.type === 'starshop' ? ' starshop' : t.type === 'itemshop' ? ' itemshop' : t.type === 'lucky' ? ' lucky' : '');
       if (boardAnim.active && t.idx === boardAnim.pos) cls += ' moving-path';
       if (boardAnim.active && t.idx === boardAnim.to) cls += ' moving-dest';
       const tile = el('div', cls);

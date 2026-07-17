@@ -78,13 +78,15 @@ Wichtig:
 - Rundensieger bekommt Stern(e).
 - Gesamtwertung nach Sternen, danach Punkten.
 
-### Monopoly
+### Party Modus (ehemals Monopoly)
 
-- Spieler bewegen Figuren auf einem Board.
+- Spieler bewegen Figuren auf einem 3D-Brett.
 - Felder können gekauft werden.
 - Bei gegnerischem Feld: Miete zahlen oder Duell.
 - Ereignisfelder lösen Spezialeffekte aus.
+- Items (z. B. Goldener Warp) sorgen für Chaos und Taktik.
 - Zwischenphasen können globale Minispielrunden auslösen.
+- Ziel: Die meisten Sterne sammeln und das Spiel mit dem größten Sternen-Stand beenden.
 
 ## Minispiele (Kurzbeschreibung)
 

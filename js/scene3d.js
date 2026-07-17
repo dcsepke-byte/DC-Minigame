@@ -84,6 +84,9 @@
     if (owner && owner.color) return owner.color;
     if (tile && tile.type === 'start') return '#ffd34e';
     if (tile && tile.type === 'event') return '#ff4d6d';
+    if (tile && tile.type === 'starshop') return '#ffd34e';
+    if (tile && tile.type === 'itemshop') return '#2bffb9';
+    if (tile && tile.type === 'lucky') return '#7bff7b';
     if (tile && tile.type === 'bonus') return '#2bffb9';
     return '#00f0ff';
   }
@@ -207,6 +210,28 @@
         orb.position.set(pos.x, 0.95, pos.z);
         orb.userData.orbit = 0.8 + index * 0.05;
         boardGroup.add(orb);
+      }
+      if (tile.type === 'starshop') {
+        const shopStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 1), material('#ffd34e', { emissiveIntensity: 0.85 }));
+        shopStar.position.set(pos.x, 0.92, pos.z);
+        shopStar.userData.spin = 0.6;
+        shopStar.userData.orbit = 0.6 + index * 0.05;
+        boardGroup.add(shopStar);
+      }
+      if (tile.type === 'itemshop') {
+        const gift = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), material('#2bffb9', { emissiveIntensity: 0.7 }));
+        gift.position.set(pos.x, 0.92, pos.z);
+        gift.userData.spin = 0.4;
+        gift.userData.orbit = 0.5 + index * 0.05;
+        boardGroup.add(gift);
+      }
+      if (tile.type === 'lucky') {
+        const clover = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.06, 8, 20), material('#7bff7b', { emissiveIntensity: 0.65 }));
+        clover.position.set(pos.x, 0.92, pos.z);
+        clover.rotation.x = Math.PI / 2;
+        clover.userData.spin = 0.3;
+        clover.userData.orbit = 0.7 + index * 0.05;
+        boardGroup.add(clover);
       }
     });
 

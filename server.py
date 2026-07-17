@@ -36,7 +36,7 @@ BOARD_EVENT_EFFECTS = [
     {"id": "give_lowest", "title": "Lucky Boost", "desc": "+1 Stern fuer den letzten Platz", "rarity": "Gewoehnlich", "weight": 12},
     {"id": "step_back", "title": "Zeitreise", "desc": "Ausloeser geht 5 Felder zurueck", "rarity": "Gewoehnlich", "weight": 10},
     {"id": "step_forward", "title": "Rueckenwind", "desc": "Ausloeser springt 3 Felder vor", "rarity": "Gewoehnlich", "weight": 10},
-    {"id": "rich_tax", "title": "Reichensteuer", "desc": "Fuehrender verliert 1 Stern", "rarity": "Gewoehnlich", "weight": 9},
+    {"id": "rich_tax", "title": "Reichensteuer", "desc": "Fuehrende verliert 1 Stern", "rarity": "Gewoehnlich", "weight": 9},
     {"id": "all_bonus", "title": "Team-Mood", "desc": "Alle erhalten +1 Stern", "rarity": "Gewoehnlich", "weight": 8},
     {"id": "swap_random", "title": "Positionswechsel", "desc": "Zwei zufaellige Spieler tauschen Felder", "rarity": "Selten", "weight": 5},
     {"id": "star_rain", "title": "Sternenregen", "desc": "Ein Spieler bekommt +2 Sterne", "rarity": "Selten", "weight": 4},
@@ -45,6 +45,10 @@ BOARD_EVENT_EFFECTS = [
     {"id": "claim_free_tile", "title": "Blitz-Kauf", "desc": "Zufaelliges freies Feld fuer 1 Stern", "rarity": "Episch", "weight": 3},
     {"id": "bonus_duel", "title": "Power-Duell", "desc": "Ausloeser raubt 1-2 Sterne", "rarity": "Episch", "weight": 3},
     {"id": "trigger_global", "title": "Event-Karte", "desc": "Sofort ein globales Minispiel", "rarity": "Legendaer", "weight": 2},
+    {"id": "double_stars", "title": "Sternen-Explosion", "desc": "Alle Sterne verdoppeln sich (max 10)", "rarity": "Legendaer", "weight": 1},
+    {"id": "freeze_leader", "title": "Eis-Zeit", "desc": "Leader verliert 2 Sterne", "rarity": "Episch", "weight": 2},
+    {"id": "shuffle_items", "title": "Item-Chaos", "desc": "Alle Items werden neu verteilt", "rarity": "Selten", "weight": 3},
+    {"id": "reverse_positions", "title": "Umkehrung", "desc": "Erster und Letzter tauschen Position", "rarity": "Episch", "weight": 2},
 ]
 
 BOARD_TEMPO_PRESETS = {
@@ -505,12 +509,24 @@ class Room:
         game_pool = games[:] if games else [default_game]
         tiles = []
         event_slots = {4, 9, 14, 19}
+        star_shop_slots = {6, 17}
+        item_shop_slots = {3, 12, 21}
+        lucky_slots = {7, 16}
         for i in range(24):
             if i == 0:
                 tiles.append({"idx": i, "type": "start", "name": "START", "icon": "🏁"})
                 continue
             if i in event_slots:
                 tiles.append({"idx": i, "type": "event", "name": "Ereignis", "icon": "🎲"})
+                continue
+            if i in star_shop_slots:
+                tiles.append({"idx": i, "type": "starshop", "name": "Sternen-Shop", "icon": "⭐"})
+                continue
+            if i in item_shop_slots:
+                tiles.append({"idx": i, "type": "itemshop", "name": "Item-Shop", "icon": "🎁"})
+                continue
+            if i in lucky_slots:
+                tiles.append({"idx": i, "type": "lucky", "name": "Glück oder Pech", "icon": "🍀"})
                 continue
             g = game_pool[(i - 1) % len(game_pool)]
             tiles.append({
@@ -743,6 +759,32 @@ class Room:
         elif effect["id"] == "trigger_global":
             trigger_global = True
             txt = "🎮 Event-Karte! Sofort startet ein globales Minispiel für alle."
+        elif effect["id"] == "double_stars":
+            for pid2 in connected:
+                self.players[pid2]["stars"] = min(10, self.players[pid2].get("stars", 0) * 2)
+            txt = "💥 Sternen-Explosion! Alle Sterne verdoppeln sich!"
+        elif effect["id"] == "freeze_leader":
+            leader = max((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
+            lost = min(2, self.players[leader].get("stars", 0))
+            self.players[leader]["stars"] -= lost
+            txt = f"🧊 Eis-Zeit: {self.players[leader]['name']} verliert {lost} Stern(e)."
+        elif effect["id"] == "shuffle_items":
+            all_items = []
+            packs = self.board.setdefault("itemPacks", {})
+            for pid2 in connected:
+                all_items.extend(packs.get(pid2, []))
+                packs[pid2] = []
+            random.shuffle(all_items)
+            for idx, item in enumerate(all_items):
+                target = connected[idx % len(connected)]
+                packs.setdefault(target, []).append(item)
+            txt = "🔄 Item-Chaos: Alle Items werden neu verteilt!"
+        elif effect["id"] == "reverse_positions":
+            if len(connected) >= 2:
+                sorted_players = sorted(connected, key=lambda pid2: self.players[pid2].get("stars", 0))
+                first, last = sorted_players[-1], sorted_players[0]
+                self.players[first]["position"], self.players[last]["position"] = self.players[last].get("position", 0), self.players[first].get("position", 0)
+                txt = f"🔄 Umkehrung: {self.players[first]['name']} und {self.players[last]['name']} tauschen Positionen!"
 
         self.broadcast({"type": "board:chaos", "targetId": trigger_pid, "text": txt})
         self.board_story(txt)
@@ -770,6 +812,46 @@ class Room:
                 self.schedule_board_continue(lambda: self.start_global_board_round(trigger="chaos", resume="end_turn"), delay=next_delay)
             else:
                 self.schedule_board_continue(self.end_board_turn, delay=next_delay)
+            return
+        if tile["type"] == "starshop":
+            b["lastLog"] = f"⭐ {p['name']} betritt den Sternen-Shop."
+            self.board_story(b["lastLog"])
+            self.send_board_update()
+            if p.get("stars", 0) >= 3:
+                p["stars"] -= 3
+                self.board_story(f"⭐ {p['name']} tauscht 3 Sterne gegen einen Bonus-Stern!")
+                p["stars"] += 4
+                self.board["lastLuckyPlayer"] = pid
+            else:
+                self.board_story(f"💸 {p['name']} hat nicht genug Sterne (3 nötig).")
+            self.send_board_update()
+            self.schedule_board_continue(self.end_board_turn, delay=float(b.get("actionDelay", BOARD_ACTION_DELAY)) + 0.8)
+            return
+        if tile["type"] == "itemshop":
+            b["lastLog"] = f"🎁 {p['name']} betritt den Item-Shop."
+            self.board_story(b["lastLog"])
+            self.send_board_update()
+            items_pool = [("golden_warp", "Goldener Warp"), ("shield", "Schutzschild"), ("double_dice", "Doppelwürfel")]
+            chosen = random.choice(items_pool)
+            self.grant_board_item(pid, chosen[0], chosen[1])
+            self.schedule_board_continue(self.end_board_turn, delay=float(b.get("actionDelay", BOARD_ACTION_DELAY)) + 0.8)
+            return
+        if tile["type"] == "lucky":
+            b["lastLog"] = f"🍀 {p['name']} betritt 'Glück oder Pech'!"
+            self.board_story(b["lastLog"])
+            self.send_board_update()
+            roll = random.randint(1, 6)
+            if roll >= 4:
+                gain = random.randint(1, 2)
+                p["stars"] += gain
+                self.board_story(f"🍀 Glück! {p['name']} bekommt +{gain} Stern(e)!")
+                self.board["lastLuckyPlayer"] = pid
+            else:
+                loss = min(p.get("stars", 0), 1)
+                p["stars"] -= loss
+                self.board_story(f"💀 Pech! {p['name']} verliert {loss} Stern(e).")
+            self.send_board_update()
+            self.schedule_board_continue(self.end_board_turn, delay=float(b.get("actionDelay", BOARD_ACTION_DELAY)) + 1.0)
             return
         if tile["type"] != "property":
             self.schedule_board_continue(self.end_board_turn)
