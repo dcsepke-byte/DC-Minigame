@@ -1563,11 +1563,13 @@ async def serve_static(writer, path):
     ctype = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
     with open(file_path, "rb") as f:
         data = f.read()
+    # no-store: Browser darf Datei NICHT cachen — immer frisch laden (verhindert alte 2D-Version)
+    cache_mode = "no-store" if ctype.startswith(("text/", "application/javascript", "application/json")) else "no-cache"
     header = (
         "HTTP/1.1 200 OK\r\n"
         f"Content-Type: {ctype}; charset=utf-8\r\n"
         f"Content-Length: {len(data)}\r\n"
-        "Cache-Control: no-cache\r\n"
+        f"Cache-Control: {cache_mode}\r\n"
         "Connection: close\r\n\r\n"
     ).encode("latin1")
     writer.write(header + data)
