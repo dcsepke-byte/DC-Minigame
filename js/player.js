@@ -309,20 +309,36 @@
     showScreen('board');
     if (m.kind === 'buy') {
       showBoardPrompt(m.message || 'Feld kaufen?', [
-        { label: '⭐ Kaufen (1)', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+        { label: '🪙 Kaufen (3)', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
         { label: 'Weiterziehen', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
-      showTurnNotice('Du bist dran: Feld kaufen oder weiterziehen?', [
-        { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+      showTurnNotice('Du bist dran: Feld kaufen (3 Münzen) oder weiterziehen?', [
+        { label: '🪙 Kaufen (3)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
+    } else if (m.kind === 'itemBuy') {
+      // Item-Shop: jedes angebotene Item als Button
+      const offers = (m && m.offers) || [];
+      const actions = offers.map(it => ({
+        label: `${it.icon} ${it.label} (${it.price}🪙)`,
+        action: () => Net.send({ type: 'board:decision', action: it.id }),
+      }));
+      actions.push({ label: 'Nicht kaufen', action: () => Net.send({ type: 'board:decision', action: 'skip' }) });
+      const noticeActions = offers.map(it => ({
+        label: `${it.icon} ${it.label} (${it.price}🪙)`,
+        kind: 'primary',
+        action: () => Net.send({ type: 'board:decision', action: it.id }),
+      }));
+      noticeActions.push({ label: 'Nicht kaufen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) });
+      showBoardPrompt(m.message || 'Item-Shop: Wähle ein Item.', actions);
+      showTurnNotice('Item-Shop: Wähle ein Item oder gehe.', noticeActions);
     } else if (m.kind === 'rentOrDuel') {
       const actions = [
-        { label: '⭐ Zahlen (1)', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '🪙 Zahlen (2)', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
       ];
       const noticeActions = [
-        { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '🪙 Zahlen (2)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
       ];
       const myItems = board.itemPacks[me.id] || [];
@@ -437,7 +453,7 @@
     const r = idx >= 0 ? m.ranking[idx] : null;
     $('#p-standings-sub').textContent = `Nach Runde ${m.round} von ${m.total}`;
     $('#p-standings-place').textContent = `#${idx + 1}`;
-    $('#p-standings-stars').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne` : '';
+    $('#p-standings-stars').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne · 🪙 ${r.coins || 0} Münzen` : '';
     showScreen('standings');
     FX.Sound.whoosh();
   });
@@ -456,7 +472,7 @@
       setTimeout(() => FX.celebrate(), 900);
     } else {
       $('#p-final-title').textContent = '🎉 Vorbei!';
-      $('#p-final-banner').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne` : '';
+      $('#p-final-banner').textContent = r ? `${'⭐'.repeat(r.stars) || '0'} Sterne · 🪙 ${r.coins || 0} Münzen` : '';
       FX.Sound.whoosh();
     }
     showScreen('final');
@@ -762,10 +778,10 @@
     const elStats = $('#board-me-stats');
     if (!elStats) return;
     if (!mine) {
-      elStats.textContent = '⭐ 0 · 🧮 0 Punkte';
+      elStats.textContent = '⭐ 0 · 🪙 0 · 🧮 0 Punkte';
       return;
     }
-    elStats.textContent = `⭐ ${mine.stars || 0} · 🧮 ${mine.totalPoints || 0} Punkte`;
+    elStats.textContent = `⭐ ${mine.stars || 0} · 🪙 ${mine.coins || 0} · 🧮 ${mine.totalPoints || 0} Punkte`;
   }
 
   function renderBoardRanking() {
@@ -779,7 +795,7 @@
         <span class="rank-pos">${i + 1}</span>
         <span class="rank-avatar" style="background:${p.color}">${p.figure || '🙂'}</span>
         <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
-        <span class="rank-stars">⭐ ${p.stars || 0}</span>`;
+        <span class="rank-stars">⭐ ${p.stars || 0} · 🪙${p.coins || 0}</span>`;
       rank.appendChild(row);
     });
   }
@@ -797,7 +813,7 @@
     row.innerHTML = `
       <span class="rank-avatar" style="background:${meRow.color}">${meRow.figure || '🙂'}</span>
       <span class="rank-name">${escapeHtml(meRow.name)} · Feld ${meRow.position ?? 0}</span>
-      <span class="rank-stars">⭐ ${meRow.stars || 0} · 🧮 ${meRow.totalPoints || 0}</span>`;
+      <span class="rank-stars">⭐ ${meRow.stars || 0} · 🪙 ${meRow.coins || 0} · 🧮 ${meRow.totalPoints || 0}</span>`;
     card.appendChild(row);
   }
 

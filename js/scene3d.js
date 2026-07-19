@@ -82,17 +82,19 @@
     { name: 'Eventberg',  color: '#7b2ff7', accent: '#ff3cac' },
   ];
 
-  function tilePosition(index, total = 24) {
+  function tilePosition(index, total = 40) {
     /* Geschwungener Pfad: Kombination aus Sinus-Kurven und Radius-Variation
-       erzeugt eine organische Landkarten-Schleife mit 4 Regionen. */
+       erzeugt eine organische Landkarten-Schleife mit 4 Regionen.
+       Skaliert automatisch mit total — für 40 Felder etwas weitere Schleife. */
     const t = index / Math.max(1, total);
     const angle = t * Math.PI * 2 - Math.PI / 2;
-    /* Radius variiert — erzeugt "Beulen" die den Pfad interessanter machen */
-    const radiusBase = 6.2;
-    const radiusVar = Math.sin(t * Math.PI * 4) * 1.2 + Math.cos(t * Math.PI * 6) * 0.5;
+    /* Radius variiert — erzeugt "Beulen" die den Pfad interessanter machen.
+       Für mehr Felder: Radius etwas größer, damit Felder nicht überlappen. */
+    const radiusBase = total > 30 ? 7.6 : 6.2;
+    const radiusVar = Math.sin(t * Math.PI * 4) * 1.4 + Math.cos(t * Math.PI * 6) * 0.6;
     const r = radiusBase + radiusVar;
     /* Höhe variiert leicht — erzeugt Hügel im Pfad */
-    const y = Math.sin(t * Math.PI * 3) * 0.3 + Math.cos(t * Math.PI * 5) * 0.15;
+    const y = Math.sin(t * Math.PI * 3) * 0.35 + Math.cos(t * Math.PI * 5) * 0.18;
     return {
       x: Math.cos(angle) * r,
       z: Math.sin(angle) * (r * 0.72),

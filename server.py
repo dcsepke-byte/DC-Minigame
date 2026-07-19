@@ -32,6 +32,27 @@ WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 PALETTE = ["#ff3cac", "#00f0ff", "#2bffb9", "#ffd34e", "#7b2ff7", "#ff6a00", "#3a86ff", "#ff4d6d"]
 BOARD_FIGURES = ["🚀", "🐱", "🦊", "🐸", "🐼", "🦄", "🤖", "🐙"]
 
+# Münzwirtschaft — Sterne sind Siegpunkte, Münzen sind Währung für Items/Felder.
+STAR_PRICE = 20          # Münzen pro Stern im Sternen-Shop
+COIN_START = 10          # Startmünzen pro Spieler
+COIN_BONUS_TILE = 3      # Münzen beim Landen auf einem Bonus-Feld
+COIN_PROPERTY_PASS = 1   # Münzen beim Überqueren eines eigenen Feldes
+START_COINS = 5          # Münzen-Bonus beim Überqueren des Startfeldes
+
+# Item-Katalog mit Preisen (Münzen) und Effekt-IDs.
+# Wirkung wird in resolve_board_tile / board_decision / apply_chaos ausgewertet.
+ITEM_CATALOG = [
+    {"id": "golden_warp",  "label": "Goldener Warp",  "price": 5,  "icon": "✨", "desc": "+4 Felder sofort vorwärts"},
+    {"id": "shield",       "label": "Schutzschild",   "price": 4,  "icon": "🛡️", "desc": "Blockiert nächsten Sternverlust"},
+    {"id": "double_dice",  "label": "Doppelwürfel",   "price": 6,  "icon": "🎲", "desc": "Nächster Wurf: 2× Würfel"},
+    {"id": "mushroom",     "label": "Pilz",           "price": 5,  "icon": "🍄", "desc": "+3 Felder beim nächsten Zug"},
+    {"id": "shell",        "label": "Panzer",         "price": 6,  "icon": "🐢", "desc": "Wirft einen Gegner 3 Felder zurück"},
+    {"id": "star_power",   "label": "Sternenkraft",   "price": 8,  "icon": "🌟", "desc": "1 Runde unbesiegbar (kein Sternverlust)"},
+    {"id": "ghost",        "label": "Geist",           "price": 7,  "icon": "👻", "desc": "Stiehlt 1 Item von einem Gegner"},
+    {"id": "lightning",    "label": "Blitz",          "price": 9,  "icon": "⚡", "desc": "Alle Gegner 1 Feld zurück"},
+]
+ITEM_BY_ID = {it["id"]: it for it in ITEM_CATALOG}
+
 BOARD_EVENT_EFFECTS = [
     {"id": "give_lowest", "title": "Lucky Boost", "desc": "+1 Stern fuer den letzten Platz", "rarity": "Gewoehnlich", "weight": 12},
     {"id": "step_back", "title": "Zeitreise", "desc": "Ausloeser geht 5 Felder zurueck", "rarity": "Gewoehnlich", "weight": 10},
@@ -279,6 +300,7 @@ class Room:
                     "name": self.host_name,
                     "color": "#ffd34e",
                     "stars": 0,
+                    "coins": 0,
                     "totalPoints": 0,
                     "position": 0,
                     "figure": self.host_figure,
@@ -317,7 +339,8 @@ class Room:
                 continue
             out.append({
                 "id": pid, "name": p["name"], "color": p["color"],
-                "stars": p["stars"], "totalPoints": p["totalPoints"],
+                "stars": p["stars"], "coins": p.get("coins", 0),
+                "totalPoints": p["totalPoints"],
                 "figure": p.get("figure", "🙂"),
                 "position": p.get("position", 0),
                 "connected": p["connected"],
@@ -430,7 +453,7 @@ class Room:
         color = PALETTE[len(self.order) % len(PALETTE)]
         figure = (figure or "").strip()[:2] or BOARD_FIGURES[len(self.order) % len(BOARD_FIGURES)]
         self.players[new_pid] = {
-            "name": name, "color": color, "stars": 0, "totalPoints": 0,
+            "name": name, "color": color, "stars": 0, "coins": 0, "totalPoints": 0,
             "position": 0, "figure": figure,
             "reconnectToken": uuid.uuid4().hex,
             "client": client, "connected": True,
@@ -508,11 +531,13 @@ class Room:
         default_game = {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         game_pool = games[:] if games else [default_game]
         tiles = []
-        event_slots = {4, 9, 14, 19}
-        star_shop_slots = {6, 17}
-        item_shop_slots = {3, 12, 21}
-        lucky_slots = {7, 16}
-        for i in range(24):
+        # 40-Felder-Board: mehr Platz, mehrere Shops, Bonus-Felder für Münzen
+        event_slots     = {4, 9, 14, 19, 24, 30, 35}
+        star_shop_slots = {6, 17, 28, 37}
+        item_shop_slots = {3, 12, 21, 33}
+        lucky_slots     = {7, 16, 26, 38}
+        bonus_slots     = {5, 11, 22, 31, 36}
+        for i in range(40):
             if i == 0:
                 tiles.append({"idx": i, "type": "start", "name": "START", "icon": "🏁"})
                 continue
@@ -527,6 +552,9 @@ class Room:
                 continue
             if i in lucky_slots:
                 tiles.append({"idx": i, "type": "lucky", "name": "Glück oder Pech", "icon": "🍀"})
+                continue
+            if i in bonus_slots:
+                tiles.append({"idx": i, "type": "bonus", "name": "Münz-Bonus", "icon": "🪙"})
                 continue
             g = game_pool[(i - 1) % len(game_pool)]
             tiles.append({
@@ -562,11 +590,11 @@ class Room:
             "lastLuckyPlayer": b.get("lastLuckyPlayer"),
         }
 
-    def grant_board_item(self, pid, item_id, label):
+    def grant_board_item(self, pid, item_id, label, price=0):
         if not self.board or pid not in self.players:
             return
         packs = self.board.setdefault("itemPacks", {})
-        packs.setdefault(pid, []).append({"id": item_id, "label": label})
+        packs.setdefault(pid, []).append({"id": item_id, "label": label, "price": price})
         self.board_story(f"🎁 {self.players[pid]['name']} erhält Item: {label}.")
         self.send_board_update()
 
@@ -579,7 +607,34 @@ class Room:
         if idx is None:
             return {"ok": False, "reason": "missing"}
         item = items.pop(idx)
-        self.board_story(f"✨ {self.players[pid]['name']} benutzt {item.get('label', item_id)}.")
+        p = self.players[pid]
+        tiles_len = len(self.board["tiles"])
+        # Effekte je Item-Typ
+        if item_id == "golden_warp":
+            p["position"] = (p.get("position", 0) + 4) % tiles_len
+        elif item_id == "mushroom":
+            p["position"] = (p.get("position", 0) + 3) % tiles_len
+        elif item_id == "shell":
+            # Wirft den führenden Gegner 3 Felder zurück
+            opp = max((o for o in self.order if o != pid), key=lambda o: self.players[o].get("position", 0), default=None)
+            if opp:
+                self.players[opp]["position"] = max(0, self.players[opp].get("position", 0) - 3)
+                self.board_story(f"🐢 Panzer trifft {self.players[opp]['name']} — 3 Felder zurück!")
+        elif item_id == "lightning":
+            # Alle Gegner 1 Feld zurück
+            for o in self.order:
+                if o != pid:
+                    self.players[o]["position"] = max(0, self.players[o].get("position", 0) - 1)
+            self.board_story(f"⚡ Blitz trifft alle Gegner — 1 Feld zurück!")
+        elif item_id == "ghost":
+            # Stiehlt 1 Item von einem Gegner
+            opp = next((o for o in self.order if o != pid and packs.get(o)), None)
+            if opp and packs.get(opp):
+                stolen = packs[opp].pop(random.randint(0, len(packs[opp]) - 1))
+                packs.setdefault(pid, []).append(stolen)
+                self.board_story(f"👻 Geist stiehlt {stolen.get('label', 'Item')} von {self.players[opp]['name']}!")
+        # shield, double_dice, star_power: nur Inventar entfernen, Effekt in resolve-Phase sichtbar
+        self.board_story(f"✨ {p['name']} benutzt {item.get('label', item_id)}.")
         return {"ok": True, "item": item}
 
     def prepare_game_instance(self, game):
@@ -598,6 +653,7 @@ class Room:
         for pid in self.order:
             p = self.players[pid]
             p["stars"] = 3
+            p["coins"] = COIN_START
             p["totalPoints"] = 0
             p["position"] = 0
         self.board = {
@@ -814,26 +870,60 @@ class Room:
                 self.schedule_board_continue(self.end_board_turn, delay=next_delay)
             return
         if tile["type"] == "starshop":
+            # Sternen-Shop: kaufbar mit Münzen (nicht Sternen!)
             b["lastLog"] = f"⭐ {p['name']} betritt den Sternen-Shop."
             self.board_story(b["lastLog"])
             self.send_board_update()
-            if p.get("stars", 0) >= 3:
-                p["stars"] -= 3
-                self.board_story(f"⭐ {p['name']} tauscht 3 Sterne gegen einen Bonus-Stern!")
-                p["stars"] += 4
+            if p.get("coins", 0) >= STAR_PRICE:
+                p["coins"] -= STAR_PRICE
+                p["stars"] += 1
+                self.board_story(f"⭐ {p['name']} kauft 1 Stern für {STAR_PRICE} Münzen!")
                 self.board["lastLuckyPlayer"] = pid
             else:
-                self.board_story(f"💸 {p['name']} hat nicht genug Sterne (3 nötig).")
+                self.board_story(f"💸 {p['name']} hat zu wenige Münzen ({STAR_PRICE} nötig, hat {p.get('coins', 0)}).")
             self.send_board_update()
             self.schedule_board_continue(self.end_board_turn, delay=float(b.get("actionDelay", BOARD_ACTION_DELAY)) + 0.8)
             return
         if tile["type"] == "itemshop":
+            # Item-Shop: Spieler wählt ein Item aus dem Katalog (per Decision-Phase).
             b["lastLog"] = f"🎁 {p['name']} betritt den Item-Shop."
             self.board_story(b["lastLog"])
             self.send_board_update()
-            items_pool = [("golden_warp", "Goldener Warp"), ("shield", "Schutzschild"), ("double_dice", "Doppelwürfel")]
-            chosen = random.choice(items_pool)
-            self.grant_board_item(pid, chosen[0], chosen[1])
+            # Biete die 3 günstigsten Items an, die sich der Spieler leisten kann.
+            affordable = [it for it in ITEM_CATALOG if p.get("coins", 0) >= it["price"]][:3]
+            if not affordable:
+                self.board_story(f"💸 {p['name']} hat zu wenig Münzen für Items ({p.get('coins', 0)}).")
+                self.schedule_board_continue(self.end_board_turn, delay=float(b.get("actionDelay", BOARD_ACTION_DELAY)) + 0.8)
+                return
+            b["phase"] = "decision"
+            b["pending"] = {"kind": "itemBuy", "player": pid, "tile": tile["idx"], "offers": [it["id"] for it in affordable]}
+            if p.get("client"):
+                p["client"].send({
+                    "type": "board:decision",
+                    "kind": "itemBuy",
+                    "tile": tile,
+                    "offers": affordable,
+                    "message": f"Item-Shop: Wähle ein Item (Münzen: {p.get('coins', 0)}).",
+                })
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({
+                    "type": "board:decision",
+                    "kind": "itemBuy",
+                    "tile": tile,
+                    "offers": affordable,
+                    "message": f"Item-Shop: Wähle ein Item (Münzen: {p.get('coins', 0)}).",
+                })
+            self.send_board_update()
+            return
+        if tile["type"] == "bonus":
+            # Münz-Bonus-Feld: sammelt Währung für Sternen-/Item-Käufe.
+            b["lastLog"] = f"🪙 {p['name']} landet auf dem Münz-Bonus-Feld."
+            self.board_story(b["lastLog"])
+            self.send_board_update()
+            gain = COIN_BONUS_TILE
+            p["coins"] = p.get("coins", 0) + gain
+            self.board_story(f"🪙 {p['name']} bekommt +{gain} Münzen!")
+            self.send_board_update()
             self.schedule_board_continue(self.end_board_turn, delay=float(b.get("actionDelay", BOARD_ACTION_DELAY)) + 0.8)
             return
         if tile["type"] == "lucky":
@@ -924,10 +1014,12 @@ class Room:
         player = self.players[pid]
 
         if kind == "buy":
-            if action == "buy" and player["stars"] >= 1:
-                player["stars"] -= 1
+            # Feldkauf kostet Münzen (nicht Sterne) — typische Mario-Party-Wirtschaft.
+            field_price = 3
+            if action == "buy" and player.get("coins", 0) >= field_price:
+                player["coins"] -= field_price
                 self.board["owners"][tile_idx] = pid
-                self.board["lastLog"] = f"{player['name']} kauft Feld {int(tile_idx)}."
+                self.board["lastLog"] = f"{player['name']} kauft Feld {int(tile_idx)} für {field_price} Münzen."
                 self.board_story(self.board["lastLog"])
             else:
                 self.board["lastLog"] = f"{player['name']} kauft nicht."
@@ -959,16 +1051,34 @@ class Room:
                     self.send_board_update()
                     self.schedule_board_continue(self.end_board_turn)
                     return
-            # default: rent
-            if player["stars"] >= 1:
-                player["stars"] -= 1
-                owner_p["stars"] += 1
-                self.board["lastLog"] = f"{player['name']} zahlt 1 Stern an {owner_p['name']}."
+            # default: rent (mit Münzen statt Sternen — wirtschaftlicher)
+            rent = min(player.get("coins", 0), 2)
+            if rent > 0:
+                player["coins"] -= rent
+                owner_p["coins"] = owner_p.get("coins", 0) + rent
+                self.board["lastLog"] = f"{player['name']} zahlt {rent} Münze(n) an {owner_p['name']}."
                 self.board_story(self.board["lastLog"])
             else:
-                self.board["lastLog"] = f"{player['name']} hat keine Sterne zum Zahlen."
+                self.board["lastLog"] = f"{player['name']} hat keine Münzen zum Zahlen."
                 self.board_story(self.board["lastLog"])
             self.board["pending"] = None
+            self.send_board_update()
+            self.schedule_board_continue(self.end_board_turn)
+
+        if kind == "itemBuy":
+            # action ist die Item-ID, die der Spieler kaufen will.
+            offers = pending.get("offers") or []
+            self.board["pending"] = None
+            if action in offers:
+                item = ITEM_BY_ID.get(action)
+                if item and player.get("coins", 0) >= item["price"]:
+                    player["coins"] -= item["price"]
+                    self.grant_board_item(pid, item["id"], item["label"], price=item["price"])
+                    self.board_story(f"🛒 {player['name']} kauft {item['label']} für {item['price']} Münzen.")
+                else:
+                    self.board_story(f"💸 {player['name']} kann sich das Item nicht leisten.")
+            else:
+                self.board_story(f"🚪 {player['name']} verlässt den Item-Shop ohne Kauf.")
             self.send_board_update()
             self.schedule_board_continue(self.end_board_turn)
 

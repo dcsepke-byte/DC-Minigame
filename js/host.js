@@ -412,16 +412,27 @@
     setBoardLogText(state.boardLog);
     if (state.hostPendingKind === 'buy') {
       showHostBoardPrompt(state.boardLog, [
-        { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+        { label: '🪙 Kaufen (3)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
-      showTurnNotice('Du bist dran: Feld kaufen oder weiterziehen?', [
-        { label: '⭐ Kaufen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
+      showTurnNotice('Du bist dran: Feld kaufen (3 Münzen) oder weiterziehen?', [
+        { label: '🪙 Kaufen (3)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'buy' }) },
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
+    } else if (state.hostPendingKind === 'itemBuy') {
+      // Item-Shop: jedes angebotene Item als Button
+      const offers = (m && m.offers) || [];
+      const actions = offers.map(it => ({
+        label: `${it.icon} ${it.label} (${it.price}🪙)`,
+        kind: 'primary',
+        action: () => Net.send({ type: 'board:decision', action: it.id }),
+      }));
+      actions.push({ label: 'Nicht kaufen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) });
+      showHostBoardPrompt(state.boardLog, actions);
+      showTurnNotice('Item-Shop: Wähle ein Item oder gehe.', actions);
     } else {
       const actions = [
-        { label: '⭐ Zahlen (1)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
+        { label: '🪙 Zahlen (2)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
         { label: '⚔️ Duell', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'duel' }) },
       ];
       const hostItems = state.itemPacks[HOST_PID] || [];
@@ -526,7 +537,7 @@
         <span class="rank-pos">${pos + 1}</span>
         <span class="rank-avatar" style="background:${r.color}">${initials(r.name)}</span>
         <span class="rank-name">${escapeHtml(r.name)}</span>
-        <span class="rank-stars">${'⭐'.repeat(r.stars) || '–'}</span>
+        <span class="rank-stars">${'⭐'.repeat(r.stars) || '–'} · 🪙${r.coins || 0}</span>
         <span class="rank-score">${r.stars}</span>`;
       rankEl.appendChild(row);
     });
@@ -625,7 +636,7 @@
         ${pos === 0 ? '<div class="podium-crown">👑</div>' : ''}
         <div class="podium-avatar" style="background:${r.color}">${initials(r.name)}</div>
         <div class="podium-name">${escapeHtml(r.name)}</div>
-        <div class="podium-stars">${'⭐'.repeat(r.stars) || '–'}</div>
+        <div class="podium-stars">${'⭐'.repeat(r.stars) || '–'} · 🪙${r.coins || 0}</div>
         <div class="podium-block ${medals[pos]}" style="animation-delay:${pos * 0.2}s">${pos === 0 ? '🏆' : (pos + 1)}</div>`;
       podium.appendChild(col);
     });
@@ -639,7 +650,7 @@
           <span class="rank-pos">${idx + 4}</span>
           <span class="rank-avatar" style="background:${r.color}">${initials(r.name)}</span>
           <span class="rank-name">${escapeHtml(r.name)}</span>
-          <span class="rank-stars">${'⭐'.repeat(r.stars) || '–'}</span>`;
+          <span class="rank-stars">${'⭐'.repeat(r.stars) || '–'} · 🪙${r.coins || 0}</span>`;
         rest.appendChild(row);
       });
       podium.after(rest);
@@ -1000,7 +1011,7 @@
         <span class="rank-pos">${i + 1}</span>
         <span class="rank-avatar" style="background:${p.color}">${p.figure || initials(p.name)}</span>
         <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
-        <span class="rank-stars">${'⭐'.repeat(p.stars || 0) || '0'}</span>`;
+        <span class="rank-stars">${'⭐'.repeat(p.stars || 0) || '0'} · 🪙${p.coins || 0}</span>`;
       rank.appendChild(row);
     });
   }
@@ -1018,7 +1029,7 @@
     row.innerHTML = `
       <span class="rank-avatar" style="background:${me.color}">${me.figure || '🎩'}</span>
       <span class="rank-name">${escapeHtml(me.name)} · Feld ${me.position ?? 0}</span>
-      <span class="rank-stars">⭐ ${me.stars || 0} · 🧮 ${me.totalPoints || 0}</span>`;
+      <span class="rank-stars">⭐ ${me.stars || 0} · 🪙 ${me.coins || 0} · 🧮 ${me.totalPoints || 0}</span>`;
     list.appendChild(row);
   }
 
@@ -1030,11 +1041,11 @@
     if (me) {
       if (avatar) { avatar.textContent = me.figure || '🎩'; avatar.style.background = me.color || '#ffd34e'; }
       if (name) name.textContent = me.name || 'Host';
-      if (stats) stats.textContent = `⭐ ${me.stars || 0} · 🧮 ${me.totalPoints || 0} Punkte`;
+      if (stats) stats.textContent = `⭐ ${me.stars || 0} · 🪙 ${me.coins || 0} · 🧮 ${me.totalPoints || 0} Punkte`;
     } else {
       if (avatar) { avatar.textContent = '🎩'; avatar.style.background = '#ffd34e'; }
       if (name) name.textContent = state.hostProfile.name || 'Host';
-      if (stats) stats.textContent = '⭐ 0 · 🧮 0 Punkte';
+      if (stats) stats.textContent = '⭐ 0 · 🪙 0 · 🧮 0 Punkte';
     }
   }
 

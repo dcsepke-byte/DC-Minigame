@@ -1,5 +1,5 @@
-const CACHE_VERSION = 'party-arena-v2';
-const RUNTIME_CACHE = 'party-arena-runtime-v2';
+CACHE_VERSION = 'party-arena-v3'
+RUNTIME_CACHE = 'party-arena-runtime-v3'
 
 const APP_SHELL = [
   '/',
