@@ -351,6 +351,10 @@
     if (!m) return;
     showDiceRoll(m.roll, m.playerId, state.players);
     animateBoardMove(m.playerId, m.from, m.to);
+    if (window.Party3D && Party3D.animatePawnMove) {
+      const total = (state.boardTiles && state.boardTiles.length) || 40;
+      Party3D.animatePawnMove(m.playerId, m.from, m.to, total);
+    }
   });
 
   Net.on('board:announce', m => {

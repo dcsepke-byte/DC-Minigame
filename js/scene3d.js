@@ -39,6 +39,9 @@ let showcaseGroup = null;
 let particles = null;
 let pointer = { x: 0, y: 0 };
 let activeArenaId = '';
+/* Pawn-Hop-Animation — Meshes und Anim-State werden über rebuilds hinweg behalten */
+let pawnMeshes = {};   /* playerId -> THREE.Group */
+let pawnAnim = {};     /* playerId -> {active, from, to, currentStep, nextStep, progress, ...} */
 
 function noop() {}
 
@@ -85,10 +88,10 @@ function clearGroup(group) {
    und Höhenvariation — wie eine Mario-Party-Landkarte.
    Der Pfad verläuft in einer organischen Schleife durch 4 Regionen. */
 const MAP_REGIONS = [
-  { name: 'Startdorf',  color: '#ffd34e', accent: '#ff6a00' },
-  { name: 'Sternwüste', color: '#ff8c42', accent: '#ffd34e' },
-  { name: 'Itemwald',   color: '#2bffb9', accent: '#00f0ff' },
-  { name: 'Eventberg',  color: '#7b2ff7', accent: '#ff3cac' },
+  { name: 'Startdorf',  color: '#ffd34e', accent: '#ff6a00', biome: 'village' },
+  { name: 'Sternwüste', color: '#ff8c42', accent: '#ffd34e', biome: 'desert'  },
+  { name: 'Itemwald',   color: '#2bffb9', accent: '#00f0ff', biome: 'forest'  },
+  { name: 'Eventberg',  color: '#7b2ff7', accent: '#ff3cac', biome: 'mountain' },
 ];
 
 function tilePosition(index, total = 40) {
@@ -237,6 +240,267 @@ function makeLabelSprite(text, hex, fontSize) {
   return new THREE.Sprite(mat);
 }
 
+/* Seeded Pseudo-Zufall — deterministic Layout über rebuilds hinweg */
+function mulberry32(seed) {
+  let a = seed | 0;
+  return function() {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* Biom-spezifische Dekoration — gibt Array von THREE.Object3D zurück.
+   center = {x, z} = Regionsmittelpunkt, rng = mulberry32-seeded RNG.
+   Deko wird in einem Radius um center gestreut, avoidPath schneidet nahe Felder aus. */
+function biomeDecor(biome, center, rng) {
+  const out = [];
+  const cx = center.x, cz = center.z;
+  /* Helfer: gestreute Position innerhalb des Regionsradius, nicht auf dem Pfad */
+  function scatter(minR, maxR) {
+    const a = rng() * Math.PI * 2;
+    const r = minR + rng() * (maxR - minR);
+    return { x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r * 0.85 };
+  }
+
+  if (biome === 'village') {
+    /* Startdorf: kleine Häuser mit Satteldach + ein Dorfbrunnen + Laternen */
+    for (let i = 0; i < 4; i++) {
+      const p = scatter(0.4, 2.2);
+      const house = new THREE.Group();
+      const walls = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.5, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xe8d4a0, roughness: 0.85 })
+      );
+      walls.position.y = 0.25;
+      walls.castShadow = true;
+      walls.receiveShadow = true;
+      house.add(walls);
+      /* Satteldach — Pyramide */
+      const roof = new THREE.Mesh(
+        new THREE.ConeGeometry(0.45, 0.35, 4),
+        new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.8 })
+      );
+      roof.position.y = 0.65;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = true;
+      house.add(roof);
+      /* Kleine Tür */
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14, 0.24, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 0.7 })
+      );
+      door.position.set(0, 0.12, 0.26);
+      house.add(door);
+      /* Fenster-Glow */
+      const win = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0xffd34e, emissive: 0xffd34e, emissiveIntensity: 0.5 })
+      );
+      win.position.set(-0.18, 0.3, 0.26);
+      house.add(win);
+      house.position.set(p.x, 0.3, p.z);
+      house.rotation.y = rng() * Math.PI * 2;
+      out.push(house);
+    }
+    /* Dorfbrunnen in der Mitte */
+    const wellBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.34, 0.35, 12),
+      new THREE.MeshStandardMaterial({ color: 0x9a8a78, roughness: 0.9 })
+    );
+    wellBase.position.set(cx, 0.48, cz);
+    wellBase.castShadow = true;
+    out.push(wellBase);
+    const wellWater = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.24, 0.04, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2a4a8a, emissive: 0x1a3a6a, emissiveIntensity: 0.3, roughness: 0.2, metalness: 0.6 })
+    );
+    wellWater.position.set(cx, 0.66, cz);
+    out.push(wellWater);
+    /* Pfosten + Dach des Brunnens */
+    for (let i = 0; i < 2; i++) {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, 0.55, 6),
+        new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.85 })
+      );
+      post.position.set(cx + (i ? 0.22 : -0.22), 0.95, cz);
+      post.castShadow = true;
+      out.push(post);
+    }
+    const wellRoof = new THREE.Mesh(
+      new THREE.ConeGeometry(0.4, 0.22, 4),
+      new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.8 })
+    );
+    wellRoof.position.set(cx, 1.3, cz);
+    wellRoof.rotation.y = Math.PI / 4;
+    wellRoof.castShadow = true;
+    out.push(wellRoof);
+  }
+
+  else if (biome === 'desert') {
+    /* Sternwüste: Dünen (flache Kuppen), Kakteen, Pyramide, vertrocknete Büsche */
+    for (let i = 0; i < 5; i++) {
+      const p = scatter(0.5, 2.4);
+      /* Düne — flache Halbkugel in Sandfarbe */
+      const dune = new THREE.Mesh(
+        new THREE.SphereGeometry(0.45 + rng() * 0.25, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0xd9a85a, roughness: 0.95 })
+      );
+      dune.scale.set(1.4, 0.5, 1.1);
+      dune.position.set(p.x, 0.3, p.z);
+      dune.receiveShadow = true;
+      out.push(dune);
+    }
+    /* Kakteen — zylindrische Säulen mit Armen */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.6, 2.0);
+      const cactus = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.12, 0.7 + rng() * 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3a7a3a, roughness: 0.85, emissive: 0x1a3a1a, emissiveIntensity: 0.1 })
+      );
+      trunk.position.y = 0.35;
+      trunk.castShadow = true;
+      cactus.add(trunk);
+      /* 1-2 Arme */
+      const arms = 1 + Math.floor(rng() * 2);
+      for (let j = 0; j < arms; j++) {
+        const arm = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.06, 0.07, 0.3, 6),
+          trunk.material
+        );
+        arm.position.set((j ? 0.15 : -0.15), 0.45, 0);
+        arm.rotation.z = (j ? -0.5 : 0.5);
+        arm.castShadow = true;
+        cactus.add(arm);
+      }
+      cactus.position.set(p.x, 0.32, p.z);
+      out.push(cactus);
+    }
+    /* Pyramide als Landmarke */
+    const pyramid = new THREE.Mesh(
+      new THREE.ConeGeometry(0.55, 0.8, 4),
+      new THREE.MeshStandardMaterial({ color: 0xc89b5a, roughness: 0.9, emissive: 0x8a6a3a, emissiveIntensity: 0.1 })
+    );
+    pyramid.position.set(cx, 0.7, cz);
+    pyramid.rotation.y = Math.PI / 4;
+    pyramid.castShadow = true;
+    out.push(pyramid);
+  }
+
+  else if (biome === 'forest') {
+    /* Itemwald: Bäume (Stamm + Krone), Pilze, Baumstümpfe, Farnbüschel */
+    for (let i = 0; i < 6; i++) {
+      const p = scatter(0.5, 2.4);
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.11, 0.55, 8),
+        new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 0.9 })
+      );
+      trunk.position.y = 0.3;
+      trunk.castShadow = true;
+      tree.add(trunk);
+      /* Baumkrone — 2-3 Kugeln gestapelt für organische Form */
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0x2a6a3a, roughness: 0.85, emissive: 0x1a3a2a, emissiveIntensity: 0.12 });
+      const crowns = 2 + Math.floor(rng() * 2);
+      for (let j = 0; j < crowns; j++) {
+        const crown = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(0.28 + rng() * 0.1, 1),
+          crownMat
+        );
+        crown.position.set((rng() - 0.5) * 0.2, 0.65 + j * 0.18, (rng() - 0.5) * 0.2);
+        crown.castShadow = true;
+        tree.add(crown);
+      }
+      tree.position.set(p.x, 0.32, p.z);
+      tree.rotation.y = rng() * Math.PI * 2;
+      out.push(tree);
+    }
+    /* Pilze — rote Hüte mit weißen Punkten (Mario-Party-Vibe) */
+    for (let i = 0; i < 4; i++) {
+      const p = scatter(0.4, 2.0);
+      const mushroom = new THREE.Group();
+      const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.06, 0.18, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf0e0c0, roughness: 0.8 })
+      );
+      stem.position.y = 0.09;
+      mushroom.add(stem);
+      const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0xe84a3a, roughness: 0.6, emissive: 0x8a2a1a, emissiveIntensity: 0.2 })
+      );
+      cap.position.y = 0.18;
+      cap.castShadow = true;
+      mushroom.add(cap);
+      /* Weißer Punkt auf dem Hut */
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.03, 6, 4),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
+      );
+      dot.position.set(0.05, 0.22, 0.04);
+      mushroom.add(dot);
+      mushroom.position.set(p.x, 0.32, p.z);
+      out.push(mushroom);
+    }
+    /* Baumstumpf */
+    const stumpPos = scatter(0.6, 1.8);
+    const stump = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.18, 0.18, 10),
+      new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.95 })
+    );
+    stump.position.set(stumpPos.x, 0.4, stumpPos.z);
+    stump.castShadow = true;
+    out.push(stump);
+  }
+
+  else if (biome === 'mountain') {
+    /* Eventberg: Felsbrocken, spitzer Gipfel, Schneeflecken, Kristalle */
+    for (let i = 0; i < 5; i++) {
+      const p = scatter(0.5, 2.4);
+      const rock = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.18 + rng() * 0.18, 0),
+        new THREE.MeshStandardMaterial({ color: 0x5a5a6a, roughness: 0.95, metalness: 0.05 })
+      );
+      rock.position.set(p.x, 0.42 + rng() * 0.1, p.z);
+      rock.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+      rock.castShadow = true;
+      out.push(rock);
+    }
+    /* Berggipfel — markante spitze Form in Regionsmitte */
+    const peak = new THREE.Mesh(
+      new THREE.ConeGeometry(0.55, 1.1, 6),
+      new THREE.MeshStandardMaterial({ color: 0x6a6a7a, roughness: 0.85, metalness: 0.1, emissive: 0x3a3a4a, emissiveIntensity: 0.12 })
+    );
+    peak.position.set(cx, 0.85, cz);
+    peak.castShadow = true;
+    out.push(peak);
+    /* Schneehaube auf der Spitze — kleine weiße Kugel */
+    const snow = new THREE.Mesh(
+      new THREE.ConeGeometry(0.3, 0.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0xf0f0ff, roughness: 0.4, metalness: 0.1, emissive: 0xd0d0ff, emissiveIntensity: 0.15 })
+    );
+    snow.position.set(cx, 1.35, cz);
+    out.push(snow);
+    /* Leuchtende Kristalle — magisch, passend zu Event-Feldern */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.6, 2.0);
+      const crystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.12 + rng() * 0.05, 0),
+        new THREE.MeshStandardMaterial({ color: 0x9b5cff, emissive: 0x7b2ff7, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.4 })
+      );
+      crystal.position.set(p.x, 0.5, p.z);
+      crystal.userData.spin = 0.4 + rng() * 0.3;
+      crystal.userData.orbit = 0.5 + rng() * 0.4;
+      out.push(crystal);
+    }
+  }
+
+  return out;
+}
+
 function buildBoard() {
   if (!scene) return;
   if (boardGroup) {
@@ -257,19 +521,44 @@ function buildBoard() {
   base.castShadow = true;
   boardGroup.add(base);
 
-  /* Regionen: 4 farbige Zonen auf der Karte */
+  /* Regionen: 4 farbige Zonen auf der Karte mit biom-spezifischer Dekoration.
+     Jede Region bekommt eine optisch unterscheidbare Landschaft:
+     village → Häuser + Brunnen + Brunnen, desert → Dünen + Kakteen + Pyramide,
+     forest → Bäume + Pilze + Baumstümpfe, mountain → Felsen + Schnee + Gipfel. */
   MAP_REGIONS.forEach((region, ri) => {
     const rAngle = (ri / 4) * Math.PI * 2 - Math.PI / 2;
     const rPos = { x: Math.cos(rAngle) * 4.5, z: Math.sin(rAngle) * 3.5 };
+    /* Boden-Textur pro Biom — unterschiedlicher Farbton auf der Plattform */
+    const biomeColors = {
+      village:  { ground: '#6b5236', tint: '#a0784a' },  /* sandiger Dorf-Boden */
+      desert:   { ground: '#c89b5a', tint: '#e0b070' },  /* warmes Sandgelb */
+      forest:   { ground: '#1f3a26', tint: '#2d5a3a' },  /* dunkles Waldboden-Grün */
+      mountain: { ground: '#4a4a5a', tint: '#6a6a7a' },  /* graues Felsgestein */
+    };
+    const bc = biomeColors[region.biome] || biomeColors.village;
+    /* Großer Biom-Boden — kreisförmige Fläche in Regionsfarbe */
+    const biomeGround = new THREE.Mesh(
+      new THREE.CircleGeometry(3.0, 36),
+      new THREE.MeshStandardMaterial({
+        color: color(bc.ground), roughness: 0.95, metalness: 0.0,
+        emissive: color(bc.tint), emissiveIntensity: 0.04
+      })
+    );
+    biomeGround.rotation.x = -Math.PI / 2;
+    biomeGround.position.set(rPos.x, 0.27, rPos.z);
+    biomeGround.receiveShadow = true;
+    boardGroup.add(biomeGround);
+
+    /* Sanfte Glow-Zone (wie bisher, aber dezenter — Biom-Boden dominiert jetzt) */
     const zone = new THREE.Mesh(
       new THREE.CircleGeometry(2.8, 32),
       new THREE.MeshStandardMaterial({
-        color: color(region.color), transparent: true, opacity: 0.15,
-        emissive: color(region.color), emissiveIntensity: 0.08, roughness: 0.9
+        color: color(region.color), transparent: true, opacity: 0.08,
+        emissive: color(region.color), emissiveIntensity: 0.05, roughness: 0.9
       })
     );
     zone.rotation.x = -Math.PI / 2;
-    zone.position.set(rPos.x, 0.26, rPos.z);
+    zone.position.set(rPos.x, 0.28, rPos.z);
     boardGroup.add(zone);
 
     /* Region-Beschriftung */
@@ -277,6 +566,12 @@ function buildBoard() {
     regionLabel.position.set(rPos.x, 0.4, rPos.z);
     regionLabel.scale.setScalar(1.1);
     boardGroup.add(regionLabel);
+
+    /* Biom-spezifische Dekoration — gestreut um den Regionsmittelpunkt.
+       Seeded Pseudo-Zufall damit Layout deterministic & stabil über rebuilds. */
+    const rng = mulberry32(ri * 1337 + 42);
+    const decor = biomeDecor(region.biome, rPos, rng);
+    decor.forEach(d => boardGroup.add(d));
   });
 
   /* Zentrale Landmarke — großer Stern in der Mitte */
@@ -289,6 +584,33 @@ function buildBoard() {
   centerStar.castShadow = true;
   boardGroup.add(centerStar);
   addGlow(centerStar, '#ffd34e', 1.8, 1.5);
+
+  /* Grasbüschel & Streudeko auf der ganzen Karte (nicht nur Regionen) — mehr Leben */
+  const globalRng = mulberry32(98765);
+  for (let i = 0; i < 36; i++) {
+    const a = globalRng() * Math.PI * 2;
+    const rad = 3.2 + globalRng() * 4.0;
+    const gx = Math.cos(a) * rad;
+    const gz = Math.sin(a) * rad * 0.9;
+    /* Kleine Stein- oder Gras-Häufchen verstreut — nicht auf dem Pfad */
+    if (globalRng() < 0.5) {
+      const pebble = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.08 + globalRng() * 0.06, 0),
+        new THREE.MeshStandardMaterial({ color: 0x6a6a78, roughness: 0.9 })
+      );
+      pebble.position.set(gx, 0.32 + globalRng() * 0.05, gz);
+      pebble.castShadow = true;
+      boardGroup.add(pebble);
+    } else {
+      const grass = new THREE.Mesh(
+        new THREE.ConeGeometry(0.07, 0.22 + globalRng() * 0.1, 5),
+        new THREE.MeshStandardMaterial({ color: 0x3a6a3a, roughness: 0.95, emissive: 0x1a3a1a, emissiveIntensity: 0.08 })
+      );
+      grass.position.set(gx, 0.36, gz);
+      grass.castShadow = true;
+      boardGroup.add(grass);
+    }
+  }
 
   /* Pfad-Verbindungen zwischen Feldern — sichtbare Wege auf der Karte */
   const tiles = state.board.tiles.length ? state.board.tiles : Array.from({ length: 24 }, (_, idx) => ({ idx, type: idx === 0 ? 'start' : idx % 6 === 0 ? 'event' : 'property' }));
@@ -413,13 +735,115 @@ function buildBoard() {
     }
   });
 
+  /* Pawns: wenn eine Hop-Animation läuft, behalte existierende Pawn-Meshes
+     und re-parente sie ins neue boardGroup — sonst teleportiert der rebuild. */
+  const livePawns = new Set(Object.keys(pawnAnim).filter(pid => pawnAnim[pid] && pawnAnim[pid].active));
   players.forEach((player, index) => {
     const position = Number(player.position) || 0;
     const sameIndex = players.slice(0, index).filter(p => (Number(p.position) || 0) === position).length;
-    boardGroup.add(pawn(player, sameIndex, totalByTile[position] || 1));
+    const existing = pawnMeshes[player.id];
+    if (livePawns.has(player.id) && existing) {
+      /* Hop läuft — Mesh behalten, nur ins neue boardGroup umhängen.
+         Position wird von updatePawnHops() weiter getrieben. */
+      boardGroup.add(existing);
+    } else {
+      const p = pawn(player, sameIndex, totalByTile[position] || 1);
+      pawnMeshes[player.id] = p;
+      boardGroup.add(p);
+    }
+  });
+  /* Verwaiste Pawn-Meshes entfernen (Spieler nicht mehr da) */
+  Object.keys(pawnMeshes).forEach(pid => {
+    if (!players.find(pl => pl.id === pid)) {
+      delete pawnMeshes[pid];
+      delete pawnAnim[pid];
+    }
   });
 
   addGlow(boardGroup, '#7b2ff7', 4, 1.0);
+}
+
+/* Pawn-Hop-Animation: Pawns hüpfen Feld-für-Feld statt zu teleportieren.
+   Wird von host.js/player.js bei 'board:rolled' aufgerufen. */
+function animatePawnMove(playerId, from, to, total) {
+  if (!playerId || !Number.isFinite(from) || !Number.isFinite(to)) return;
+  const size = Math.max(1, total || state.board.tiles.length || 24);
+  /* Vorwärts-Richtung (mit wrap-around) */
+  let steps = to - from;
+  if (steps < 0) steps += size;  /* wrap */
+  if (steps === 0) return;
+  pawnAnim[playerId] = {
+    active: true,
+    from: from,
+    to: to,
+    currentStep: from,
+    nextStep: (from + 1) % size,
+    size: size,
+    progress: 0,
+    hopDuration: 0.28,  /* Sekunden pro Feld-Hop */
+    stepsRemaining: steps,
+  };
+}
+
+/* Berechnet Pawn-Position auf einem Feld (mit Offset wenn mehrere drauf). */
+function pawnPosOnTile(tileIdx, playerIdx, totalAtTile) {
+  const pos = tilePosition(tileIdx, state.board.tiles.length || 24);
+  const offset = (playerIdx - (totalAtTile - 1) / 2) * 0.46;
+  return {
+    x: pos.x + offset * Math.cos(pos.angle + Math.PI / 2),
+    y: pos.y + 0.18,
+    z: pos.z + offset * Math.sin(pos.angle + Math.PI / 2),
+    angle: pos.angle,
+  };
+}
+
+/* Hop-Bogen: Parabel y(t) = 4 * hop * t * (1-t) — steigt und fällt symmetrisch. */
+function hopArc(t, hopHeight) {
+  return 4 * hopHeight * t * (1 - t);
+}
+
+function updatePawnHops(delta) {
+  Object.keys(pawnAnim).forEach(pid => {
+    const anim = pawnAnim[pid];
+    if (!anim || !anim.active) return;
+    const mesh = pawnMeshes[pid];
+    if (!mesh) { anim.active = false; return; }
+
+    anim.progress += delta / anim.hopDuration;
+    /* Fertig mit aktuellem Hop? → nächsten Schritt beginnen */
+    while (anim.progress >= 1 && anim.stepsRemaining > 0) {
+      anim.progress -= 1;
+      anim.currentStep = anim.nextStep;
+      anim.stepsRemaining -= 1;
+      if (anim.stepsRemaining <= 0) {
+        anim.active = false;
+        anim.progress = 0;
+        break;
+      }
+      anim.nextStep = (anim.currentStep + 1) % anim.size;
+    }
+
+    if (!anim.active) {
+      /* Animation beendet — Pawn auf Zielfeld platzieren */
+      const target = pawnPosOnTile(anim.to, 0, 1);
+      mesh.position.set(target.x, target.y, target.z);
+      mesh.rotation.y = -target.angle;
+      return;
+    }
+
+    /* Zwischen currentStep und nextStep interpolieren + Hop-Bogen */
+    const t = Math.min(1, anim.progress);
+    const fromPos = pawnPosOnTile(anim.currentStep, 0, 1);
+    const toPos = pawnPosOnTile(anim.nextStep, 0, 1);
+    /* Pawn schaut in Laufrichtung */
+    const x = fromPos.x + (toPos.x - fromPos.x) * t;
+    const z = fromPos.z + (toPos.z - fromPos.z) * t;
+    const hop = hopArc(t, 0.55);  /* 0.55 Einheiten Hop-Höhe */
+    mesh.position.set(x, fromPos.y + hop, z);
+    /* Rotation sanft in Laufrichtung drehen */
+    const targetAngle = -Math.atan2(toPos.z - fromPos.z, toPos.x - fromPos.x);
+    mesh.rotation.y = targetAngle;
+  });
 }
 
 function themeForGame(id) {
@@ -649,7 +1073,7 @@ function buildDice() {
   diceMesh = dice;
 }
 
-function rollDice(value, durationMs = 1400) {
+function rollDice(value, durationMs = 1700) {
   if (!diceMesh) return;
   buildDice();
   const v = Math.max(1, Math.min(6, Number(value) || 1));
@@ -658,7 +1082,8 @@ function rollDice(value, durationMs = 1400) {
   diceState.t = 0;
   diceState.duration = durationMs / 1000;
   diceMesh.visible = true;
-  diceMesh.position.set(0, 2.5, 0);
+  /* Start: Würfel fällt von oben — realistisches „Wurf aus der Hand" */
+  diceMesh.position.set(0, 5.5, 0);
   diceMesh.rotation.set(0, 0, 0);
   /* target rotation to land on value v (face 1 up) */
   const faceRot = {
@@ -670,7 +1095,15 @@ function rollDice(value, durationMs = 1400) {
     6: { x: Math.PI, z: 0 },
   };
   diceState.targetRot = faceRot[v] || faceRot[1];
-  diceState.startRot = { x: Math.random() * Math.PI * 4, y: Math.random() * Math.PI * 4, z: Math.random() * Math.PI * 4 };
+  /* Wilder Spin während des Falls — mehrere Umdrehungen pro Achse */
+  diceState.startRot = {
+    x: Math.random() * Math.PI * 4 + Math.PI * 2,
+    y: Math.random() * Math.PI * 4 + Math.PI * 2,
+    z: Math.random() * Math.PI * 4 + Math.PI * 2,
+  };
+  /* Vorzeichen für Drehrichtung — Würfel rotiert konsistent in eine Richtung */
+  diceState.spinSign = { x: 1, y: 1, z: 1 };
+  diceState.bounces = 0;  /* zählt Abpraller für Dämpfung */
   return v;
 }
 
@@ -678,19 +1111,43 @@ function animateDice(delta, elapsed) {
   if (!diceMesh || !diceState.rolling) return;
   diceState.t += delta;
   const p = Math.min(1, diceState.t / diceState.duration);
-  /* bounce height — parabolic arc */
-  const bounce = Math.sin(p * Math.PI) * 1.2;
-  diceMesh.position.y = 2.5 + bounce;
-  /* spin wildly then settle on target face */
-  const ease = 1 - Math.pow(1 - p, 3);
-  diceMesh.rotation.x = diceState.startRot.x * (1 - ease) + diceState.targetRot.x * ease;
-  diceMesh.rotation.y = diceState.startRot.y * (1 - ease) + 0;
-  diceMesh.rotation.z = diceState.startRot.z * (1 - ease) + diceState.targetRot.z * ease;
+  /* Fall-Phase (0..0.6): Gravitation + mehrfaches Abprallen
+     Danach (0.6..1.0): sanftes Settlen auf Zielausrichtung */
+  if (p < 0.65) {
+    /* Fall-Höhe: exponentiell gedämpfte Sinus-Bögen = mehrfaches Abprallen
+       y(t) = groundY + amp * e^(-k*t) * |sin(omega*t)|
+       Erzeugt: fällt, prallt ab, prallt weniger, prallt weniger, kommt zur Ruhe. */
+    const fallT = p / 0.65;
+    const groundY = 0.55;
+    const amp = 5.0;
+    const damp = Math.exp(-3.2 * fallT);
+    const bounce = Math.abs(Math.sin(fallT * Math.PI * 3.5)) * amp * damp;
+    diceMesh.position.y = groundY + bounce;
+    /* Wilder Spin — wird mit der Zeit langsamer (Reibung auf dem Boden) */
+    const spinDamp = 1 - fallT * 0.6;
+    const spinSpeed = 8 * spinDamp;
+    diceMesh.rotation.x += diceState.spinSign.x * spinSpeed * delta;
+    diceMesh.rotation.y += diceState.spinSign.y * spinSpeed * delta * 0.7;
+    diceMesh.rotation.z += diceState.spinSign.z * spinSpeed * delta * 0.8;
+  } else {
+    /* Settle-Phase: sanftes Herunterblenden vom wilden Spin auf Ziel-Ausrichtung.
+       Würfel kippt in die richtige Lage für die gewürfelte Zahl. */
+    const settleT = (p - 0.65) / 0.35;
+    const ease = 1 - Math.pow(1 - settleT, 4);
+    /* Position: bleibt am Boden, minimales Wackeln das abklingt */
+    diceMesh.position.y = 0.55 + Math.sin(settleT * Math.PI * 3) * 0.04 * (1 - settleT);
+    /* Rotation: nähert sich der Ziel-Ausrichtung — mit kurzem „Kippen" davor */
+    const wobble = Math.sin(settleT * Math.PI * 2) * 0.3 * (1 - settleT);
+    diceMesh.rotation.x = diceState.targetRot.x + wobble * (1 - ease);
+    diceMesh.rotation.y = 0;
+    diceMesh.rotation.z = diceState.targetRot.z + wobble * 0.5 * (1 - ease);
+  }
   if (p >= 1) {
     diceState.rolling = false;
+    diceMesh.position.y = 0.55;
     diceMesh.rotation.x = diceState.targetRot.x;
     diceMesh.rotation.z = diceState.targetRot.z;
-    /* hide after a moment */
+    /* Würfel bleibt 1.8s sichtbar, dann ausblenden */
     setTimeout(() => { if (diceMesh) diceMesh.visible = false; }, 1800);
   }
 }
@@ -777,6 +1234,7 @@ function animate() {
   const elapsed = clock.getElapsedTime();
   const delta = Math.min(0.04, clock.getDelta());
   updateCamera();
+  updatePawnHops(delta);
 
   if (particles) particles.rotation.y += delta * 0.008;
   animateDice(delta, elapsed);
@@ -890,7 +1348,7 @@ function init() {
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
     else if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.18;
+    renderer.toneMappingExposure = 0.85;  /* vorher 1.18 → Spielfeld war zu hell */
     // Echte Schatten fuer Tiefe und Professionnalitaet — VSM = filmische weiche Schatten
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap;
@@ -912,14 +1370,15 @@ function init() {
       pmremEnv = new THREE.PMREMGenerator(renderer);
       const envScene = new THREE.Scene();
       // Sanfter Gradient: kuehles Blau von oben, warmer Pink von der Seite
-      const topLight = new THREE.HemisphereLight(0x88aaff, 0xff66bb, 1.0);
+      // Intensitaet 0.45 (vorher 1.0) — EnvMap war Haupttreiber fuer „zu hell"
+      const topLight = new THREE.HemisphereLight(0x88aaff, 0xff66bb, 0.45);
       envScene.add(topLight);
       const envRT = pmremEnv.fromScene(envScene, 0.04);
       scene.environment = envRT.texture;
     } catch (_) { /* silent — Environment ist kosmetisch */ }
 
-    scene.add(new THREE.HemisphereLight(0x9ba6ff, 0x110c32, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
+    scene.add(new THREE.HemisphereLight(0x9ba6ff, 0x110c32, 0.9));  /* vorher 1.4 → zu hell */
+    const key = new THREE.DirectionalLight(0xffffff, 1.5);  /* vorher 2.4 → mit physicallyCorrectLights zu hell */
     key.position.set(4, 10, 7);
     // Schattenwerfendes Hauptlicht — hochaufloesende 4096 mapSize fuer scharfe Kanten
     key.castShadow = true;
@@ -933,10 +1392,10 @@ function init() {
     key.shadow.bias = -0.0004;
     key.shadow.radius = 6;
     scene.add(key);
-    const fill = new THREE.PointLight(0xff3cac, 2.4, 20, 2);
+    const fill = new THREE.PointLight(0xff3cac, 1.4, 20, 2);  /* vorher 2.4 */
     fill.position.set(-7, 4, 4);
     scene.add(fill);
-    const rim = new THREE.PointLight(0x00f0ff, 2.8, 20, 2);
+    const rim = new THREE.PointLight(0x00f0ff, 1.6, 20, 2);  /* vorher 2.8 */
     rim.position.set(7, 3, -5);
     scene.add(rim);
 
@@ -949,9 +1408,9 @@ function init() {
       composer.addPass(renderPass);
       const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.85,  /* strength: maechtiges Glow */
-        0.55,  /* radius: mittlerer Streuring */
-        0.2    /* threshold: nur helle Elemente glowen */
+        0.45,  /* strength: vorher 0.85 → zu viel Ueberstrahlung, jetzt dezentes Glow */
+        0.4,   /* radius: vorher 0.55, etwas enger */
+        0.7    /* threshold: vorher 0.2 (erfasste mittelhelle Flaechen → „zu hell"), jetzt 0.7 = nur echte Highlights glühen */
       );
       composer.addPass(bloomPass);
       composer.setSize(window.innerWidth, window.innerHeight);
@@ -1001,6 +1460,7 @@ API.showMiniGame = showMiniGame;
 API.showShowcase = showShowcase;
 API.setGame = (meta) => showMiniGame(meta && meta.id, meta);
 API.rollDice = rollDice;
+API.animatePawnMove = animatePawnMove;
 API.pulse = noop;
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
