@@ -1001,10 +1001,13 @@ const Games = (() => {
 
   function runQuizRush(stage, api, cfg, runMeta = {}) {
     const totalQuestions = cfg.questionsPerRound || QUIZ_QUESTIONS_PER_ROUND;
+    const TIME_MS = cfg.total || 25000;
+    const endAt = performance.now() + TIME_MS;
     let correctCount = 0;
     let streak = 0;
     let questionIndex = 0;
     let locked = false;
+    let finished = false;
     const rounds = pickQuizSet(cfg, totalQuestions, runMeta.quizSeed);
 
     const wrap = el('div', 'stage-center');
@@ -1023,7 +1026,8 @@ const Games = (() => {
     const choices = wrap.querySelector('#qz-choices');
 
     function updateProgress() {
-      bar.style.width = `${Math.min(100, (questionIndex / totalQuestions) * 100)}%`;
+      const timeFrac = Math.max(0, (endAt - performance.now()) / TIME_MS);
+      bar.style.width = `${timeFrac * 100}%`;
       if (progressEl) {
         const shown = Math.min(totalQuestions, questionIndex + 1);
         progressEl.textContent = `Frage ${shown} / ${totalQuestions}`;
@@ -1031,7 +1035,9 @@ const Games = (() => {
     }
 
     function nextRound() {
-      if (questionIndex >= totalQuestions) {
+      if (finished) return;
+      if (performance.now() >= endAt || questionIndex >= totalQuestions) {
+        finished = true;
         if (progressEl) progressEl.textContent = `Fertig: ${correctCount} / ${totalQuestions} richtig`;
         api.finish(correctCount);
         return;
@@ -1049,7 +1055,7 @@ const Games = (() => {
     }
 
     function choose(ok, btn) {
-      if (locked) return;
+      if (locked || finished) return;
       locked = true;
       if (ok) {
         streak++;
@@ -1072,6 +1078,14 @@ const Games = (() => {
 
     updateProgress();
     nextRound();
+
+    api.frameLoop(() => {
+      if (finished) return false;
+      const timeFrac = Math.max(0, (endAt - performance.now()) / TIME_MS);
+      bar.style.width = `${timeFrac * 100}%`;
+      if (performance.now() >= endAt) { nextRound(); return false; }
+      return true;
+    });
   }
 
   function gameEvenOdd(stage, api) {
