@@ -22,17 +22,18 @@ const Games = (() => {
      1) REAKTION — Tippe sobald grün
      ========================================================= */
   function gameReaction(stage, api) {
-    const tries = 4;
-    let current = 0, score = 0, state = 'idle', goTime = 0;
+    const TIME_MS = 20000;
+    const endAt = performance.now() + TIME_MS;
+    let score = 0, state = 'idle', goTime = 0, runs = 0;
     const zone = el('div', 'reaction-zone wait');
     const tracker = el('div', 'reaction-tries');
     stage.append(zone, tracker);
     updateTracker();
 
-    function updateTracker() { tracker.textContent = `Versuch ${Math.min(current + 1, tries)} / ${tries}`; }
+    function updateTracker() { tracker.textContent = `Runden: ${runs}`; }
 
     function nextTry() {
-      if (current >= tries) { api.finish(score); return; }
+      if (performance.now() >= endAt) { api.finish(score); return; }
       state = 'wait';
       zone.className = 'reaction-zone wait';
       zone.innerHTML = `<div><div class="rz-text">Warte…</div><div class="rz-sub">Noch NICHT tippen!</div></div>`;
@@ -51,7 +52,7 @@ const Games = (() => {
         zone.className = 'reaction-zone early';
         zone.innerHTML = `<div><div class="rz-text">Zu früh! 😅</div><div class="rz-sub">0 Punkte für diesen Versuch</div></div>`;
         FX.Sound.bad(); FX.shake(stage);
-        current++; updateTracker();
+        runs++; updateTracker();
         api.timeout(nextTry, 1100);
       } else if (state === 'go') {
         const ms = performance.now() - goTime;
@@ -59,13 +60,17 @@ const Games = (() => {
         score += pts; api.setScore(score);
         FX.Sound.good(); FX.toast(stage, `+${pts}`, '#2bffb9');
         zone.innerHTML = `<div><div class="rz-text">${Math.round(ms)} ms</div><div class="rz-sub">+${pts} Punkte</div></div>`;
-        state = 'idle'; current++; updateTracker();
+        state = 'idle'; runs++; updateTracker();
         api.timeout(nextTry, 1100);
       }
     });
 
-    zone.innerHTML = `<div><div class="rz-text">Bereit?</div><div class="rz-sub">Tippe sobald es GRÜN wird</div></div>`;
+    zone.innerHTML = `<div><div class="rz-text">Bereit?</div><div class="rz-sub">Tippe sobald es GRÜN wird — 20s!</div></div>`;
     api.timeout(nextTry, 900);
+    api.frameLoop(() => {
+      if (performance.now() >= endAt) { api.finish(score); return false; }
+      return true;
+    });
   }
 
   /* =========================================================
@@ -368,12 +373,13 @@ const Games = (() => {
      7) PRÄZISIONS-STOPP — Balken in der Mitte stoppen (5 Runden)
      ========================================================= */
   function gamePrecision(stage, api) {
-    const rounds = 5;
+    const TIME_MS = 25000;
+    const endAt = performance.now() + TIME_MS;
     let round = 0, score = 0, pos = 0, dir = 1, speed = 1.1, running = false;
 
     const wrap = el('div', 'precision-wrap');
     wrap.innerHTML = `
-      <div class="stage-big-text" id="p-round">Runde 1 / ${rounds}</div>
+      <div class="stage-big-text" id="p-round">Runde 1 · 25s</div>
       <div class="precision-track">
         <div class="precision-target-zone"></div>
         <div class="precision-cursor" id="p-cursor"></div>
@@ -389,7 +395,7 @@ const Games = (() => {
 
     function startRound() {
       round++;
-      roundEl.textContent = `Runde ${round} / ${rounds}`;
+      roundEl.textContent = `Runde ${round} · ${Math.max(0,((endAt-performance.now())/1000)).toFixed(1)}s`;
       pos = 0; dir = 1; speed = 1.0 + round * 0.35;
       running = true;
       stopBtn.disabled = false;
@@ -411,8 +417,13 @@ const Games = (() => {
       if (accuracy > 0.92) { FX.Sound.star(); FX.toast(stage, `PERFEKT +${pts}`, '#ffd34e'); FX.burst(window.innerWidth/2, window.innerHeight*0.5, 30, 10); }
       else if (pts > 0) { FX.Sound.good(); FX.toast(stage, `+${pts}`, '#2bffb9'); }
       else { FX.Sound.bad(); FX.shake(stage); FX.toast(stage, 'Daneben', '#ff4d6d'); }
-      if (round >= rounds) { info.textContent = 'Fertig!'; api.timeout(() => api.finish(score), 900); }
+      if (performance.now() >= endAt) { info.textContent = 'Zeit!'; api.timeout(() => api.finish(score), 600); }
       else api.timeout(startRound, 900);
+    });
+
+    api.frameLoop(() => {
+      if (performance.now() >= endAt && !running) { api.finish(score); return false; }
+      return true;
     });
 
     api.frameLoop(() => {
@@ -1510,7 +1521,7 @@ const Games = (() => {
   /* ---------- Registry ---------- */
   const list = [
     { id: 'reaction', name: 'Reaktion', icon: '⚡', desc: 'Tippe blitzschnell, sobald der Bildschirm grün wird.',
-      rules: 'Warte auf <strong>GRÜN</strong> und tippe so schnell wie möglich. Tippst du zu früh, gibt es 0 Punkte. <strong>4 Versuche</strong> — je schneller, desto mehr Punkte!', play: gameReaction },
+      rules: 'Warte auf <strong>GRÜN</strong> und tippe so schnell wie möglich. Tippst du zu früh, gibt es 0 Punkte. <strong>20 Sekunden</strong> — so viele Versuche wie möglich, je schneller, desto mehr Punkte!', play: gameReaction },
     { id: 'simon', name: 'Memory-Sequenz', icon: '🧠', desc: 'Merke dir die leuchtende Reihenfolge und wiederhole sie.',
       rules: 'Schau dir die Sequenz an und tippe sie nach. Jede Runde wird sie <strong>länger</strong>. Jedes geschaffte Level bringt <strong>100 Punkte</strong>.', play: gameSimon },
     { id: 'math', name: 'Blitz-Rechnen', icon: '🔢', desc: 'Wähle das richtige Ergebnis aus mehreren Zahlen.',
@@ -1522,7 +1533,7 @@ const Games = (() => {
     { id: 'stroop', name: 'Farben-Chaos', icon: '🌈', desc: 'Wähle die Farbe des Wortes — nicht den Text!',
       rules: 'Wähle die <strong>Schriftfarbe</strong> des Wortes, ignoriere die Bedeutung. Klingt easy? Dein Hirn sagt was anderes 😉. 20 Sekunden.', play: gameStroop },
     { id: 'precision', name: 'Präzisions-Stopp', icon: '🎚️', desc: 'Stoppe den Balken genau in der Mitte.',
-      rules: 'Drücke <strong>STOPP</strong>, wenn der Balken in der Mitte ist. <strong>5 Runden</strong> — je genauer, desto mehr Punkte. Perfekt = Jackpot 🎰.', play: gamePrecision },
+      rules: 'Drücke <strong>STOPP</strong>, wenn der Balken in der Mitte ist. <strong>25 Sekunden</strong> — so viele Runden wie möglich, je genauer, desto mehr Punkte. Perfekt = Jackpot 🎰.', play: gamePrecision },
     { id: 'bombcode', name: 'Bomben-Code', icon: '💣', desc: 'Merke dir den Zahlencode und gib ihn ein.',
       rules: 'Präge dir den <strong>Code</strong> ein, dann tippe ihn nach. Jedes Level wird er <strong>länger</strong>. Ein Fehler — und die Bombe geht hoch! 💥', play: gameBombCode },
     { id: 'sequence', name: 'Zahlen-Jagd', icon: '🔎', desc: 'Tippe die Zahlen der Reihe nach an.',

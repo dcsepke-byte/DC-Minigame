@@ -401,6 +401,15 @@
          ============================================================ */
       startBtn.addEventListener('click', startGame);
 
+  /* Solo-Quickstart: 1 Mensch + 1 Bot, Brett-Modus direkt starten */
+  const soloBtn = $('#btn-solo-quick');
+  if (soloBtn) soloBtn.addEventListener('click', () => {
+    state.players = [];
+    addPlayer('Du');
+    addPlayer('Bot 🤖');
+    startGame();
+  });
+
       function startGame() {
         initBoardGame();
         FX.Sound.whoosh();

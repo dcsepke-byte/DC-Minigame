@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const ASSET_VERSION = 'v7';
+  const ASSET_VERSION = 'v8';
 
   window.addEventListener('load', async () => {
     /* 1. Service Worker de-registrieren (falls noch einer aus alter Version
