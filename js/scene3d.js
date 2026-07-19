@@ -120,12 +120,14 @@
     const darkMat = material('#10102f', { metalness: 0.8, emissiveIntensity: 0.06 });
 
     /* Pedestal — hexagonal disc with glowing rim */
-    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.16, 6), darkMat);
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.16, 12), darkMat);
     pedestal.position.y = 0.08;
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
     group.add(pedestal);
     const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.38, 0.025, 8, 6),
-      new THREE.MeshBasicMaterial({ color: color(baseColor), transparent: true, opacity: 0.9 })
+      new THREE.TorusGeometry(0.38, 0.025, 12, 10),
+      new THREE.MeshStandardMaterial({ color: color(baseColor), transparent: true, opacity: 0.9, emissive: color(baseColor), emissiveIntensity: 0.3 })
     );
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.16;
@@ -163,16 +165,17 @@
 
   function makeTextSprite(text, hex) {
     const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 128;
+    canvas.width = 256; canvas.height = 256;
     const ctx = canvas.getContext('2d');
-    ctx.font = 'bold 90px serif';
+    ctx.font = 'bold 180px serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = hex || '#fff';
     ctx.shadowColor = 'rgba(0,0,0,0.7)';
-    ctx.shadowBlur = 8;
-    ctx.fillText(text, 64, 68);
+    ctx.shadowBlur = 16;
+    ctx.fillText(text, 128, 136);
     const tex = new THREE.CanvasTexture(canvas);
+    if ('anisotropy' in tex) tex.anisotropy = 8;
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
     return new THREE.Sprite(mat);
   }
@@ -210,16 +213,17 @@
   /* Größeres Text-Sprite mit mehreren Zeilen für Feld-Beschriftung */
   function makeLabelSprite(text, hex, fontSize) {
     const canvas = document.createElement('canvas');
-    canvas.width = 256; canvas.height = 96;
+    canvas.width = 512; canvas.height = 192;
     const ctx = canvas.getContext('2d');
-    ctx.font = `bold ${fontSize || 40}px "Segoe UI", system-ui, sans-serif`;
+    ctx.font = `bold ${(fontSize || 40) * 2}px "Segoe UI", system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = hex || '#fff';
     ctx.shadowColor = 'rgba(0,0,0,0.9)';
-    ctx.shadowBlur = 10;
-    ctx.fillText(text, 128, 48);
+    ctx.shadowBlur = 20;
+    ctx.fillText(text, 256, 96);
     const tex = new THREE.CanvasTexture(canvas);
+    if ('anisotropy' in tex) tex.anisotropy = 8;
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
     return new THREE.Sprite(mat);
   }
@@ -236,10 +240,12 @@
 
     /* Landkarten-Basis: große unregelmäßige Plattform statt Scheibe */
     const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(7.2, 7.6, 0.5, 64),
+      new THREE.CylinderGeometry(7.2, 7.6, 0.5, 96),
       material('#1a3a2e', { metalness: 0.3, roughness: 0.8, emissive: '#0a1a14', emissiveIntensity: 0.1 })
     );
     base.scale.set(1.15, 1, 0.95);
+    base.receiveShadow = true;
+    base.castShadow = true;
     boardGroup.add(base);
 
     /* Regionen: 4 farbige Zonen auf der Karte */
@@ -266,11 +272,12 @@
 
     /* Zentrale Landmarke — großer Stern in der Mitte */
     const centerStar = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.9, 1),
+      new THREE.OctahedronGeometry(0.9, 2),
       material('#ffd34e', { metalness: 0.5, emissive: '#ffd34e', emissiveIntensity: 0.78 })
     );
     centerStar.position.y = 1.4;
     centerStar.userData.spin = 0.5;
+    centerStar.castShadow = true;
     boardGroup.add(centerStar);
     addGlow(centerStar, '#ffd34e', 1.8, 1.5);
 
@@ -296,6 +303,8 @@
       const path = new THREE.Mesh(new THREE.BoxGeometry(len, 0.08, 0.42), pathMat);
       path.position.set(midX, 0.3, midZ);
       path.rotation.y = -angle;
+      path.receiveShadow = true;
+      path.castShadow = true;
       boardGroup.add(path);
     }
 
@@ -306,19 +315,22 @@
       const owner = players.find(player => player.id === ownerId);
       const tileMat = material(tileColor(tile, owner), { metalness: 0.5, emissiveIntensity: owner ? 0.44 : 0.24 });
       /* Feld — abgerundete Box, flach auf dem Pfad */
-      const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.3, 0.8, 2, 1, 2), tileMat);
+      const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.3, 0.8, 4, 2, 4), tileMat);
       tileMesh.position.set(pos.x, tileY, pos.z);
       tileMesh.rotation.y = -pos.angle;
       tileMesh.userData.index = tile.idx == null ? index : tile.idx;
+      tileMesh.castShadow = true;
+      tileMesh.receiveShadow = true;
       boardGroup.add(tileMesh);
 
       /* Cap — farbige Oberfläche zeigt Feld-Typ */
       const cap = new THREE.Mesh(
         new THREE.BoxGeometry(0.85, 0.03, 0.55),
-        new THREE.MeshBasicMaterial({ color: color(tileColor(tile, owner)), transparent: true, opacity: 0.8 })
+        new THREE.MeshStandardMaterial({ color: color(tileColor(tile, owner)), transparent: true, opacity: 0.82, roughness: 0.5, emissive: color(tileColor(tile, owner)), emissiveIntensity: 0.12 })
       );
       cap.position.set(pos.x, tileY + 0.18, pos.z);
       cap.rotation.y = -pos.angle;
+      cap.receiveShadow = true;
       boardGroup.add(cap);
 
       /* Feld-Typ-Label — klar lesbar über dem Feld */
@@ -420,16 +432,17 @@
 
     let mesh;
     if (theme.shape === 'danger') {
-      mesh = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.15, 6), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.55 }));
+      mesh = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.15, 8), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.55 }));
     } else if (theme.shape === 'data') {
       mesh = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.2 + (index % 3) * 0.35, 0.62), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.42 }));
     } else if (theme.shape === 'memory') {
-      mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 1), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.52 }));
+      mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 2), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.52 }));
     } else if (theme.shape === 'color') {
-      mesh = new THREE.Mesh(new THREE.TorusKnotGeometry(0.38, 0.1, 32, 8), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.48 }));
+      mesh = new THREE.Mesh(new THREE.TorusKnotGeometry(0.38, 0.1, 48, 12), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.48 }));
     } else {
-      mesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 20, 14), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.5 }));
+      mesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 24), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.5 }));
     }
+    mesh.castShadow = true;
     holder.add(mesh);
     holder.add(addGlow(holder, index % 2 ? theme.a : theme.b, 0.75, 0.55));
     group.add(holder);
@@ -447,32 +460,35 @@
 
     const theme = themeForGame(gameId);
     const floor = new THREE.Mesh(
-      new THREE.CylinderGeometry(6.65, 7.1, 0.42, 64),
+      new THREE.CylinderGeometry(6.65, 7.1, 0.42, 96),
       material('#11163d', { metalness: 0.82, roughness: 0.24, emissive: theme.b, emissiveIntensity: 0.24 })
     );
+    floor.receiveShadow = true;
     arenaGroup.add(floor);
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(5.35, 0.13, 14, 96),
-      new THREE.MeshBasicMaterial({ color: color(theme.a), transparent: true, opacity: 0.88 })
+      new THREE.TorusGeometry(5.35, 0.13, 16, 120),
+      new THREE.MeshStandardMaterial({ color: color(theme.a), transparent: true, opacity: 0.88, emissive: color(theme.a), emissiveIntensity: 0.35 })
     );
     ring.rotation.x = Math.PI / 2;
     arenaGroup.add(ring);
 
     const inner = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.2, 3.55, 0.28, 48),
+      new THREE.CylinderGeometry(3.2, 3.55, 0.28, 64),
       material('#181456', { metalness: 0.7, emissive: theme.a, emissiveIntensity: 0.36 })
     );
     inner.position.y = 0.34;
+    inner.receiveShadow = true;
     arenaGroup.add(inner);
 
     let core;
-    if (theme.shape === 'danger') core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1, 1), material(theme.a, { emissiveIntensity: 0.7 }));
+    if (theme.shape === 'danger') core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1, 2), material(theme.a, { emissiveIntensity: 0.7 }));
     else if (theme.shape === 'data') core = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.35, 1.35), material(theme.a, { emissiveIntensity: 0.58 }));
-    else if (theme.shape === 'memory') core = new THREE.Mesh(new THREE.OctahedronGeometry(1.15, 1), material(theme.a, { emissiveIntensity: 0.72 }));
-    else core = new THREE.Mesh(new THREE.TorusKnotGeometry(0.9, 0.22, 64, 12), material(theme.a, { emissiveIntensity: 0.64 }));
+    else if (theme.shape === 'memory') core = new THREE.Mesh(new THREE.OctahedronGeometry(1.15, 2), material(theme.a, { emissiveIntensity: 0.72 }));
+    else core = new THREE.Mesh(new THREE.TorusKnotGeometry(0.9, 0.22, 96, 16), material(theme.a, { emissiveIntensity: 0.64 }));
     core.position.y = 1.55;
     core.userData.spin = 0.55;
+    core.castShadow = true;
     arenaGroup.add(core);
     addGlow(core, theme.a, 2.4, 1.4);
 
@@ -498,11 +514,12 @@
 
     /* Ground — large grassy disc */
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(40, 64),
+      new THREE.CircleGeometry(40, 96),
       new THREE.MeshStandardMaterial({ color: 0x1a4d2e, roughness: 0.9, metalness: 0.05 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -1.4;
+    ground.receiveShadow = true;
     scene.add(ground);
 
     /* Rolling hills — low-poly cones around the board */
@@ -512,11 +529,13 @@
       const dist = 16 + (i % 4) * 3;
       const h = 2.5 + (i % 5) * 1.2;
       const hill = new THREE.Mesh(
-        new THREE.ConeGeometry(3 + (i % 3) * 1.5, h, 8),
+        new THREE.ConeGeometry(3 + (i % 3) * 1.5, h, 10),
         new THREE.MeshStandardMaterial({ color: hillColors[i % hillColors.length], roughness: 0.88, flatShading: true })
       );
       hill.position.set(Math.cos(ang) * dist, h / 2 - 1.4, Math.sin(ang) * dist);
       hill.rotation.y = i * 0.7;
+      hill.castShadow = true;
+      hill.receiveShadow = true;
       scene.add(hill);
     }
 
@@ -526,17 +545,19 @@
       const dist = 11 + Math.random() * 18;
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.12, 0.18, 0.8, 6),
+        new THREE.CylinderGeometry(0.12, 0.18, 0.8, 8),
         new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 })
       );
       trunk.position.y = -0.9;
+      trunk.castShadow = true;
       tree.add(trunk);
       const leafColor = [0x2d8a3e, 0x3aa050, 0x226e30][i % 3];
       const leaves = new THREE.Mesh(
-        new THREE.ConeGeometry(0.85, 1.6, 7),
+        new THREE.ConeGeometry(0.85, 1.6, 8),
         new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.82, flatShading: true })
       );
       leaves.position.y = -0.1;
+      leaves.castShadow = true;
       tree.add(leaves);
       tree.position.set(Math.cos(ang) * dist, -1.3, Math.sin(ang) * dist);
       tree.scale.setScalar(0.8 + Math.random() * 0.6);
@@ -593,6 +614,7 @@
     const size = 0.6;
     const dice = new THREE.Group();
     const cube = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), diceMat);
+    cube.castShadow = true;
     dice.add(cube);
     /* Pips on each face — arranged like a real die */
     const faces = [
@@ -605,10 +627,11 @@
     ];
     faces.forEach(face => {
       face.pips.forEach(([px, py]) => {
-        const pip = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), pipMat);
+        const pip = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 10), pipMat);
         if (face.axis === 'y') { pip.position.set(px, face.sign * size / 2 + face.sign * 0.01, py); }
         else if (face.axis === 'x') { pip.position.set(face.sign * size / 2 + face.sign * 0.01, px, py); }
         else { pip.position.set(px, py, face.sign * size / 2 + face.sign * 0.01); }
+        pip.castShadow = true;
         dice.add(pip);
       });
     });
@@ -674,31 +697,34 @@
     scene.add(showcaseGroup);
 
     const platform = new THREE.Mesh(
-      new THREE.CylinderGeometry(5.2, 6.2, 0.5, 64),
+      new THREE.CylinderGeometry(5.2, 6.2, 0.5, 96),
       material('#11163d', { metalness: 0.8, emissive: '#7b2ff7', emissiveIntensity: 0.28 })
     );
+    platform.receiveShadow = true;
     showcaseGroup.add(platform);
 
     const portal = new THREE.Mesh(
-      new THREE.TorusGeometry(2.5, 0.18, 18, 80),
-      new THREE.MeshBasicMaterial({ color: 0xff3cac, transparent: true, opacity: 0.9 })
+      new THREE.TorusGeometry(2.5, 0.18, 20, 100),
+      new THREE.MeshStandardMaterial({ color: 0xff3cac, transparent: true, opacity: 0.9, emissive: 0xff3cac, emissiveIntensity: 0.4 })
     );
     portal.position.y = 2.2;
     showcaseGroup.add(portal);
 
-    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 1), material('#00f0ff', { emissiveIntensity: 0.75 }));
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 2), material('#00f0ff', { emissiveIntensity: 0.75 }));
     crystal.position.y = 2.25;
     crystal.userData.spin = 0.5;
+    crystal.castShadow = true;
     showcaseGroup.add(crystal);
     addGlow(crystal, '#00f0ff', 2.6, 1.5);
 
     for (let i = 0; i < 8; i += 1) {
       const angle = (i / 8) * Math.PI * 2;
       const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.28, 1.8 + (i % 3) * 0.4, 12),
+        new THREE.CylinderGeometry(0.18, 0.28, 1.8 + (i % 3) * 0.4, 16),
         material(palette[i], { emissiveIntensity: 0.45 })
       );
       pillar.position.set(Math.cos(angle) * 4.3, 0.9, Math.sin(angle) * 3.1);
+      pillar.castShadow = true;
       showcaseGroup.add(pillar);
     }
   }
@@ -848,12 +874,16 @@
     }
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+      // Hoehere Pixel-Ratio fuer schaerfe 3D-Elemente auf HiDPI/Retina-Displays
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
       renderer.setSize(window.innerWidth, window.innerHeight);
       if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
       else if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.1;
+      // Echte Schatten fuer Tiefe und Professionnalitaet
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.domElement.id = 'party-3d-canvas';
       renderer.domElement.setAttribute('aria-hidden', 'true');
       document.body.appendChild(renderer.domElement);
@@ -867,6 +897,17 @@
       scene.add(new THREE.HemisphereLight(0x9ba6ff, 0x110c32, 1.4));
       const key = new THREE.DirectionalLight(0xffffff, 2.2);
       key.position.set(4, 10, 7);
+      // Schattenwerfendes Hauptlicht
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.near = 0.5;
+      key.shadow.camera.far = 35;
+      key.shadow.camera.left = -12;
+      key.shadow.camera.right = 12;
+      key.shadow.camera.top = 12;
+      key.shadow.camera.bottom = -12;
+      key.shadow.bias = -0.0006;
+      key.shadow.radius = 4;
       scene.add(key);
       const fill = new THREE.PointLight(0xff3cac, 2.2, 20, 2);
       fill.position.set(-7, 4, 4);
