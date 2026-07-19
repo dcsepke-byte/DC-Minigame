@@ -1665,34 +1665,110 @@ body.board-compact .board-center {
 .screen[data-screen="board"] {
   max-width: min(1200px, 100%);
   gap: 10px;
+  /* Im Board-Modus: 3D-Canvas im Hintergrund sichtbar lassen.
+     UI wird zu HUD-Elementen umgebaut, die die Sicht nicht blockieren. */
+  position: relative;
+  pointer-events: none; /* Klicks gehen durch zum 3D-Canvas — außer auf UI-Elementen */
 }
 
-.screen[data-screen="board"] .live-card {
-  padding: 14px;
+/* Topbar und Banner als schwebendes HUD — durchsichtig, klein */
+.screen[data-screen="board"] .board-topbar {
+  pointer-events: auto;
+  max-width: min(720px, 100%);
+  margin: 0 auto;
+}
+
+.screen[data-screen="board"] .board-banner {
+  pointer-events: auto;
+  max-width: min(640px, 100%);
+  margin: 0 auto;
+}
+
+/* Seitenleiste: rechts schwebend, schmal, durchsichtig — blockiert Sicht auf 3D-Board minimal */
+.screen[data-screen="board"] .live-card.board-layout {
+  padding: 0;
+  background: transparent !important;
+  border: none !important;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 12px;
   flex: 1;
   min-height: 0;
+  pointer-events: none;
+}
+
+/* Navigation als kleine Pillen oben-rechts, nicht als Block */
+.screen[data-screen="board"] .board-nav {
+  pointer-events: auto;
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: rgba(10, 10, 31, 0.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 6px;
+  max-width: min(360px, 50vw);
+}
+
+.screen[data-screen="board"] .board-nav-btn {
+  padding: 7px 12px;
+  font-size: 13px;
+  border-radius: 9px;
+  flex: 1;
+  min-width: 70px;
+  text-align: center;
+}
+
+/* Panels rechts schwebend, schmal, durchsichtig */
+.screen[data-screen="board"] .board-panels {
+  pointer-events: auto;
+  position: fixed;
+  right: 12px;
+  top: 64px;
+  bottom: 12px;
+  width: 320px;
+  max-width: 50vw;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Karten-Bereich ganz transparent — 3D-Board sichtbar */
+.screen[data-screen="board"] .live-card {
+  padding: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* 3D board mode: make the "map" panel transparent so the WebGL board shows through */
 .board-panel[data-panel="map"] {
   background: transparent !important;
-  min-height: clamp(320px, 55dvh, 600px);
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+  position: absolute;
+  width: 0;
 }
 .board-panel[data-panel="map"] .card-title {
-  pointer-events: auto;
-  background: rgba(10, 10, 31, 0.6);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  padding: 6px 12px; border-radius: 10px; display: inline-block;
+  display: none;
 }
 /* Non-map panels keep a dark glass backdrop for readability over the 3D scene */
 .board-panel[data-panel="action"],
 .board-panel[data-panel="ranking"],
 .board-panel[data-panel="profile"] {
-  background: rgba(10, 10, 31, 0.62) !important;
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 10, 31, 0.78) !important;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 16px;
-  padding: 14px;
+  padding: 16px;
+  overflow-y: auto;
 }
 .board-panel .board-grid {
   width: 100%;
@@ -2037,6 +2113,40 @@ body.board-compact .board-center {
   }
 }
 
+@media (max-width: 900px) {
+  .screen[data-screen="board"] .live-card.board-layout {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .screen[data-screen="board"] .board-panels {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    top: auto;
+    width: auto;
+    max-width: none;
+    max-height: 46dvh;
+    border-radius: 14px;
+    overflow-y: auto;
+  }
+
+  .screen[data-screen="board"] .board-nav {
+    top: auto;
+    bottom: calc(46dvh + 16px);
+    right: 8px;
+    left: 8px;
+    max-width: none;
+    justify-content: space-around;
+  }
+
+  .screen[data-screen="board"] .board-nav-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 640px) {
   #app {
     padding-top: 74px;
@@ -2203,4 +2313,31 @@ body.board-compact .board-center {
     padding: 8px 10px;
   }
 }
+
+/* ---------------- Game Feel: score popups, screen transitions ---------------- */
+.score-popup {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 38px;
+  font-weight: 900;
+  text-shadow: 0 0 18px currentColor, 0 4px 12px rgba(0,0,0,0.7);
+  pointer-events: none;
+  z-index: 998;
+  animation: scoreFloat 1.4s cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes scoreFloat {
+  0%   { opacity: 0; transform: translate(-50%, -30%) scale(0.6); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  60%  { opacity: 1; transform: translate(-50%, -75%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(0.9); }
+}
+
+.screen-out { animation: screenOut 240ms ease forwards; }
+.screen-in  { animation: screenIn 320ms ease forwards; }
+@keyframes screenOut { from { opacity: 1; } to { opacity: 0; transform: translateY(8px); } }
+@keyframes screenIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Münz-Regen — goldene glänzende Münzen (effekt wird in fx-canvas gezeichnet) */
 

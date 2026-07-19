@@ -68,8 +68,61 @@ const FX = (() => {
       tone(1568, 0.5, 'sine', 0.2, notes.length * 0.13);
     },
     whoosh()  { sweep(200, 900, 0.25, 'sine', 0.1); },
-    explode() { sweep(180, 40, 0.5, 'sawtooth', 0.22); }
+    explode() { sweep(180, 40, 0.5, 'sawtooth', 0.22); },
+    dice()    {
+      /* rattling dice tumble — short bursts of filtered noise */
+      const ctx = ensureCtx(); if (!ctx || !soundEnabled) return;
+      const t0 = ctx.currentTime;
+      [0, 0.06, 0.13, 0.2].forEach(off => {
+        const dur = 0.06;
+        const buffer = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+        const src = ctx.createBufferSource(); src.buffer = buffer;
+        const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1200; filter.Q.value = 2.5;
+        const gain = ctx.createGain(); gain.gain.setValueAtTime(0.22, t0 + off); gain.gain.exponentialRampToValueAtTime(0.001, t0 + off + dur);
+        src.connect(filter).connect(gain).connect(ctx.destination);
+        src.start(t0 + off); src.stop(t0 + off + dur);
+      });
+      tone(620, 0.14, 'triangle', 0.18, 0.26);
+    },
+    coin()    { tone(988, 0.06, 'sine', 0.2); tone(1319, 0.1, 'sine', 0.18, 0.05); tone(1568, 0.12, 'sine', 0.18, 0.1); },
+    powerup() { sweep(400, 1400, 0.28, 'square', 0.14); },
+    levelup() { [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => tone(f, 0.18, 'triangle', 0.16, i * 0.08)); },
+    event()   { sweep(600, 200, 0.4, 'sawtooth', 0.18); tone(220, 0.3, 'sine', 0.15, 0.1); }
   };
+
+  /* ---------------- Background music — procedural loop ---------------- */
+  let musicTimer = null;
+  let musicEnabled = false;
+  const MUSIC_CHORDS = [
+    [220, 277, 330],   // A minor
+    [196, 247, 294],   // G major
+    [174, 220, 261],   // F major
+    [165, 220, 247]    // E minor
+  ];
+  function startMusic() {
+    if (musicTimer || !soundEnabled) return;
+    musicEnabled = true;
+    let bar = 0;
+    function playBar() {
+      if (!musicEnabled) return;
+      const chord = MUSIC_CHORDS[bar % MUSIC_CHORDS.length];
+      const t = 0;
+      chord.forEach(f => tone(f, 1.6, 'sine', 0.05, t));
+      /* simple arpeggio */
+      chord.forEach((f, i) => tone(f * 2, 0.25, 'triangle', 0.06, i * 0.22));
+      /* bass note */
+      tone(chord[0] / 2, 1.5, 'triangle', 0.08, 0);
+      bar++;
+      musicTimer = setTimeout(playBar, 1700);
+    }
+    playBar();
+  }
+  function stopMusic() {
+    musicEnabled = false;
+    if (musicTimer) { clearTimeout(musicTimer); musicTimer = null; }
+  }
 
   function setSoundEnabled(on) { soundEnabled = on; if (on) ensureCtx(); }
   function isSoundEnabled() { return soundEnabled; }
@@ -224,6 +277,53 @@ const FX = (() => {
     setTimeout(() => burst(cx * 1.5, window.innerHeight * 0.5, 60, 14), 450);
   }
 
+  /* Münz-Regen — goldene Konfetti-Münzen fallen von oben */
+  function coinRain(amount = 80) {
+    const w = fxCanvas ? fxCanvas.width : window.innerWidth;
+    const COIN_COLORS = ['#ffd34e', '#ffce3a', '#f5b800', '#ffe680'];
+    for (let i = 0; i < amount; i++) {
+      confetti.push({
+        x: Math.random() * w,
+        y: -20 - Math.random() * 300,
+        vx: (Math.random() - 0.5) * 2,
+        vy: 2 + Math.random() * 4,
+        g: 0.12,
+        size: 10 + Math.random() * 8,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.25,
+        c: COIN_COLORS[(Math.random() * COIN_COLORS.length) | 0],
+        life: 1,
+        decay: 0.003 + Math.random() * 0.003,
+        shape: 'circ',
+        coin: true
+      });
+    }
+    ensureFxLoop();
+  }
+
+  /* Floating score popup — Zahl schwebt nach oben und verblasst */
+  function scorePopup(parent, text, color = '#ffd34e') {
+    if (!parent) return;
+    const pop = document.createElement('div');
+    pop.className = 'score-popup';
+    pop.textContent = text;
+    pop.style.color = color;
+    parent.appendChild(pop);
+    setTimeout(() => { if (pop.parentNode) pop.remove(); }, 1400);
+  }
+
+  /* Smooth screen transition — fade-out → swap → fade-in */
+  function transitionScreen(el, done) {
+    if (!el) { if (typeof done === 'function') done(); return; }
+    el.classList.remove('screen-in');
+    el.classList.add('screen-out');
+    setTimeout(() => {
+      if (typeof done === 'function') done();
+      el.classList.remove('screen-out');
+      el.classList.add('screen-in');
+    }, 240);
+  }
+
   /* ---------------- Screen shake & floating toast ---------------- */
   function shake(el) {
     if (!el) return;
@@ -244,7 +344,9 @@ const FX = (() => {
 
   return {
     Sound, setSoundEnabled, isSoundEnabled,
+    startMusic, stopMusic,
     burst, rain, celebrate, shake, toast,
+    coinRain, scorePopup, transitionScreen,
     confettiAt: burst
   };
 })();

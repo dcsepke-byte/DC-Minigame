@@ -11,13 +11,29 @@
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
-    Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
-    if (screens[name]) {
-      screens[name].classList.add('active');
-      if (name === 'play') screens[name].classList.add('game-fixed');
+    const next = screens[name];
+    const current = document.querySelector('.screen.active');
+    if (current && current !== next && window.FX && FX.transitionScreen) {
+      FX.transitionScreen(current, () => {
+        Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
+        if (next) {
+          next.classList.add('active');
+          next.classList.add('screen-in');
+          if (name === 'play') next.classList.add('game-fixed');
+        }
+        document.body.classList.toggle('in-game', !['join', 'lobby'].includes(name));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    } else {
+      Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.remove('game-fixed'); });
+      if (next) {
+        next.classList.add('active');
+        if (window.FX) next.classList.add('screen-in');
+        if (name === 'play') next.classList.add('game-fixed');
+      }
+      document.body.classList.toggle('in-game', !['join', 'lobby'].includes(name));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    document.body.classList.toggle('in-game', !['join', 'lobby'].includes(name));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const me = { id: null, name: '', color: '#ff3cac', figure: '🚀' };
@@ -230,6 +246,8 @@
     board.players = m.players || [];
     board.history = [];
     if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
+    /* Hintergrundmusik starten (procedural, kein Asset) */
+    if (window.FX && FX.startMusic) FX.startMusic();
     updateMyBoardStats();
     renderBoardGrid();
     renderBoardRanking();
@@ -335,11 +353,20 @@
 
   Net.on('board:story', m => {
     if (!m || !m.text) return;
+    const text = (typeof m.text === 'object' ? String(m.text.text || '') : String(m.text)).toLowerCase();
+    /* Sound + FX passend zur Meldung */
+    if (/stern|star|⭐/.test(text)) { FX.Sound.star(); FX.coinRain(60); }
+    else if (/münze|coin|🪙|\+/.test(text)) { FX.Sound.coin(); FX.coinRain(40); }
+    else if (/event|blitz|sturm|shuffle|swap|reverse/.test(text)) { FX.Sound.event(); FX.shake(document.querySelector('#app') || document.body); }
+    else if (/duell|⚔️|challenge/.test(text)) { FX.Sound.go(); }
+    else FX.Sound.tap();
     pushBoardStory(m.text);
   });
 
   Net.on('board:eventReveal', m => {
     if (!m) return;
+    FX.Sound.event();
+    FX.shake(document.querySelector('#app') || document.body);
     queueEventReveal(m);
   });
 
@@ -835,13 +862,17 @@
     const prior = document.querySelector('.dice-drop');
     if (prior) prior.remove();
     const actor = (board.players || []).find(p => p.id === playerId);
+    /* 3D dice roll + sound + shake */
+    if (window.Party3D && Party3D.rollDice) Party3D.rollDice(roll, 1400);
+    if (window.FX && FX.Sound) { FX.Sound.whoosh(); setTimeout(() => FX.Sound.dice && FX.Sound.dice(), 1300); }
+    if (window.FX && FX.shake) FX.shake(document.querySelector('#app') || document.body);
     const wrap = el('div', 'dice-drop');
     const face = el('div', 'dice-face', String(roll));
-    const label = el('div', 'dice-label', `${escapeHtml(actor ? actor.name : 'Spieler')} würfelt`);
+    const label = el('div', 'dice-label', `${escapeHtml(actor ? actor.name : 'Spieler')} würfelt ${roll}`);
     wrap.appendChild(face);
     wrap.appendChild(label);
     document.body.appendChild(wrap);
-    setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, 1300);
+    setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, 2500);
   }
 
   function pushBoardStory(text) {
