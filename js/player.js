@@ -730,9 +730,9 @@
         owners: board.owners || {},
       });
     }
-    /* Center action overlay still needs DOM */
-    const grid = $('#player-board-grid');
-    if (grid) grid.innerHTML = '';
+    /* Center action overlay auf den 3D-Hinweis-Container */
+    const panel = $('#player-board-grid-3d') || document.querySelector('.board-3d-hint');
+    if (panel) panel.innerHTML = '';
     if (centerActions.text) {
       const box = el('div', 'board-center-action');
       box.appendChild(el('div', 'board-center-action-text', escapeHtml(centerActions.text)));
@@ -744,7 +744,7 @@
         btnWrap.appendChild(b);
       });
       box.appendChild(btnWrap);
-      if (grid) grid.appendChild(box);
+      if (panel) panel.appendChild(box);
     }
   }
 
