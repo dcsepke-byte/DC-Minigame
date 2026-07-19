@@ -1,5 +1,5 @@
-const CACHE_VERSION = 'party-arena-v1';
-const RUNTIME_CACHE = 'party-arena-runtime-v1';
+const CACHE_VERSION = 'party-arena-v2';
+const RUNTIME_CACHE = 'party-arena-runtime-v2';
 
 const APP_SHELL = [
   '/',
@@ -9,6 +9,7 @@ const APP_SHELL = [
   '/player.html',
   '/css/styles.css',
   '/js/pwa.js',
+  '/js/scene3d.js',
   '/js/effects.js',
   '/js/games.js',
   '/js/net.js',
@@ -42,14 +43,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
-
-  const isDocument = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
-  if (isDocument) {
-    event.respondWith(networkFirst(req));
-    return;
-  }
-
-  event.respondWith(cacheFirst(req));
+  event.respondWith(networkFirst(req));
 });
 
 async function networkFirst(request) {
