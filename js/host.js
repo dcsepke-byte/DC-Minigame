@@ -83,17 +83,81 @@
 
   function setBoardLogText(text) {
     const value = text || '...';
+    /* NEU Layout C: Toast statt banner/top/panel. Alte sr-only-Elemente
+       bleiben für JS-Kompat gesetzt, sichtbar wird der Toast. */
     const top = $('#board-log');
     if (top) top.textContent = value;
     const panel = $('#board-log-panel');
     if (panel) panel.textContent = value;
     const banner = $('#board-banner');
-    if (banner) {
-      banner.textContent = value;
-      banner.style.animation = 'none';
-      void banner.offsetWidth;
-      banner.style.animation = '';
+    if (banner) banner.textContent = value;
+    pushBoardToast(value);
+  }
+
+  /* NEU Layout C: Toast-System ersetzt board-banner */
+  let toastTimer = null;
+  function pushBoardToast(text, kind = '') {
+    const host = $('#host-board-toasts');
+    if (!host) return;
+    const t = el('div', 'hud-toast' + (kind ? ' ' + kind : ''), text);
+    host.appendChild(t);
+    /* Max 3 Toasts gleichzeitig — älteste entfernen */
+    while (host.children.length > 3) host.removeChild(host.firstElementChild);
+    const lifespan = kind === 'win' ? 4200 : 3200;
+    setTimeout(() => {
+      t.classList.add('fading');
+      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 420);
+    }, lifespan);
+  }
+
+  /* NEU Layout C: Spieler-Pillbar (oben-links) */
+  function renderBoardPills() {
+    const wrap = $('#host-board-pills');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const arr = state.players || [];
+    arr.forEach(p => {
+      const isTurn = (state.boardPhase === 'turn' && state.turnPlayerId === p.id)
+        || (state.boardPhase === 'decision' && state.pendingPlayerId === p.id);
+      const isYou = p.id === HOST_PID;
+      const pill = el('div', 'hud-pill' + (isTurn ? ' active' : '') + (isYou ? ' you' : ''));
+      pill.setAttribute('role', 'listitem');
+      pill.innerHTML = `
+        <span class="hud-pill-avatar" style="background:${p.color || 'linear-gradient(135deg,#7b2ff7,#00f0ff)'}">${p.figure || initials(p.name)}</span>
+        <span class="hud-pill-name">${escapeHtml(p.name)}</span>
+        <span class="hud-pill-stats">⭐${p.stars || 0} · 🪙${p.coins || 0}</span>`;
+      wrap.appendChild(pill);
+    });
+  }
+
+  /* NEU Layout C: Slide-In-Panels öffnen/schließen + Menü-Button */
+  function setupBoardSlides() {
+    const menu = $('#host-board-menu');
+    let toggleState = 0; /* 0 = keins, 1 = score, 2 = profile */
+    function open(id) {
+      const p = $('#' + id);
+      if (!p) return;
+      p.hidden = false;
+      p.classList.remove('closing');
     }
+    function close(id) {
+      const p = $('#' + id);
+      if (!p) return;
+      p.classList.add('closing');
+      setTimeout(() => { p.hidden = true; p.classList.remove('closing'); }, 220);
+    }
+    if (menu) menu.addEventListener('click', () => {
+      /* Zyklus: score → profile → zu */
+      if (toggleState === 0) { open('host-slide-score'); close('host-slide-profile'); toggleState = 1; }
+      else if (toggleState === 1) { close('host-slide-score'); open('host-slide-profile'); toggleState = 2; }
+      else { close('host-slide-profile'); toggleState = 0; }
+    });
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        close(btn.getAttribute('data-close'));
+        toggleState = 0;
+      });
+    });
   }
 
   function ensureTurnNotice() {
@@ -300,6 +364,8 @@
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
+    renderBoardPills();           /* NEU Layout C: Spieler-Pillbar initial */
+    setupBoardSlides();           /* NEU Layout C: Slide-In-Panels + Menü-Button einmalig binden */
     showHostBoardPrompt('Warte auf deinen Zug…');
     hideTurnNotice();
     showScreen('board');
@@ -316,7 +382,7 @@
     state.boardPhase = m.phase || 'turn';
     state.turnPlayerId = m.turnPlayerId || null;
     state.pendingPlayerId = m.pendingPlayerId || null;
-    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners });
+    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners, turnPlayerId: state.turnPlayerId });
     if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
     state.lapsDone = m.lapsDone || 0;
     state.lapsTotal = m.lapsTotal || 0;
@@ -325,6 +391,7 @@
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
+    renderBoardPills();         /* NEU Layout C: Spieler-Pillbar */
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     setBoardLogText(state.boardLog);
@@ -350,11 +417,28 @@
   Net.on('board:rolled', m => {
     if (!m) return;
     showDiceRoll(m.roll, m.playerId, state.players);
-    animateBoardMove(m.playerId, m.from, m.to);
+    /* Etappe 2: Path-basiert — Server sendet path-Array.
+       Fallback auf from/to für alte Boards. */
     if (window.Party3D && Party3D.animatePawnMove) {
-      const total = (state.boardTiles && state.boardTiles.length) || 40;
-      Party3D.animatePawnMove(m.playerId, m.from, m.to, total);
+      if (Array.isArray(m.path) && m.path.length) {
+        Party3D.animatePawnMove(m.playerId, m.path);
+      } else if (Number.isFinite(m.from) && Number.isFinite(m.to)) {
+        const total = (state.boardTiles && state.boardTiles.length) || 40;
+        Party3D.animatePawnMove(m.playerId, m.from, m.to, total);
+      }
     }
+    /* 2D-Animation nur im Fallback-Modus (Path wird vom 3D-Renderer übernommen) */
+    if (!Array.isArray(m.path) && Number.isFinite(m.from) && Number.isFinite(m.to)) {
+      animateBoardMove(m.playerId, m.from, m.to);
+    }
+  });
+
+  /* Etappe 2: Server fragt Spieler an Junction nach Wegwahl.
+     Host sieht die Frage als Prompt und kann für sich selbst wählen;
+     für andere Spieler leitet der Server die Wahl direkt weiter. */
+  Net.on('board:branchChoice', m => {
+    if (!m || !m.options) return;
+    showBranchChoiceUI(m);
   });
 
   Net.on('board:announce', m => {
@@ -853,16 +937,20 @@
   }
 
   function showHostBoardPrompt(text, buttons = []) {
-    const prompt = $('#host-board-prompt');
-    const panel = $('#host-board-actions');
     const msg = text || 'Warte auf deinen Zug…';
-    if (prompt) prompt.textContent = msg;
+    /* NEU Layout C: Prompt + Buttons in die Bottom-Actionbar (hud-bottom).
+       Fallback auf alte IDs für Übergang. */
+    const promptNew = $('#board-prompt');
+    const promptOld = $('#host-board-prompt');
+    if (promptNew) promptNew.textContent = msg;
+    if (promptOld) promptOld.textContent = msg;
     state.boardAction.text = msg;
     state.boardAction.buttons = buttons.map(b => ({
       label: b.label,
       kind: b.kind || 'primary',
       action: b.action,
     }));
+    const panel = $('#board-actions') || $('#host-board-actions');
     if (!panel) return;
     panel.innerHTML = '';
     state.boardAction.buttons.forEach(cfg => {

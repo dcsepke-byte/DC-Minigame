@@ -161,273 +161,258 @@
   }
 
   /* ============================================================
-     SPIEL STARTEN
+     SOLO-BRETTSPIEL-ENGINE (Mario-Party-Style)
      ============================================================ */
-  startBtn.addEventListener('click', startGame);
+      const SOLO_BOARD_SIZE = 40;          // 40-Feld-Rundkurs (8 Segmente à 5 Felder)
+      const SOLO_DUEL_TIME_MS = 15000;     // 15s Zeitbegrenzung pro Duell
+      const SOLO_STARS_TO_WIN = 4;         // Spielende: erster mit 4 Sternen
 
-  function buildQueue() {
-    const q = [];
-    const pool0 = enabledGames();
-    if (pool0.length === 0) return q;
-    if (state.order === 'random') {
-      let pool = [];
-      while (pool.length < state.rounds) pool = pool.concat(shuffle(pool0.slice()));
-      for (let i = 0; i < state.rounds; i++) q.push(pool[i]);
-    } else {
-      for (let i = 0; i < state.rounds; i++) q.push(pool0[i % pool0.length]);
-    }
-    return q;
-  }
-
-  function startGame() {
-    state.queue = buildQueue();
-    state.currentRound = 0;
-    state.players.forEach(p => { p.stars = 0; p.totalPoints = 0; });
-    FX.Sound.whoosh();
-    FX.burst(window.innerWidth / 2, window.innerHeight / 2, 40, 12);
-    startRound();
-  }
-
-  /* ============================================================
-     RUNDEN-INTRO
-     ============================================================ */
-  function startRound() {
-    const game = state.queue[state.currentRound];
-    state.roundScores = {};
-    // Spielreihenfolge: pro Runde rotieren, damit nicht immer dieselbe Person beginnt
-    state.turnOrder = state.players.map((_, i) => i);
-    const rot = state.currentRound % state.players.length;
-    state.turnOrder = state.turnOrder.slice(rot).concat(state.turnOrder.slice(0, rot));
-    state.currentTurn = 0;
-
-    $('#round-badge').textContent = `RUNDE ${state.currentRound + 1} / ${state.rounds}`;
-    $('#intro-game-icon').textContent = game.icon;
-    $('#intro-game-name').textContent = game.name;
-    $('#intro-game-desc').textContent = game.desc;
-    $('#intro-rules').innerHTML = game.rules;
-    if (window.Party3D) Party3D.setGame(game);
-    FX.Sound.whoosh();
-    showScreen('round-intro');
-  }
-
-  $('#btn-round-begin').addEventListener('click', () => { FX.Sound.click(); showPlayerTurn(); });
-
-  /* ============================================================
-     SPIELER-INTRO ("Du bist dran")
-     ============================================================ */
-  function showPlayerTurn() {
-    const pIdx = state.turnOrder[state.currentTurn];
-    const p = state.players[pIdx];
-    const avatar = $('#turn-avatar');
-    avatar.textContent = p.initials;
-    avatar.style.background = p.color;
-    $('#turn-name').textContent = p.name;
-    $('#turn-progress').textContent = `Spieler ${state.currentTurn + 1} von ${state.players.length} · Runde ${state.currentRound + 1}`;
-    FX.Sound.whoosh();
-    showScreen('player-turn');
-  }
-
-  $('#btn-player-ready').addEventListener('click', () => { FX.Sound.go(); startPlay(); });
-
-  /* ============================================================
-     MINI-SPIEL ABSPIELEN (mit Countdown)
-     ============================================================ */
-  const hudScore = $('#hud-score');
-
-  function startPlay() {
-    const pIdx = state.turnOrder[state.currentTurn];
-    const p = state.players[pIdx];
-    const game = state.queue[state.currentRound];
-
-    $('#hud-avatar').textContent = p.initials;
-    $('#hud-avatar').style.background = p.color;
-    $('#hud-name').textContent = p.name;
-    $('#hud-game').textContent = `${game.icon} ${game.name}`;
-    hudScore.textContent = '0';
-    if (window.Party3D) Party3D.setGame(game);
-
-    const stage = $('#game-stage');
-    stage.innerHTML = '';
-    showScreen('play');
-
-    // Countdown 3-2-1-GO
-    let n = 3;
-    const cd = el('div', 'stage-center');
-    cd.innerHTML = `<div class="countdown-num">${n}</div>`;
-    stage.appendChild(cd);
-    FX.Sound.countdown();
-
-    const cdTimer = setInterval(() => {
-      n--;
-      if (n > 0) {
-        cd.innerHTML = `<div class="countdown-num">${n}</div>`;
-        FX.Sound.countdown();
-      } else {
-        clearInterval(cdTimer);
-        cd.innerHTML = `<div class="countdown-num" style="color:var(--good)">GO!</div>`;
-        FX.Sound.go();
-        setTimeout(() => { stage.innerHTML = ''; launchGame(game, stage); }, 600);
-      }
-    }, 800);
-  }
-
-  function launchGame(game, stage) {
-    const api = createGameApi(stage, finalScore => onPlayerFinished(finalScore));
-    try {
-      game.play(stage, api);
-    } catch (err) {
-      console.error('Fehler im Mini-Spiel:', err);
-      onPlayerFinished(0);
-    }
-  }
-
-  function createGameApi(stage, onFinish) {
-    const timeouts = [], intervals = [], loops = [];
-    let finished = false;
-    function cleanup() {
-      timeouts.forEach(clearTimeout);
-      intervals.forEach(clearInterval);
-      loops.forEach(l => l.alive = false);
-    }
-    return {
-      stage,
-      setScore(n) { hudScore.textContent = n; },
-      finish(score) {
-        if (finished) return;
-        finished = true;
-        cleanup();
-        onFinish(Math.max(0, Math.round(score)));
-      },
-      timeout(fn, ms) { const id = setTimeout(fn, ms); timeouts.push(id); return id; },
-      interval(fn, ms) { const id = setInterval(fn, ms); intervals.push(id); return id; },
-      frameLoop(fn) {
-        const lstate = { alive: true };
-        loops.push(lstate);
-        function step() {
-          if (!lstate.alive) return;
-          if (fn() === false) { lstate.alive = false; return; }
-          requestAnimationFrame(step);
+      /* Solo-Board generieren (Kleeblatt-Layout, 40 Felder) */
+      function buildSoloBoard() {
+        const tiles = [];
+        for (let i = 0; i < SOLO_BOARD_SIZE; i++) {
+          const seg = Math.floor(i / 5);          // 0..7 → Biom
+          const type = (i === 0) ? 'start'
+            : (i % 5 === 0) ? 'junction'
+            : (i % 7 === 0) ? 'event'
+            : 'normal';
+          tiles.push({ idx: i, type, biome: seg, next: [(i + 1) % SOLO_BOARD_SIZE] });
         }
-        requestAnimationFrame(step);
+        return tiles;
       }
-    };
-  }
 
-  /* ============================================================
-     SPIELER-ERGEBNIS
-     ============================================================ */
-  function onPlayerFinished(score) {
-    const pIdx = state.turnOrder[state.currentTurn];
-    const p = state.players[pIdx];
-    state.roundScores[pIdx] = score;
-    p.totalPoints += score;
+      function playersFor3D() {
+        return state.players.map((p, i) => ({
+          id: 'p' + i, name: p.name, color: p.color,
+          position: p.position, stars: p.stars, coins: p.coins, idx: i,
+        }));
+      }
 
-    const avatar = $('#result-avatar');
-    avatar.textContent = p.initials;
-    avatar.style.background = p.color;
-    $('#result-name').textContent = p.name;
-    const scoreEl = $('#result-score');
-    FX.Sound.star();
-    showScreen('player-result');
-    animateNumber(scoreEl, 0, score, 1000);
-    if (score > 0) FX.burst(window.innerWidth / 2, window.innerHeight * 0.45, 30, 10);
-  }
+      function sync3DBoard() {
+        if (!window.Party3D) return;
+        Party3D.setBoardState({
+          tiles: state.board,
+          players: playersFor3D(),
+          owners: {},
+          turnPlayerId: 'p' + state.currentTurn,
+        });
+      }
 
-  $('#btn-result-next').addEventListener('click', () => {
-    FX.Sound.click();
-    state.currentTurn++;
-    if (state.currentTurn < state.players.length) {
-      showPlayerTurn();
-    } else {
-      showRoundResult();
-    }
-  });
+      /* Spieler initialisieren (Brett-Modus) */
+      function initBoardGame() {
+        state.board = buildSoloBoard();
+        state.players.forEach((p, i) => {
+          p.position = 0; p.stars = 0; p.coins = 10; p.totalPoints = 0;
+        });
+        state.currentTurn = 0;
+        state.turnRolls = 0;
+        state.duelQueue = [];
+        state.duelResults = [];
+        sync3DBoard();
+      }
 
-  /* ============================================================
-     RUNDEN-RANGLISTE + Stern vergeben
-     ============================================================ */
-  function showRoundResult() {
-    const game = state.queue[state.currentRound];
-    $('#round-result-sub').textContent = `Runde ${state.currentRound + 1} — ${game.icon} ${game.name}`;
+      /* ============================================================
+         BRETTLICHES SPIEL: WÜRFELN + ZIEHEN + DUELL
+         ============================================================ */
+      function showBoardTurn() {
+        const p = state.players[state.currentTurn];
+        const isHuman = (state.currentTurn === 0);  // Index 0 = menschlicher Spieler
+        $('#board-turn-name').textContent = p.name + (isHuman ? ' (Du)' : ' (Bot)');
+        $('#board-turn-avatar').textContent = p.initials;
+        $('#board-turn-avatar').style.background = p.color;
+        $('#board-turn-stars').textContent = '⭐'.repeat(p.stars) + ' 🪙'.repeat(0) + ' ' + p.coins + ' Münzen';
+        $('#board-roll-btn').disabled = !isHuman;
+        showScreen('board');
+        if (window.Party3D) Party3D.setBoardState({
+          tiles: state.board, players: playersFor3D(), owners: {},
+          turnPlayerId: 'p' + state.currentTurn,
+        });
+        if (!isHuman) {
+          // Bot würfelt automatisch nach kurzer Pause
+          setTimeout(() => doRoll(), 1200);
+        }
+      }
 
-    // Rangliste nach Rundenpunkten
-    const ranked = state.players
-      .map((p, i) => ({ p, i, score: state.roundScores[i] || 0 }))
-      .sort((a, b) => b.score - a.score);
+      function doRoll() {
+        const p = state.players[state.currentTurn];
+        const roll = 1 + Math.floor(Math.random() * 6);
+        if (window.Party3D && Party3D.rollDice) Party3D.rollDice(roll, 1500);
+        // Nach Würfel-Animation ziehen
+        setTimeout(() => {
+          const from = p.position;
+          let to = (from + roll) % SOLO_BOARD_SIZE;
+          const path = [];
+          for (let s = 0; s <= roll; s++) path.push((from + s) % SOLO_BOARD_SIZE);
+          p.position = to;
+          if (window.Party3D && Party3D.animatePawnMove) {
+            Party3D.animatePawnMove('p' + state.currentTurn, path);
+          }
+          // Nach Hop-Animation Duell auslösen (Spieler gegen Bot)
+          setTimeout(() => {
+            triggerDuel(to);
+          }, path.length * 280 + 600);
+        }, 1600);
+      }
 
-    const maxScore = ranked.length ? ranked[0].score : 0;
-    const winners = ranked.filter(r => r.score === maxScore && maxScore > 0);
-    // Stern(e) vergeben
-    winners.forEach(w => { state.players[w.i].stars += 1; });
+      /* Duell auslösen: Spieler vs nächster Mitspieler (oder Bot) */
+      function triggerDuel(landedTile) {
+        const challenger = state.players[state.currentTurn];
+        // Duell-Gegner: ein anderer Spieler (zufällig), bei 2 Spielern der andere
+        const opponents = state.players.filter((_, i) => i !== state.currentTurn);
+        const opponent = opponents[Math.floor(Math.random() * opponents.length)] || opponents[0];
+        state.duel = { challenger, opponent, tile: landedTile };
+        showDuelIntro();
+      }
 
-    const rankEl = $('#round-ranking');
-    rankEl.innerHTML = '';
-    ranked.forEach((r, pos) => {
-      const isWinner = winners.some(w => w.i === r.i);
-      const row = el('div', 'rank-row' + (isWinner ? ' first' : ''));
-      row.style.animationDelay = (pos * 0.08) + 's';
-      row.innerHTML = `
-        <span class="rank-pos">${pos + 1}</span>
-        <span class="rank-avatar" style="background:${r.p.color}">${r.p.initials}</span>
-        <span class="rank-name">${escapeHtml(r.p.name)}</span>
-        <span class="rank-score">${r.score}</span>
-        ${isWinner ? '<span class="rank-stars">⭐</span>' : ''}`;
-      rankEl.appendChild(row);
-    });
+      function showDuelIntro() {
+        const d = state.duel;
+        $('#duel-p1-avatar').textContent = d.challenger.initials;
+        $('#duel-p1-avatar').style.background = d.challenger.color;
+        $('#duel-p1-name').textContent = d.challenger.name;
+        $('#duel-p2-avatar').textContent = d.opponent.initials;
+        $('#duel-p2-avatar').style.background = d.opponent.color;
+        $('#duel-p2-name').textContent = d.opponent.name;
+        showScreen('duel-intro');
+        FX.Sound.whoosh();
+        // Automatisch starten nach 2s
+        setTimeout(() => startDuelGame(), 2000);
+      }
 
-    const starWinner = $('#star-winner');
-    if (winners.length === 1) starWinner.textContent = `⭐ ${winners[0].p.name} holt sich den Stern!`;
-    else if (winners.length > 1) starWinner.textContent = `⭐ Gleichstand! ${winners.map(w => w.p.name).join(' & ')} bekommen einen Stern!`;
-    else starWinner.textContent = 'Diese Runde gab es keine Punkte 😅';
+      /* ============================================================
+         SPIEL-API HELPER (für Mini-Spiele im Duell)
+         ============================================================ */
+      const hudScore = $('#hud-score');
 
-    showScreen('round-result');
-    FX.Sound.fanfare();
-    FX.celebrate();
-  }
+      function createGameApi(stage, onFinish) {
+        const timeouts = [], intervals = [], loops = [];
+        let finished = false;
+        function cleanup() {
+          timeouts.forEach(clearTimeout);
+          intervals.forEach(clearInterval);
+          loops.forEach(l => l.alive = false);
+        }
+        return {
+          stage,
+          setScore(n) { if (hudScore) hudScore.textContent = n; },
+          finish(score) {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            onFinish(Math.max(0, Math.round(score)));
+          },
+          timeout(fn, ms) { const id = setTimeout(fn, ms); timeouts.push(id); return id; },
+          interval(fn, ms) { const id = setInterval(fn, ms); intervals.push(id); return id; },
+          frameLoop(fn) {
+            const lstate = { alive: true };
+            loops.push(lstate);
+            function step() {
+              if (!lstate.alive) return;
+              if (fn() === false) { lstate.alive = false; return; }
+              requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+          }
+        };
+      }
 
-  $('#btn-round-next').addEventListener('click', () => { FX.Sound.click(); showStandings(); });
+      function startDuelGame() {
+        const game = pickDuelGame();
+        const d = state.duel;
+        state.duelGame = game;
+        $('#duel-game-name').textContent = game.icon + ' ' + game.name;
+        $('#duel-timer').textContent = (SOLO_DUEL_TIME_MS / 1000).toFixed(0) + 's';
+        showScreen('duel-play');
+        // Duell-Stage: zwei getrennte Bereiche für Spieler 1 und Spieler 2
+        const stage = $('#duel-stage');
+        stage.innerHTML = '';
+        // Vereinfacht: nur menschlicher Spieler spielt, Bot bekommt zufällige Punktzahl
+        const api = createDuelApi(stage, SOLO_DUEL_TIME_MS, (finalScore) => {
+          const botScore = Math.floor(Math.random() * 200) + 50; // 50-250
+          finishDuel(finalScore, botScore);
+        });
+        try { game.play(stage, api); } catch (err) { console.error('Duell-Fehler:', err); finishDuel(0, 100); }
+      }
 
-  /* ============================================================
-     GESAMTSTAND
-     ============================================================ */
-  function showStandings() {
-    const ranked = sortedOverall();
-    $('#standings-sub').textContent = `Nach Runde ${state.currentRound + 1} von ${state.rounds}`;
-    const rankEl = $('#standings-ranking');
-    rankEl.innerHTML = '';
-    ranked.forEach((r, pos) => {
-      const row = el('div', 'rank-row' + (pos === 0 && r.p.stars > 0 ? ' first' : ''));
-      row.style.animationDelay = (pos * 0.08) + 's';
-      row.innerHTML = `
-        <span class="rank-pos">${pos + 1}</span>
-        <span class="rank-avatar" style="background:${r.p.color}">${r.p.initials}</span>
-        <span class="rank-name">${escapeHtml(r.p.name)}</span>
-        <span class="rank-stars">${'⭐'.repeat(r.p.stars) || '–'}</span>
-        <span class="rank-score">${r.p.stars}</span>`;
-      rankEl.appendChild(row);
-    });
+      function createDuelApi(stage, timeLimitMs, onFinish) {
+        const api = createGameApi(stage, onFinish);
+        const start = performance.now();
+        const timerEl = $('#duel-timer');
+        // Countdown-Timer
+        api.interval(() => {
+          const rem = timeLimitMs - (performance.now() - start);
+          if (rem <= 0) { /* Spiel soll selbst finishen, aber Fallback */ }
+          timerEl.textContent = Math.max(0, rem / 1000).toFixed(1) + 's';
+        }, 100);
+        // Hard-Stop: bei Ablauf der Zeit automatisch.finish(aktueller Stand)
+        api.timeout(() => {
+          const cur = parseInt($('#hud-score').textContent, 10) || 0;
+          api.finish(cur);
+        }, timeLimitMs + 200);
+        return api;
+      }
 
-    const isLast = state.currentRound + 1 >= state.rounds;
-    $('#btn-standings-next').textContent = isLast ? '🏆 Zur Siegerehrung' : '➡️ Nächste Runde';
-    showScreen('standings');
-    FX.Sound.whoosh();
-  }
+      function pickDuelGame() {
+        // Action-orientierte Spiele bevorzugen (Tap, Targets, Arrows, Reaction)
+        const duelPool = Games.list.filter(g =>
+          ['tap', 'targets', 'arrows', 'reaction', 'math', 'stroop'].includes(g.id)
+        );
+        return duelPool[Math.floor(Math.random() * duelPool.length)];
+      }
+
+      function finishDuel(playerScore, botScore) {
+        const d = state.duel;
+        const won = playerScore >= botScore;
+        if (won) {
+          d.challenger.coins += 5;
+          // Stern bei 10 Münzen
+          if (d.challenger.coins >= 10) { d.challenger.stars += 1; d.challenger.coins -= 10; }
+        } else {
+          d.opponent.coins += 5;
+          if (d.opponent.coins >= 10) { d.opponent.stars += 1; d.opponent.coins -= 10; }
+        }
+        $('#duel-result-p1').textContent = playerScore;
+        $('#duel-result-p2').textContent = botScore;
+        $('#duel-result-banner').textContent = won
+          ? '🎉 ' + d.challenger.name + ' gewinnt das Duell!'
+          : '😤 ' + d.opponent.name + ' gewinnt das Duell!';
+        showScreen('duel-result');
+        FX.Sound.fanfare();
+        if (won) FX.celebrate();
+      }
+
+      $('#btn-duel-result-next').addEventListener('click', () => {
+        FX.Sound.click();
+        // Nächster Spieler oder Sieg-Check
+        const winner = state.players.find(p => p.stars >= SOLO_STARS_TO_WIN);
+        if (winner) { showFinal(); return; }
+        state.currentTurn = (state.currentTurn + 1) % state.players.length;
+        showBoardTurn();
+      });
+
+      /* Würfel-Button (menschlicher Spieler) */
+      $('#board-roll-btn').addEventListener('click', () => {
+        FX.Sound.click();
+        $('#board-roll-btn').disabled = true;
+        doRoll();
+      });
+
+      /* ============================================================
+         SPIEL STARTEN — SOLO-BRETT-MODUS
+         ============================================================ */
+      startBtn.addEventListener('click', startGame);
+
+      function startGame() {
+        initBoardGame();
+        FX.Sound.whoosh();
+        FX.burst(window.innerWidth / 2, window.innerHeight / 2, 40, 12);
+        showBoardTurn();
+      }
 
   function sortedOverall() {
     return state.players
       .map((p, i) => ({ p, i }))
       .sort((a, b) => b.p.stars - a.p.stars || b.p.totalPoints - a.p.totalPoints);
   }
-
-  $('#btn-standings-next').addEventListener('click', () => {
-    FX.Sound.click();
-    if (state.currentRound + 1 >= state.rounds) {
-      showFinal();
-    } else {
-      state.currentRound++;
-      startRound();
-    }
-  });
 
   /* ============================================================
      FINALE / SIEGEREHRUNG

@@ -530,40 +530,97 @@ class Room:
         games = (self.settings or {}).get("games") or []
         default_game = {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
         game_pool = games[:] if games else [default_game]
-        tiles = []
-        # 40-Felder-Board: mehr Platz, mehrere Shops, Bonus-Felder für Münzen
-        event_slots     = {4, 9, 14, 19, 24, 30, 35}
-        star_shop_slots = {6, 17, 28, 37}
-        item_shop_slots = {3, 12, 21, 33}
-        lucky_slots     = {7, 16, 26, 38}
-        bonus_slots     = {5, 11, 22, 31, 36}
-        for i in range(40):
+        # Etappe 2.5: 8-Biom-Board mit Kleeblatt-Topologie.
+        # Hauptpfad: 160 Felder (0..159) als geschlossene Schleife, durch 8 Biome.
+        # 8 Abzweige (je Biom einer): je 10 Felder Side-Path (160..239).
+        #   Side-Path zweigt am Biom-Eingang ab, mündet 20 Felder später wieder ein.
+        # Biome (je 20 Hauptpfad-Felder): 0..19 Dorf, 20..39 Wüste, 40..59 Wald,
+        #   60..79 Berg, 80..99 Sumpf, 100..119 Eis, 120..139 Vulkan, 140..159 Wolken.
+        # Graph: tile["next"] = [int, ...] — bei Junctions >1 Eintrag.
+        MAIN_LEN = 160
+        BRANCH_STARTS = [10, 30, 50, 70, 90, 110, 130, 150]  # 8 Branches (je Biom-Mitte)
+        BRANCH_LEN = 10
+        BRANCH_REJOIN_OFFSET = 10  # Side-Path mündet 10 Felder später (im gleichen Biom)
+
+        # Biome für Side-Path-Theming (passend zum Hauptpfad-Biom des Branch-Starts)
+        biomes = ["dorf", "wueste", "wald", "berg", "sumpf", "eis", "vulkan", "wolken"]
+
+        # Slot-Sets für Spezialfelder auf dem Hauptpfad
+        event_slots     = {8, 17, 28, 37, 48, 57, 68, 77, 88, 97, 108, 117, 128, 137, 148, 157}
+        star_shop_slots = {12, 34, 56, 78, 100, 122, 144, 158}
+        item_shop_slots = {6, 25, 46, 65, 86, 105, 126, 145}
+        lucky_slots     = {15, 36, 55, 76, 95, 116, 135, 154}
+        bonus_slots     = {10, 21, 31, 42, 52, 63, 73, 84, 94, 105, 115, 126, 136, 147}
+
+        tiles = [None] * (MAIN_LEN + len(BRANCH_STARTS) * BRANCH_LEN)
+
+        def make_tile(idx, type_, name, icon, **extra):
+            t = {"idx": idx, "type": type_, "name": name, "icon": icon, "next": []}
+            t.update(extra)
+            return t
+
+        # Hauptpfad 0..159
+        for i in range(MAIN_LEN):
             if i == 0:
-                tiles.append({"idx": i, "type": "start", "name": "START", "icon": "🏁"})
+                tiles[i] = make_tile(i, "start", "START", "🏁", biome="dorf")
                 continue
             if i in event_slots:
-                tiles.append({"idx": i, "type": "event", "name": "Ereignis", "icon": "🎲"})
+                tiles[i] = make_tile(i, "event", "Ereignis", "🎲", biome=biomes[i // 20])
                 continue
             if i in star_shop_slots:
-                tiles.append({"idx": i, "type": "starshop", "name": "Sternen-Shop", "icon": "⭐"})
+                tiles[i] = make_tile(i, "starshop", "Sternen-Shop", "⭐", biome=biomes[i // 20])
                 continue
             if i in item_shop_slots:
-                tiles.append({"idx": i, "type": "itemshop", "name": "Item-Shop", "icon": "🎁"})
+                tiles[i] = make_tile(i, "itemshop", "Item-Shop", "🎁", biome=biomes[i // 20])
                 continue
             if i in lucky_slots:
-                tiles.append({"idx": i, "type": "lucky", "name": "Glück oder Pech", "icon": "🍀"})
+                tiles[i] = make_tile(i, "lucky", "Glück oder Pech", "🍀", biome=biomes[i // 20])
                 continue
             if i in bonus_slots:
-                tiles.append({"idx": i, "type": "bonus", "name": "Münz-Bonus", "icon": "🪙"})
+                tiles[i] = make_tile(i, "bonus", "Münz-Bonus", "🪙", biome=biomes[i // 20])
                 continue
             g = game_pool[(i - 1) % len(game_pool)]
-            tiles.append({
-                "idx": i,
-                "type": "property",
-                "name": g.get("name", "Mini-Spiel"),
-                "icon": g.get("icon", "🎮"),
-                "game": g,
-            })
+            tiles[i] = make_tile(i, "property", g.get("name", "Mini-Spiel"), g.get("icon", "🎮"), game=g, biome=biomes[i // 20])
+
+        # Side-Paths 160..239 (8 × 10)
+        for bi, bstart in enumerate(BRANCH_STARTS):
+            side_start = 160 + bi * BRANCH_LEN
+            theme = biomes[bi]
+            for j in range(BRANCH_LEN):
+                idx = side_start + j
+                if j == 0:
+                    tiles[idx] = make_tile(idx, "junction", f"{theme.capitalize()}-Abzweig", "🧭", branchOf=bstart, biome=theme)
+                elif j == 3:
+                    tiles[idx] = make_tile(idx, "starshop", "Sternen-Shop", "⭐", biome=theme)
+                elif j == 6:
+                    tiles[idx] = make_tile(idx, "itemshop", "Item-Shop", "🎁", biome=theme)
+                elif j == 8:
+                    tiles[idx] = make_tile(idx, "lucky", "Glück oder Pech", "🍀", biome=theme)
+                else:
+                    g = game_pool[(idx) % len(game_pool)]
+                    tiles[idx] = make_tile(idx, "property", g.get("name", "Mini-Spiel"), g.get("icon", "🎮"), game=g, biome=theme)
+
+        # Graph aufbauen: next-Verbindungen
+        for i in range(MAIN_LEN):
+            nxt = (i + 1) % MAIN_LEN
+            if i in BRANCH_STARTS:
+                bi = BRANCH_STARTS.index(i)
+                side_start = 160 + bi * BRANCH_LEN
+                tiles[i]["next"] = [nxt, side_start]  # Hauptpfad + Side-Path
+            else:
+                tiles[i]["next"] = [nxt]
+
+        # Side-Path: j -> j+1, letztes (j=9) -> rejoins Hauptpfad
+        for bi, bstart in enumerate(BRANCH_STARTS):
+            side_start = 160 + bi * BRANCH_LEN
+            rejoin = (bstart + BRANCH_REJOIN_OFFSET) % MAIN_LEN
+            for j in range(BRANCH_LEN):
+                idx = side_start + j
+                if j < BRANCH_LEN - 1:
+                    tiles[idx]["next"] = [idx + 1]
+                else:
+                    tiles[idx]["next"] = [rejoin]
+
         return tiles
 
     def send_board_update(self):
@@ -598,6 +655,42 @@ class Room:
         self.board_story(f"🎁 {self.players[pid]['name']} erhält Item: {label}.")
         self.send_board_update()
 
+    def graph_walk(self, start, steps):
+        """Läuft `steps` Felder durch den Graph ab start. Wählt an Junctions
+        immer den ersten next-Eintrag (Hauptpfad-Default) — das ist sinnvoll für
+        Items/Events die keine Spielerwahl provozieren sollen.
+        Negative steps → Rückwärts (sucht predecessor); wrap-safe."""
+        if not self.board:
+            return start
+        tiles = self.board["tiles"]
+        if not tiles or start is None:
+            return start
+        n = len(tiles)
+        if steps == 0:
+            return start
+        if steps > 0:
+            cur = start
+            for _ in range(steps):
+                nxts = tiles[cur].get("next") or []
+                if not nxts:
+                    break
+                cur = nxts[0]
+            return cur
+        # Rückwärts: baue predecessor-Map (jeder Knoten kann mehrere Vorgänger haben,
+        # wir nehmen den ersten gefundenen).
+        steps = -steps
+        cur = start
+        for _ in range(steps):
+            pred = None
+            for i, t in enumerate(tiles):
+                if cur in (t.get("next") or []):
+                    pred = i
+                    break
+            if pred is None:
+                break
+            cur = pred
+        return cur
+
     def use_board_item(self, pid, item_id):
         if not self.board or pid not in self.players:
             return {"ok": False, "reason": "no_board"}
@@ -608,23 +701,22 @@ class Room:
             return {"ok": False, "reason": "missing"}
         item = items.pop(idx)
         p = self.players[pid]
-        tiles_len = len(self.board["tiles"])
-        # Effekte je Item-Typ
+        # Etappe 2: Graph-Traversing statt Modulo-Arithmetik
         if item_id == "golden_warp":
-            p["position"] = (p.get("position", 0) + 4) % tiles_len
+            p["position"] = self.graph_walk(p.get("position", 0), 4)
         elif item_id == "mushroom":
-            p["position"] = (p.get("position", 0) + 3) % tiles_len
+            p["position"] = self.graph_walk(p.get("position", 0), 3)
         elif item_id == "shell":
             # Wirft den führenden Gegner 3 Felder zurück
             opp = max((o for o in self.order if o != pid), key=lambda o: self.players[o].get("position", 0), default=None)
             if opp:
-                self.players[opp]["position"] = max(0, self.players[opp].get("position", 0) - 3)
+                self.players[opp]["position"] = self.graph_walk(self.players[opp].get("position", 0), -3)
                 self.board_story(f"🐢 Panzer trifft {self.players[opp]['name']} — 3 Felder zurück!")
         elif item_id == "lightning":
             # Alle Gegner 1 Feld zurück
             for o in self.order:
                 if o != pid:
-                    self.players[o]["position"] = max(0, self.players[o].get("position", 0) - 1)
+                    self.players[o]["position"] = self.graph_walk(self.players[o].get("position", 0), -1)
             self.board_story(f"⚡ Blitz trifft alle Gegner — 1 Feld zurück!")
         elif item_id == "ghost":
             # Stiehlt 1 Item von einem Gegner
@@ -716,19 +808,140 @@ class Room:
             return
         roll = random.randint(1, 6)
         p = self.players[pid]
-        old_pos = p.get("position", 0)
-        size = len(self.board["tiles"])
-        new_pos = (old_pos + roll) % size
-        p["position"] = new_pos
-        tile = self.board["tiles"][new_pos]
+        start = p.get("position", 0)
+        # Etappe 2: Graph-Traversing. Wir wandern Schritt für Schritt durch den Graph.
+        # Bei Junctions (>1 next) → branchChoice-Phase: Spieler wählt Pfad.
+        # Wir sammeln den Pfad bis zur ersten Junction und broadcasten board:rolled
+        # mit path=[start, next1, next2, ...] für die Client-Animation.
+        tiles = self.board["tiles"]
+        path = [start]
+        cur = start
+        steps_remaining = roll
+        while steps_remaining > 0:
+            tile = tiles[cur]
+            nxts = tile.get("next") or []
+            if not nxts:
+                break  # Sicherheitsstopp
+            if len(nxts) == 1:
+                cur = nxts[0]
+                path.append(cur)
+                steps_remaining -= 1
+                continue
+            # Junction — Spielzug pausiert, Spieler muss Pfad wählen.
+            # Wir senden board:rolled mit dem bisherigen Pfad + junctionInfo.
+            # Position wird nach der Wahl (board:chooseBranch) weiter traversiert.
+            self.board["phase"] = "branchChoice"
+            self.board["pending"] = {"player": pid, "roll": roll, "path": path,
+                                     "stepsRemaining": steps_remaining, "at": cur,
+                                     "choices": nxts, "tile": tile}
+            self.broadcast({
+                "type": "board:rolled",
+                "playerId": pid,
+                "roll": roll,
+                "from": start,
+                "to": cur,  # vorläufig — nach Wahl wird board:update gesendet
+                "path": path,
+                "junction": {"at": cur, "choices": nxts,
+                             "tiles": [tiles[n] for n in nxts]},
+                "tile": tile,
+                "awaitChoice": True,
+            })
+            if p.get("client"):
+                p["client"].send({"type": "board:chooseBranch", "choices": nxts,
+                                  "tiles": [tiles[n] for n in nxts],
+                                  "message": f"Wähle deinen Pfad! (noch {steps_remaining} Felder)"})
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({"type": "board:chooseBranch", "choices": nxts,
+                                "tiles": [tiles[n] for n in nxts],
+                                "message": f"Wähle deinen Pfad! (noch {steps_remaining} Felder)"})
+            return
+        # Keine Junction getroffen → normal weiter
+        p["position"] = cur
+        tile = tiles[cur]
         self.board["lastLog"] = f"{p['name']} würfelt {roll} und landet auf {tile['icon']} {tile['name']}."
         self.board_story(self.board["lastLog"])
         self.broadcast({
             "type": "board:rolled",
             "playerId": pid,
             "roll": roll,
-            "from": old_pos,
-            "to": new_pos,
+            "from": start,
+            "to": cur,
+            "path": path,
+            "tile": tile,
+        })
+        self.resolve_board_tile(pid, tile)
+
+    def board_choose_branch(self, pid, choice_idx):
+        """Spieler wählt an einer Junction den weiteren Pfad.
+        choice_idx = Index in pending['choices'] (0 = Hauptpfad, 1 = Side-Path)."""
+        if self.state != "board" or not self.board:
+            return
+        if self.board.get("phase") != "branchChoice":
+            return
+        pending = self.board.get("pending") or {}
+        if pending.get("player") != pid:
+            return
+        choices = pending.get("choices") or []
+        if choice_idx is None or choice_idx < 0 or choice_idx >= len(choices):
+            return
+        tiles = self.board["tiles"]
+        path = pending.get("path") or []
+        steps_remaining = int(pending.get("stepsRemaining", 0))
+        cur = choices[choice_idx]
+        path = path + [cur]
+        steps_remaining -= 1
+        p = self.players[pid]
+        start = path[0]
+        roll = pending.get("roll", steps_remaining + 1)
+        # Weiter traversieren bis Rolle aufgebraucht oder nächste Junction
+        while steps_remaining > 0:
+            tile = tiles[cur]
+            nxts = tile.get("next") or []
+            if not nxts:
+                break
+            if len(nxts) == 1:
+                cur = nxts[0]
+                path.append(cur)
+                steps_remaining -= 1
+                continue
+            # Weitere Junction → erneut Wahl fordern
+            self.board["pending"] = {"player": pid, "roll": roll, "path": path,
+                                     "stepsRemaining": steps_remaining, "at": cur,
+                                     "choices": nxts, "tile": tile}
+            self.broadcast({
+                "type": "board:rolled",
+                "playerId": pid,
+                "roll": roll,
+                "from": start,
+                "to": cur,
+                "path": path,
+                "junction": {"at": cur, "choices": nxts, "tiles": [tiles[n] for n in nxts]},
+                "tile": tile,
+                "awaitChoice": True,
+            })
+            if p.get("client"):
+                p["client"].send({"type": "board:chooseBranch", "choices": nxts,
+                                  "tiles": [tiles[n] for n in nxts],
+                                  "message": f"Wähle deinen Pfad! (noch {steps_remaining} Felder)"})
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({"type": "board:chooseBranch", "choices": nxts,
+                                "tiles": [tiles[n] for n in nxts],
+                                "message": f"Wähle deinen Pfad! (noch {steps_remaining} Felder)"})
+            return
+        # Zug abgeschlossen
+        p["position"] = cur
+        tile = tiles[cur]
+        self.board["phase"] = "turn"
+        self.board["pending"] = None
+        self.board["lastLog"] = f"{p['name']} wählt Pfad und landet auf {tile['icon']} {tile['name']}."
+        self.board_story(self.board["lastLog"])
+        self.broadcast({
+            "type": "board:rolled",
+            "playerId": pid,
+            "roll": roll,
+            "from": start,
+            "to": cur,
+            "path": path,
             "tile": tile,
         })
         self.resolve_board_tile(pid, tile)
@@ -758,10 +971,10 @@ class Room:
             self.players[low]["stars"] += 1
             txt = f"🎁 Lucky Boost: {self.players[low]['name']} hat die wenigsten Sterne und bekommt +1 Stern."
         elif effect["id"] == "step_back":
-            trigger["position"] = (trigger.get("position", 0) - 5) % size
+            trigger["position"] = self.graph_walk(trigger.get("position", 0), -5)
             txt = f"↩️ Zeitreise: {trigger['name']} geht 5 Felder zurück."
         elif effect["id"] == "step_forward":
-            trigger["position"] = (trigger.get("position", 0) + 3) % size
+            trigger["position"] = self.graph_walk(trigger.get("position", 0), 3)
             txt = f"⏩ Rückenwind: {trigger['name']} springt 3 Felder vor."
         elif effect["id"] == "rich_tax":
             high = max((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
@@ -1044,7 +1257,7 @@ class Room:
             if action == "item":
                 item_result = self.use_board_item(pid, "golden_warp")
                 if item_result.get("ok"):
-                    player["position"] = (player.get("position", 0) + 4) % len(self.board["tiles"])
+                    player["position"] = self.graph_walk(player.get("position", 0), 4)
                     self.board["lastLog"] = f"{player['name']} nutzt ein Item und bewegt sich extra vor."
                     self.board_story(self.board["lastLog"])
                     self.board["pending"] = None
@@ -1605,6 +1818,9 @@ def handle_message(client, msg):
     elif t == "board:roll" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
         room.board_roll(pid)
+    elif t == "board:chooseBranch" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
+        room.board_choose_branch(pid, msg.get("choiceIdx"))
     elif t == "board:decision" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
         room.board_decision(pid, msg.get("action"))

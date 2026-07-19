@@ -14,10 +14,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=5" />
-  <link rel="manifest" href="manifest.webmanifest?v=5" />
-  <link rel="icon" href="assets/icon.svg?v=5" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="assets/icon.svg?v=5" />
+  <link rel="stylesheet" href="css/styles.css?v=7" />
+  <link rel="manifest" href="manifest.webmanifest?v=7" />
+  <link rel="icon" href="assets/icon.svg?v=7" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icon.svg?v=7" />
 </head>
 <body class="player-app">
   <!-- FX Canvas for confetti (kept for effects) -->
@@ -60,48 +60,59 @@
       </div>
     </section>
 
-    <!-- ============ BOARD MODE ============ -->
+    <!-- ============ BOARD MODE — Vollbild-3D + HUD-Overlays (neu Layout C) ============ -->
     <section class="screen" data-screen="board">
-      <div class="board-topbar player-board-topbar">
-        <div class="board-topbar-main">
-          <span class="board-avatar-mini" id="board-avatar">P</span>
-          <span class="board-chip" id="board-name">Spieler</span>
-          <span class="board-chip" id="board-lap">Runde 0 / 0</span>
-          <span class="board-chip" id="board-me-stats">⭐ 0 · 🧮 0 Punkte</span>
-        </div>
-        <div class="board-topbar-side">
-          <span class="board-chip board-chip-dim" id="board-status" hidden>Warte auf deinen Zug…</span>
-        </div>
+      <!-- Spieler-Pillbar: alle Spieler als Chips, aktiver gehighlighted -->
+      <div class="hud-pills" id="player-board-pills" role="list" aria-label="Spieler"></div>
+
+      <!-- Fortschritts-Chip + Menü oben-rechts -->
+      <div class="hud-top-right">
+        <span class="hud-chip" id="board-lap">Runde 0 / 0</span>
+        <button class="hud-icon-btn" id="player-board-menu" aria-label="Menü">☰</button>
       </div>
-      <div class="board-banner" id="board-banner" role="status" aria-live="polite">Warte auf deinen Zug…</div>
-      <div class="board-layout card live-card">
-        <aside class="board-nav" id="player-board-nav">
-          <button class="board-nav-btn active" data-panel="map">🧩 Spielfeld</button>
-          <button class="board-nav-btn" data-panel="action">🎯 Aktion</button>
-          <button class="board-nav-btn" data-panel="ranking">⭐ Scoreboard</button>
-          <button class="board-nav-btn" data-panel="profile">👤 Meine Infos</button>
-        </aside>
-        <div class="board-panels">
-          <div class="board-panel active" data-panel="map">
-            <h2 class="card-title">🧩 Spielfeld</h2>
-            <div class="board-3d-hint">3D-Brett wird im Hintergrund gerendert</div>
-          </div>
-          <div class="board-panel" data-panel="action">
-            <h2 class="card-title">🎯 Aktion</h2>
-            <p class="hint" id="board-prompt">Warte auf deinen Zug…</p>
-            <div class="board-actions" id="board-actions"></div>
-            <div class="board-timeline" id="player-board-timeline"></div>
-          </div>
-          <div class="board-panel" data-panel="ranking">
-            <h2 class="card-title">⭐ Scoreboard</h2>
-            <div class="ranking" id="player-board-ranking"></div>
-          </div>
-          <div class="board-panel" data-panel="profile">
-            <h2 class="card-title">👤 Meine Infos</h2>
-            <div class="ranking" id="player-info-card"></div>
-          </div>
-        </div>
+
+      <!-- Status-Toasts (ersetzt board-banner + board-status) -->
+      <div class="hud-toasts" id="player-board-toasts" role="status" aria-live="polite"></div>
+
+      <!-- Bottom-Actionbar: Prompt + Würfeln/Item-Buttons prominent -->
+      <div class="hud-bottom">
+        <div class="hud-bottom-prompt" id="board-prompt">Warte auf deinen Zug…</div>
+        <div class="hud-bottom-actions" id="board-actions"></div>
+        <div class="hud-bottom-items" id="player-board-items" hidden></div>
       </div>
+
+      <!-- Slide-In Panels (rechts: Scoreboard, links: Profil/Timeline) -->
+      <aside class="slide-panel slide-right" id="player-slide-score" aria-label="Scoreboard" hidden>
+        <div class="slide-header">
+          <h2 class="card-title">⭐ Scoreboard</h2>
+          <button class="slide-close" data-close="player-slide-score">✕</button>
+        </div>
+        <div class="ranking" id="player-board-ranking"></div>
+      </aside>
+
+      <aside class="slide-panel slide-left" id="player-slide-profile" aria-label="Meine Infos & Verlauf" hidden>
+        <div class="slide-header">
+          <h2 class="card-title">👤 Meine Infos</h2>
+          <button class="slide-close" data-close="player-slide-profile">✕</button>
+        </div>
+        <div class="ranking" id="player-info-card"></div>
+        <h3 class="card-title small">📜 Verlauf</h3>
+        <div class="board-timeline" id="player-board-timeline"></div>
+      </aside>
+
+      <!-- Kompatibilitäts-Elemente (JS setzt Werte, sr-only = nur Screen-Reader) -->
+      <span class="board-avatar-mini sr-only" id="board-avatar">P</span>
+      <span class="board-chip sr-only" id="board-name">Spieler</span>
+      <span class="board-chip sr-only" id="board-me-stats">⭐ 0 · 🧮 0 Punkte</span>
+      <span class="board-chip sr-only" id="board-banner" hidden></span>
+      <span class="board-chip sr-only" id="board-status" hidden></span>
+      <span class="sr-only" id="board-nav" data-panel="map"></span>
+      <span class="sr-only" id="board-panel" data-panel="map"></span>
+      <span class="sr-only" id="board-center"></span>
+      <span class="sr-only" id="board-me"></span>
+      <span class="sr-only" id="board-story"></span>
+      <span class="sr-only" id="player-board-grid"></span>
+      <span class="sr-only" id="player-board-nav" data-panel="map"></span>
     </section>
 
     <!-- ============ RUNDEN-INTRO ============ -->
@@ -187,12 +198,13 @@
     }
   }
   </script>
-  <script type="module" src="js/scene3d.js?v=5"></script>
-  <script src="js/effects.js?v=5"></script>
-  <script src="js/quiz-duel-questions.js?v=5"></script>
-  <script src="js/games.js?v=5"></script>
-  <script src="js/net.js?v=5"></script>
-  <script src="js/pwa.js?v=5"></script>
-  <script src="js/player.js?v=5"></script>
+  <script type="module" src="js/scene3d.js?v=7"></script>
+  <script src="js/effects.js?v=7"></script>
+  <script src="js/quiz-duel-questions.js?v=7"></script>
+  <script src="js/games.js?v=7"></script>
+  <script src="js/net.js?v=7"></script>
+  <script src="js/pwa.js?v=7"></script>
+  <script src="js/branchchoice.js?v=7"></script>
+  <script src="js/player.js?v=7"></script>
 </body>
 </html>

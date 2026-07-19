@@ -253,6 +253,8 @@
     renderBoardRanking();
     renderProfileCard();
     renderBoardTimeline();
+    renderBoardPills();         /* NEU Layout C: Spieler-Pillbar initial */
+    setupBoardSlides();         /* NEU Layout C: Slide-Panels + Menü einmalig binden */
     showScreen('board');
   });
 
@@ -269,11 +271,12 @@
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
     board.history = Array.isArray(m.history) ? m.history.slice(-20) : board.history;
-    if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners });
+    if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();
     renderBoardTimeline();
+    renderBoardPills();   /* NEU Layout C: Spieler-Pillbar pro Update */
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
     setBoardStatus(board.log || 'Warte auf deinen Zug…');
@@ -359,11 +362,24 @@
   Net.on('board:rolled', m => {
     if (!m) return;
     showDiceRoll(m.roll, m.playerId);
-    animateBoardMove(m.playerId, m.from, m.to);
+    /* Etappe 2: Path-basiert — Server sendet path-Array. */
     if (window.Party3D && Party3D.animatePawnMove) {
-      const total = (board.tiles && board.tiles.length) || 40;
-      Party3D.animatePawnMove(m.playerId, m.from, m.to, total);
+      if (Array.isArray(m.path) && m.path.length) {
+        Party3D.animatePawnMove(m.playerId, m.path);
+      } else if (Number.isFinite(m.from) && Number.isFinite(m.to)) {
+        const total = (board.tiles && board.tiles.length) || 40;
+        Party3D.animatePawnMove(m.playerId, m.from, m.to, total);
+      }
     }
+    if (!Array.isArray(m.path) && Number.isFinite(m.from) && Number.isFinite(m.to)) {
+      animateBoardMove(m.playerId, m.from, m.to);
+    }
+  });
+
+  /* Etappe 2: Junction-Wegwahl-Dialog vom Server. */
+  Net.on('board:branchChoice', m => {
+    if (!m || !m.options) return;
+    showBranchChoiceUI(m);
   });
 
   Net.on('board:announce', m => {
@@ -652,12 +668,61 @@
     const chip = $('#board-status');
     if (chip) chip.textContent = value;
     const banner = $('#board-banner');
-    if (banner) {
-      banner.textContent = value;
-      banner.style.animation = 'none';
-      void banner.offsetWidth;
-      banner.style.animation = '';
-    }
+    if (banner) banner.textContent = value;
+    pushPlayerToast(value);
+  }
+
+  /* NEU Layout C: Toast-System ersetzt board-banner/status */
+  function pushPlayerToast(text, kind = '') {
+    const host = $('#player-board-toasts');
+    if (!host) return;
+    const t = el('div', 'hud-toast' + (kind ? ' ' + kind : ''), text);
+    host.appendChild(t);
+    while (host.children.length > 3) host.removeChild(host.firstElementChild);
+    const lifespan = kind === 'win' ? 4200 : 3200;
+    setTimeout(() => {
+      t.classList.add('fading');
+      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 420);
+    }, lifespan);
+  }
+
+  /* NEU Layout C: Spieler-Pillbar (oben-links) */
+  function renderBoardPills() {
+    const wrap = $('#player-board-pills');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const arr = board.players || [];
+    arr.forEach(p => {
+      const isTurn = (board.phase === 'turn' && board.turnPlayerId === p.id)
+        || (board.phase === 'decision' && board.pendingPlayerId === p.id);
+      const isYou = p.id === pid;
+      const pill = el('div', 'hud-pill' + (isTurn ? ' active' : '') + (isYou ? ' you' : ''));
+      pill.setAttribute('role', 'listitem');
+      pill.innerHTML = `
+        <span class="hud-pill-avatar" style="background:${p.color || 'linear-gradient(135deg,#7b2ff7,#00f0ff)'}">${p.figure || initials(p.name)}</span>
+        <span class="hud-pill-name">${escapeHtml(p.name)}</span>
+        <span class="hud-pill-stats">⭐${p.stars || 0} · 🪙${p.coins || 0}</span>`;
+      wrap.appendChild(pill);
+    });
+  }
+
+  /* NEU Layout C: Slide-In-Panels + Menü-Button (einmalig binden) */
+  let slidesBound = false;
+  function setupBoardSlides() {
+    if (slidesBound) return;
+    slidesBound = true;
+    const menu = $('#player-board-menu');
+    let toggleState = 0;
+    function open(id) { const p = $('#' + id); if (p) { p.hidden = false; p.classList.remove('closing'); } }
+    function close(id) { const p = $('#' + id); if (p) { p.classList.add('closing'); setTimeout(() => { p.hidden = true; p.classList.remove('closing'); }, 220); } }
+    if (menu) menu.addEventListener('click', () => {
+      if (toggleState === 0) { open('player-slide-score'); close('player-slide-profile'); toggleState = 1; }
+      else if (toggleState === 1) { close('player-slide-score'); open('player-slide-profile'); toggleState = 2; }
+      else { close('player-slide-profile'); toggleState = 0; }
+    });
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => { close(btn.getAttribute('data-close')); toggleState = 0; });
+    });
   }
   function initials(name) {
     const parts = String(name).trim().split(/\s+/);

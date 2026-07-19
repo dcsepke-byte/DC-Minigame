@@ -14,10 +14,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=5" />
-  <link rel="manifest" href="manifest.webmanifest?v=5" />
-  <link rel="icon" href="assets/icon.svg?v=5" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="assets/icon.svg?v=5" />
+  <link rel="stylesheet" href="css/styles.css?v=7" />
+  <link rel="manifest" href="manifest.webmanifest?v=7" />
+  <link rel="icon" href="assets/icon.svg?v=7" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icon.svg?v=7" />
 </head>
 <body>
   <!-- FX Canvas for confetti (kept for effects) -->
@@ -76,75 +76,71 @@
       </div>
     </section>
 
-    <!-- ============ RUNDEN-INTRO ============ -->
-    <section class="screen" id="screen-round-intro" data-screen="round-intro">
-      <div class="round-intro-content">
-        <div class="round-badge" id="round-badge">RUNDE 1</div>
-        <div class="game-icon-huge" id="intro-game-icon">⚡</div>
-        <h2 class="intro-game-name" id="intro-game-name">Reaktion</h2>
-        <p class="intro-game-desc" id="intro-game-desc"></p>
-        <div class="intro-rules" id="intro-rules"></div>
-        <button class="btn btn-primary btn-big" id="btn-round-begin">Los geht's!</button>
+    <!-- ============ BRETTLICHES SPIEL (Würfeln + Ziehen) ============ -->
+    <section class="screen" id="screen-board" data-screen="board">
+      <div class="board-hud">
+        <div class="board-turn-info">
+          <span class="board-turn-avatar" id="board-turn-avatar">P</span>
+          <span class="board-turn-name" id="board-turn-name">Spieler</span>
+        </div>
+        <div class="board-turn-stats" id="board-turn-stars">⭐ 0 · 🪙 10</div>
+      </div>
+      <div class="board-3d-host" id="board-3d-host"></div>
+      <div class="board-controls">
+        <button class="btn btn-primary btn-big" id="board-roll-btn">🎲 Würfeln</button>
       </div>
     </section>
 
-    <!-- ============ SPIELER-INTRO ("Du bist dran") ============ -->
-    <section class="screen" id="screen-player-turn" data-screen="player-turn">
-      <div class="player-turn-content">
-        <p class="turn-label">Als nächstes ist dran…</p>
-        <div class="turn-avatar" id="turn-avatar">P</div>
-        <h2 class="turn-name" id="turn-name">Spieler</h2>
-        <div class="turn-progress" id="turn-progress"></div>
-        <button class="btn btn-primary btn-big" id="btn-player-ready">Ich bin bereit!</button>
+    <!-- ============ DUELL-INTRO (Spieler vs Gegner) ============ -->
+    <section class="screen" id="screen-duel-intro" data-screen="duel-intro">
+      <div class="duel-intro-content">
+        <h2 class="duel-vs-title">⚔️ DUELL ⚔️</h2>
+        <div class="duel-vs-row">
+          <div class="duel-fighter">
+            <div class="duel-avatar" id="duel-p1-avatar">P</div>
+            <div class="duel-name" id="duel-p1-name">Spieler 1</div>
+          </div>
+          <div class="duel-vs-center">VS</div>
+          <div class="duel-fighter">
+            <div class="duel-avatar" id="duel-p2-avatar">P</div>
+            <div class="duel-name" id="duel-p2-name">Spieler 2</div>
+          </div>
+        </div>
+        <p class="duel-starts-in">Startet gleich…</p>
       </div>
     </section>
 
-    <!-- ============ MINI-SPIEL BÜHNE ============ -->
-    <section class="screen" id="screen-play" data-screen="play">
+    <!-- ============ DUELL-PLAY (zeitbegrenzt) ============ -->
+    <section class="screen" id="screen-duel-play" data-screen="duel-play">
       <div class="play-hud">
         <div class="hud-player">
-          <span class="hud-avatar" id="hud-avatar">P</span>
-          <span class="hud-name" id="hud-name">Spieler</span>
+          <span class="hud-name" id="duel-game-name">⚡ Duell</span>
         </div>
-        <div class="hud-game" id="hud-game">⚡ Reaktion</div>
+        <div class="hud-timer" id="duel-timer">15.0s</div>
         <div class="hud-score">
           <span class="hud-score-label">Punkte</span>
           <span class="hud-score-value" id="hud-score">0</span>
         </div>
       </div>
-      <div class="game-stage" id="game-stage"></div>
+      <div class="game-stage" id="duel-stage"></div>
     </section>
 
-    <!-- ============ SPIELER-ERGEBNIS ============ -->
-    <section class="screen" id="screen-player-result" data-screen="player-result">
-      <div class="player-result-content">
-        <div class="result-avatar" id="result-avatar">P</div>
-        <h2 class="result-name" id="result-name">Spieler</h2>
-        <p class="result-label">erzielt</p>
-        <div class="result-score" id="result-score">0</div>
-        <p class="result-points-label">Punkte</p>
-        <button class="btn btn-primary btn-big" id="btn-result-next">Weiter</button>
-      </div>
-    </section>
-
-    <!-- ============ RUNDEN-RANGLISTE ============ -->
-    <section class="screen" id="screen-round-result" data-screen="round-result">
-      <div class="round-result-content">
-        <h2 class="round-result-title">🏁 Rundenergebnis</h2>
-        <p class="round-result-sub" id="round-result-sub">Runde 1 — Reaktion</p>
-        <div class="ranking" id="round-ranking"></div>
-        <div class="star-winner" id="star-winner"></div>
-        <button class="btn btn-primary btn-big" id="btn-round-next">Nächste Runde</button>
-      </div>
-    </section>
-
-    <!-- ============ GESAMTSTAND ============ -->
-    <section class="screen" id="screen-standings" data-screen="standings">
-      <div class="standings-content">
-        <h2 class="standings-title">⭐ Gesamtstand</h2>
-        <p class="standings-sub" id="standings-sub"></p>
-        <div class="ranking" id="standings-ranking"></div>
-        <button class="btn btn-primary btn-big" id="btn-standings-next">Weiter</button>
+    <!-- ============ DUELL-ERGEBNIS ============ -->
+    <section class="screen" id="screen-duel-result" data-screen="duel-result">
+      <div class="duel-result-content">
+        <h2 class="duel-result-title" id="duel-result-banner">🎉 Gewinner!</h2>
+        <div class="duel-result-row">
+          <div class="duel-fighter">
+            <div class="duel-avatar" id="duel-p1-avatar-r">P</div>
+            <div class="duel-result-score" id="duel-result-p1">0</div>
+          </div>
+          <div class="duel-vs-center">:</div>
+          <div class="duel-fighter">
+            <div class="duel-avatar" id="duel-p2-avatar-r">P</div>
+            <div class="duel-result-score" id="duel-result-p2">0</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-big" id="btn-duel-result-next">Weiter</button>
       </div>
     </section>
 
@@ -168,11 +164,11 @@
     }
   }
   </script>
-  <script type="module" src="js/scene3d.js?v=5"></script>
-  <script src="js/effects.js?v=5"></script>
-  <script src="js/quiz-duel-questions.js?v=5"></script>
-  <script src="js/games.js?v=5"></script>
-  <script src="js/pwa.js?v=5"></script>
-  <script src="js/main.js?v=5"></script>
+  <script type="module" src="js/scene3d.js?v=7"></script>
+  <script src="js/effects.js?v=7"></script>
+  <script src="js/quiz-duel-questions.js?v=7"></script>
+  <script src="js/games.js?v=7"></script>
+  <script src="js/pwa.js?v=7"></script>
+  <script src="js/main.js?v=7"></script>
 </body>
 </html>

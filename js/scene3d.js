@@ -32,6 +32,7 @@ let scene = null;
 let camera = null;
 let clock = null;
 let composer = null;
+let bloomPass = null;  /* Etappe 2.5 Perf: Bloom im Board-Modus abstellbar */
 let pmremEnv = null;
 let boardGroup = null;
 let arenaGroup = null;
@@ -84,35 +85,143 @@ function clearGroup(group) {
 }
 
 /* ---------------- Landkarten-Pfad ----------------
-   Statt Kreis: ein geschwungener Pfad mit Knotenpunkten, Regionen
-   und Höhenvariation — wie eine Mario-Party-Landkarte.
-   Der Pfad verläuft in einer organischen Schleife durch 4 Regionen. */
+   Kleeblatt-Topologie: 8 Biome je als Lappen eines Achten/Kleeblatts.
+   Hauptpfad 160 Felder → 8 Segmente à 20 Felder, je Segment = 1 Biom.
+   Pro Biom ein Side-Path (10 Felder) der als Ausbuchtung nach außen ragt.
+   BRANCH_STARTS muss mit server.py übereinstimmen (8 Branches). */
 const MAP_REGIONS = [
-  { name: 'Startdorf',  color: '#ffd34e', accent: '#ff6a00', biome: 'village' },
-  { name: 'Sternwüste', color: '#ff8c42', accent: '#ffd34e', biome: 'desert'  },
-  { name: 'Itemwald',   color: '#2bffb9', accent: '#00f0ff', biome: 'forest'  },
+  { name: 'Startdorf',  color: '#ffd34e', accent: '#ff6a00', biome: 'village'  },
+  { name: 'Sternwüste', color: '#ff8c42', accent: '#ffd34e', biome: 'desert'   },
+  { name: 'Itemwald',   color: '#2bffb9', accent: '#00f0ff', biome: 'forest'   },
   { name: 'Eventberg',  color: '#7b2ff7', accent: '#ff3cac', biome: 'mountain' },
+  { name: 'Sumpf',      color: '#7bff7b', accent: '#2bffb9', biome: 'swamp'    },
+  { name: 'Eisland',    color: '#9ad8ff', accent: '#ffffff', biome: 'ice'      },
+  { name: 'Vulkanland', color: '#ff3c3c', accent: '#ffaa00', biome: 'volcano'  },
+  { name: 'Wolkenreich',color: '#c8a8ff', accent: '#ffffff', biome: 'clouds'   },
 ];
+/* Biome-Farben für jeden Hauptpfad-Abschnitt (idx // 20). */
+const BIOME_BY_INDEX = ['village','desert','forest','mountain','swamp','ice','volcano','clouds'];
 
-function tilePosition(index, total = 40) {
-  /* Geschwungener Pfad: Kombination aus Sinus-Kurven und Radius-Variation
-     erzeugt eine organische Landkarten-Schleife mit 4 Regionen.
-     Skaliert automatisch mit total — für 40 Felder etwas weitere Schleife. */
-  const t = index / Math.max(1, total);
-  const angle = t * Math.PI * 2 - Math.PI / 2;
-  /* Radius variiert — erzeugt "Beulen" die den Pfad interessanter machen.
-     Für mehr Felder: Radius etwas größer, damit Felder nicht überlappen. */
-  const radiusBase = total > 30 ? 7.6 : 6.2;
-  const radiusVar = Math.sin(t * Math.PI * 4) * 1.4 + Math.cos(t * Math.PI * 6) * 0.6;
-  const r = radiusBase + radiusVar;
-  /* Höhe variiert leicht — erzeugt Hügel im Pfad */
-  const y = Math.sin(t * Math.PI * 3) * 0.35 + Math.cos(t * Math.PI * 5) * 0.18;
+/* Etappe 2.5: Graph-bewusstes Kleeblatt-Layout.
+   Hauptpfad (idx < 160): 8-Lappen-Kleeblatt — je Biom ein Lappen der nach außen beult.
+   Side-Paths (idx 160..239): Ausbuchtungen die vom Branch-Start weiter nach außen führen
+   und in einem Bogen zum Rejoin-Punkt zurückkehren.
+   BRANCH_STARTS_3D muss mit server.py übereinstimmen. */
+const BRANCH_STARTS_3D = [10, 30, 50, 70, 90, 110, 130, 150];
+const BRANCH_LEN_3D = 10;
+const BRANCH_REJOIN_3D = [20, 40, 60, 80, 100, 120, 140, 0];  // (bstart+10)%160 — Side-Path bleibt im eigenen Biom
+
+/* Kleeblatt-Position: i = 0..159, segment = i // 20 (0..7), localT = (i%20)/20.
+   Jedes Segment ist ein Lappen: Basis bei radiusBase, beult nach außen zur Segmentmitte.
+   Höhe variiert pro Biom (Berg hoch, Sumpf tief, Wolken schwebend). */
+function biomeHeightOffset(biome, t) {
+  /* Biom-spezifische Höhenprofile — geben dem Board 3D-Tiefe. */
+  if (biome === 'mountain') return 1.2 + Math.sin(t * Math.PI) * 0.8;       // Berg: hoch
+  if (biome === 'clouds')   return 1.8 + Math.sin(t * Math.PI) * 0.6;       // Wolken: schwebend hoch
+  if (biome === 'volcano')  return 0.6 + Math.sin(t * Math.PI) * 0.5;       // Vulkan: mittel
+  if (biome === 'ice')      return 0.4 + Math.sin(t * Math.PI) * 0.4;       // Eis: leicht erhöht
+  if (biome === 'swamp')    return -0.3 - Math.sin(t * Math.PI) * 0.3;      // Sumpf: tief
+  if (biome === 'forest')   return 0.2 + Math.sin(t * Math.PI) * 0.3;       // Wald: leicht hügelig
+  if (biome === 'desert')   return 0.0 + Math.sin(t * Math.PI) * 0.2;       // Wüste: flach
+  return 0.1 + Math.sin(t * Math.PI) * 0.15;                                // Dorf: sanft
+}
+
+/* Etappe 2.5 Landschaft: Terrain-Heightmap-Funktion (Modul-global).
+   Zentraler Berg + Rand-Wall + Biom-Lift + Rauschen. Wird vom Terrain-Mesh
+   und von den Tiles/Pawns genutzt damit sie auf dem Terrain aufsitzen. */
+function terrainHeight(x, z) {
+  const r = Math.hypot(x, z);
+  /* Zentraler Berg — steiler Kegel mit Plateau, Höhe 6. */
+  const central = Math.max(0, 6 - r * 0.35) * (1 - Math.exp(-r * 0.15));
+  /* Äußerer Ring-Wall (Berge am Rand) — bei r ≈ 20, Höhe bis 4. */
+  const ring = Math.max(0, 4 - Math.abs(r - 19) * 0.6) * Math.exp(-Math.abs(r - 19) * 0.3);
+  /* Organisches Rauschen — deterministisch über Sinus-Mix. */
+  const noise = Math.sin(x * 0.45) * Math.cos(z * 0.38) * 0.6
+              + Math.sin(x * 0.21 + z * 0.17) * 0.9;
+  /* Biom-spezifische Höhen: Segment-Winkel bestimmt Biom. */
+  const ang = Math.atan2(z, x);
+  const seg = Math.floor(((ang / (Math.PI * 2)) + 0.5) * 8 + 8) % 8;
+  const biome = BIOME_BY_INDEX[seg] || 'village';
+  let biomeLift = 0;
+  if (biome === 'mountain') biomeLift = 1.2;
+  else if (biome === 'clouds') biomeLift = 2.0;
+  else if (biome === 'volcano') biomeLift = 0.8;
+  else if (biome === 'ice') biomeLift = 0.5;
+  else if (biome === 'swamp') biomeLift = -0.4;
+  /* Sanftes Radialprofil pro Biom (bei Bulge-Mitte segT=0.5 am höchsten). */
+  biomeLift *= Math.sin(Math.max(0, Math.min(1, (r - 6) / 10)) * Math.PI);
+  return central + ring * 0.7 + noise + biomeLift;
+}
+
+function mainPathPosition(i, mainLen = 160) {
+  const t = i / mainLen;
+  const segLen = mainLen / 8;                    // Segmentlänge (generalisiert)
+  const segment = Math.floor(i / segLen);        // 0..7 → Biom
+  const segT = (i % segLen) / segLen;            // 0..1 im Segment
+  /* Basiswinkel: 8 Segmente auf Kreis verteilt, Segment-Mitte als Referenz. */
+  const segAngle = (segment + 0.5) / 8 * Math.PI * 2 - Math.PI / 2;
+  /* Lappen-Bulge: Segmentmitte (segT=0.5) beult am weitesten nach außen,
+     Segmentränder (segT=0,1) sind näher am Zentrum → Kleeblatt-Form. */
+  const bulge = Math.sin(segT * Math.PI);       // 0..1..0
+  /* Basisradius klein (Zentrum), Lappen ragt nach außen. */
+  const radiusBase = 8.0;                       // Zentrum-Rand
+  const radiusBulge = 7.5 * bulge;              // Lappenlänge
+  const r = radiusBase + radiusBulge;
+  /* Winkel within Segment: segT von -0.5..+0.5 um segAngle.
+     Etappe 2.5 fix: angleSpread 0.95 (fast volle Segment-Breite) statt 0.7,
+     damit 20 Felder pro Segment nicht überlappen. Kleine Lücken zwischen
+     Biomen bleiben sichtbar — gewollt, betont Biom-Grenzen. */
+  const angleSpread = (Math.PI * 2 / 8) * 0.95;
+  const angle = segAngle + (segT - 0.5) * angleSpread;
+  /* Biom-spezifische Höhe */
+  const biome = BIOME_BY_INDEX[segment] || 'village';
+  const y = biomeHeightOffset(biome, segT);
+  /* Leichte organische Wackel für natürliche Kanten */
+  const wobble = Math.sin(t * Math.PI * 16) * 0.12;
   return {
-    x: Math.cos(angle) * r,
-    z: Math.sin(angle) * (r * 0.72),
+    x: Math.cos(angle) * (r + wobble),
+    z: Math.sin(angle) * (r + wobble) * 0.92,
     y,
     angle,
   };
+}
+
+function sidePathPosition(idx) {
+  /* Side-Path idx 160..239: bi = (idx-160)//10, j = (idx-160)%10.
+     Verläuft als Bogen vom Branch-Start (Biom-Mitte) weiter nach außen und
+     zurück zum Rejoin-Punkt. Bulge deutlich größer als Hauptpfad → sichtbare Abzweigung. */
+  const bi = Math.floor((idx - 160) / BRANCH_LEN_3D);
+  const j = (idx - 160) % BRANCH_LEN_3D;
+  const bstart = BRANCH_STARTS_3D[bi] || 10;
+  const rejoin = BRANCH_REJOIN_3D[bi] || 30;
+  const p0 = mainPathPosition(bstart, 160);
+  const p1 = mainPathPosition(rejoin, 160);
+  /* Mittelpunkt des Bogens: zwischen p0 und p1, stark nach außen verschoben. */
+  const midX = (p0.x + p1.x) / 2;
+  const midZ = (p0.z + p1.z) / 2;
+  const outLen = Math.hypot(midX, midZ) || 1;
+  const outDir = { x: midX / outLen, z: midZ / outLen };
+  const bulge = 6.0;  /* Side-Path ragt weiter nach außen als Hauptpfad */
+  const midOut = { x: midX + outDir.x * bulge, z: midZ + outDir.z * bulge };
+  /* Quadratische Bezier: p0 → midOut → p1, Parameter t = j/(BRANCH_LEN-1). */
+  const t = j / (BRANCH_LEN_3D - 1);
+  const oneMinusT = 1 - t;
+  const x = oneMinusT * oneMinusT * p0.x + 2 * oneMinusT * t * midOut.x + t * t * p1.x;
+  const z = oneMinusT * oneMinusT * p0.z + 2 * oneMinusT * t * midOut.z + t * t * p1.z;
+  /* Höhe: Bezier-interpoliert zwischen p0.y und p1.y, plus leichter Höhenrücken */
+  const yBase = oneMinusT * p0.y + t * p1.y;
+  const biome = BIOME_BY_INDEX[bi] || 'village';
+  const y = yBase + Math.sin(t * Math.PI) * (biome === 'mountain' || biome === 'clouds' ? 1.2 : 0.5);
+  /* angle: Tangente an Bezier-Kurve */
+  const dx = 2 * oneMinusT * (midOut.x - p0.x) + 2 * t * (p1.x - midOut.x);
+  const dz = 2 * oneMinusT * (midOut.z - p0.z) + 2 * t * (p1.z - midOut.z);
+  const angle = Math.atan2(dz, dx);
+  return { x, z, y, angle };
+}
+
+function tilePosition(index, total = 240) {
+  if (index < 160) return mainPathPosition(index, 160);
+  return sidePathPosition(index);
 }
 
 function tileColor(tile, owner) {
@@ -123,18 +232,41 @@ function tileColor(tile, owner) {
   if (tile && tile.type === 'itemshop') return '#2bffb9';
   if (tile && tile.type === 'lucky') return '#7bff7b';
   if (tile && tile.type === 'bonus') return '#2bffb9';
+  if (tile && tile.type === 'junction') return '#ff9e3c';  /* Etappe 2: Wegweiser-Orange */
   return '#00f0ff';
+}
+
+/* Etappe 2: Pfad-Band zwischen zwei 3D-Positionen zeichnen (Graph-Edge). */
+function drawPathBand(pos1, pos2) {
+  const dx = pos2.x - pos1.x, dz = pos2.z - pos1.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 0.001) return;
+  const midX = (pos1.x + pos2.x) / 2, midZ = (pos1.z + pos2.z) / 2;
+  const midY = (pos1.y + pos2.y) / 2;
+  const angle = Math.atan2(dz, dx);
+  const path = new THREE.Mesh(
+    new THREE.BoxGeometry(len, 0.08, 0.42),
+    new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.85, metalness: 0.05 })
+  );
+  path.position.set(midX, 0.3 + midY, midZ);
+  path.rotation.y = -angle;
+  path.receiveShadow = true;
+  path.castShadow = false;
+  boardGroup.add(path);
 }
 
 function pawn(player, index, totalAtTile) {
   const group = new THREE.Group();
+  /* Etappe 2: Pawns größer für das 200-Felder-Board (Kamera weiter weg). */
+  const PS = 1.6;
+  group.scale.setScalar(PS);
   const baseColor = player.color || palette[index % palette.length];
   const darkMat = material('#10102f', { metalness: 0.8, emissiveIntensity: 0.06 });
 
   /* Pedestal — hexagonal disc with glowing rim */
   const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.16, 12), darkMat);
   pedestal.position.y = 0.08;
-  pedestal.castShadow = true;
+  pedestal.castShadow = true;   /* Etappe 2.5 Perf: Pawn-Pedestal wirft Schatten */
   pedestal.receiveShadow = true;
   group.add(pedestal);
   const rim = new THREE.Mesh(
@@ -168,7 +300,7 @@ function pawn(player, index, totalAtTile) {
 
   const pos = tilePosition(Number(player.position) || 0, state.board.tiles.length || 24);
   const offset = (index - (totalAtTile - 1) / 2) * 0.46;
-  group.position.set(pos.x + offset * Math.cos(pos.angle + Math.PI / 2), pos.y + 0.18, pos.z + offset * Math.sin(pos.angle + Math.PI / 2));
+  group.position.set(pos.x + offset * Math.cos(pos.angle + Math.PI / 2), terrainHeight(pos.x, pos.z) + 0.18, pos.z + offset * Math.sin(pos.angle + Math.PI / 2));
   group.rotation.y = -pos.angle;
   group.userData.phase = index * 0.7;
   group.userData.playerId = player.id;
@@ -258,10 +390,12 @@ function mulberry32(seed) {
 function biomeDecor(biome, center, rng) {
   const out = [];
   const cx = center.x, cz = center.z;
+  /* Etappe 2: Skalierung für größeres Board (Regionen bei Radius ~10). */
+  const DS = 2.4;
   /* Helfer: gestreute Position innerhalb des Regionsradius, nicht auf dem Pfad */
   function scatter(minR, maxR) {
     const a = rng() * Math.PI * 2;
-    const r = minR + rng() * (maxR - minR);
+    const r = (minR + rng() * (maxR - minR)) * DS;
     return { x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r * 0.85 };
   }
 
@@ -275,7 +409,7 @@ function biomeDecor(biome, center, rng) {
         new THREE.MeshStandardMaterial({ color: 0xe8d4a0, roughness: 0.85 })
       );
       walls.position.y = 0.25;
-      walls.castShadow = true;
+      walls.castShadow = false;
       walls.receiveShadow = true;
       house.add(walls);
       /* Satteldach — Pyramide */
@@ -285,7 +419,7 @@ function biomeDecor(biome, center, rng) {
       );
       roof.position.y = 0.65;
       roof.rotation.y = Math.PI / 4;
-      roof.castShadow = true;
+      roof.castShadow = false;
       house.add(roof);
       /* Kleine Tür */
       const door = new THREE.Mesh(
@@ -311,7 +445,7 @@ function biomeDecor(biome, center, rng) {
       new THREE.MeshStandardMaterial({ color: 0x9a8a78, roughness: 0.9 })
     );
     wellBase.position.set(cx, 0.48, cz);
-    wellBase.castShadow = true;
+    wellBase.castShadow = false;
     out.push(wellBase);
     const wellWater = new THREE.Mesh(
       new THREE.CylinderGeometry(0.24, 0.24, 0.04, 12),
@@ -326,7 +460,7 @@ function biomeDecor(biome, center, rng) {
         new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.85 })
       );
       post.position.set(cx + (i ? 0.22 : -0.22), 0.95, cz);
-      post.castShadow = true;
+      post.castShadow = false;
       out.push(post);
     }
     const wellRoof = new THREE.Mesh(
@@ -335,7 +469,7 @@ function biomeDecor(biome, center, rng) {
     );
     wellRoof.position.set(cx, 1.3, cz);
     wellRoof.rotation.y = Math.PI / 4;
-    wellRoof.castShadow = true;
+    wellRoof.castShadow = false;
     out.push(wellRoof);
   }
 
@@ -362,7 +496,7 @@ function biomeDecor(biome, center, rng) {
         new THREE.MeshStandardMaterial({ color: 0x3a7a3a, roughness: 0.85, emissive: 0x1a3a1a, emissiveIntensity: 0.1 })
       );
       trunk.position.y = 0.35;
-      trunk.castShadow = true;
+      trunk.castShadow = false;
       cactus.add(trunk);
       /* 1-2 Arme */
       const arms = 1 + Math.floor(rng() * 2);
@@ -373,7 +507,7 @@ function biomeDecor(biome, center, rng) {
         );
         arm.position.set((j ? 0.15 : -0.15), 0.45, 0);
         arm.rotation.z = (j ? -0.5 : 0.5);
-        arm.castShadow = true;
+        arm.castShadow = false;
         cactus.add(arm);
       }
       cactus.position.set(p.x, 0.32, p.z);
@@ -386,7 +520,7 @@ function biomeDecor(biome, center, rng) {
     );
     pyramid.position.set(cx, 0.7, cz);
     pyramid.rotation.y = Math.PI / 4;
-    pyramid.castShadow = true;
+    pyramid.castShadow = false;
     out.push(pyramid);
   }
 
@@ -400,7 +534,7 @@ function biomeDecor(biome, center, rng) {
         new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 0.9 })
       );
       trunk.position.y = 0.3;
-      trunk.castShadow = true;
+      trunk.castShadow = false;
       tree.add(trunk);
       /* Baumkrone — 2-3 Kugeln gestapelt für organische Form */
       const crownMat = new THREE.MeshStandardMaterial({ color: 0x2a6a3a, roughness: 0.85, emissive: 0x1a3a2a, emissiveIntensity: 0.12 });
@@ -411,7 +545,7 @@ function biomeDecor(biome, center, rng) {
           crownMat
         );
         crown.position.set((rng() - 0.5) * 0.2, 0.65 + j * 0.18, (rng() - 0.5) * 0.2);
-        crown.castShadow = true;
+        crown.castShadow = false;
         tree.add(crown);
       }
       tree.position.set(p.x, 0.32, p.z);
@@ -433,7 +567,7 @@ function biomeDecor(biome, center, rng) {
         new THREE.MeshStandardMaterial({ color: 0xe84a3a, roughness: 0.6, emissive: 0x8a2a1a, emissiveIntensity: 0.2 })
       );
       cap.position.y = 0.18;
-      cap.castShadow = true;
+      cap.castShadow = false;
       mushroom.add(cap);
       /* Weißer Punkt auf dem Hut */
       const dot = new THREE.Mesh(
@@ -452,7 +586,7 @@ function biomeDecor(biome, center, rng) {
       new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.95 })
     );
     stump.position.set(stumpPos.x, 0.4, stumpPos.z);
-    stump.castShadow = true;
+    stump.castShadow = false;
     out.push(stump);
   }
 
@@ -466,7 +600,7 @@ function biomeDecor(biome, center, rng) {
       );
       rock.position.set(p.x, 0.42 + rng() * 0.1, p.z);
       rock.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-      rock.castShadow = true;
+      rock.castShadow = false;
       out.push(rock);
     }
     /* Berggipfel — markante spitze Form in Regionsmitte */
@@ -475,7 +609,7 @@ function biomeDecor(biome, center, rng) {
       new THREE.MeshStandardMaterial({ color: 0x6a6a7a, roughness: 0.85, metalness: 0.1, emissive: 0x3a3a4a, emissiveIntensity: 0.12 })
     );
     peak.position.set(cx, 0.85, cz);
-    peak.castShadow = true;
+    peak.castShadow = false;
     out.push(peak);
     /* Schneehaube auf der Spitze — kleine weiße Kugel */
     const snow = new THREE.Mesh(
@@ -498,6 +632,201 @@ function biomeDecor(biome, center, rng) {
     }
   }
 
+  else if (biome === 'swamp') {
+    /* Sumpf: trübes Wasser, Schilf, Moosbüschel, Baumleichen, Glühwürmchen */
+    /* Sumpfgrund — flache dunkle Wasserfläche */
+    const swampGround = new THREE.Mesh(
+      new THREE.CircleGeometry(1.8, 24),
+      new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 0.3, metalness: 0.5, emissive: 0x1a2a1a, emissiveIntensity: 0.2, transparent: true, opacity: 0.85 })
+    );
+    swampGround.rotation.x = -Math.PI / 2;
+    swampGround.position.set(cx, 0.06, cz);
+    out.push(swampGround);
+    /* Schilfgras — schmale Zylinderbüschel */
+    for (let i = 0; i < 8; i++) {
+      const p = scatter(0.4, 2.2);
+      for (let j = 0; j < 3; j++) {
+        const reed = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.02, 0.025, 0.35 + rng() * 0.15, 4),
+          new THREE.MeshStandardMaterial({ color: 0x6a8a3a, roughness: 0.9 })
+        );
+        reed.position.set(p.x + (j - 1) * 0.06, 0.22, p.z + (rng() - 0.5) * 0.08);
+        reed.rotation.z = (rng() - 0.5) * 0.2;
+        out.push(reed);
+      }
+    }
+    /* Baumleiche — toter Baumstumpf, krumm und kahl */
+    for (let i = 0; i < 2; i++) {
+      const p = scatter(0.6, 1.8);
+      const deadTree = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.09, 0.5, 6),
+        new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.98 })
+      );
+      deadTree.position.set(p.x, 0.35, p.z);
+      deadTree.rotation.z = (rng() - 0.5) * 0.4;
+      deadTree.castShadow = false;
+      out.push(deadTree);
+    }
+    /* Glühwürmchen — kleine gelb-grüne Lichtpunkte */
+    for (let i = 0; i < 5; i++) {
+      const p = scatter(0.3, 2.0);
+      const firefly = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xfffa6e, emissive: 0xfffa6e, emissiveIntensity: 1.2 })
+      );
+      firefly.position.set(p.x, 0.5 + rng() * 0.6, p.z);
+      firefly.userData.spin = 0.3;
+      firefly.userData.orbit = 0.3 + rng() * 0.3;
+      out.push(firefly);
+    }
+  }
+
+  else if (biome === 'ice') {
+    /* Eisland: Eiskristalle, Schneehaufen, gefrorener See, Polarlicht */
+    /* Gefrorener See — flache hellblaue Fläche */
+    const iceLake = new THREE.Mesh(
+      new THREE.CircleGeometry(1.6, 24),
+      new THREE.MeshStandardMaterial({ color: 0xb8d8f8, roughness: 0.1, metalness: 0.8, emissive: 0x9ac8e8, emissiveIntensity: 0.25, transparent: true, opacity: 0.9 })
+    );
+    iceLake.rotation.x = -Math.PI / 2;
+    iceLake.position.set(cx, 0.08, cz);
+    iceLake.receiveShadow = true;
+    out.push(iceLake);
+    /* Eiskristalle — spitze weiße Oktaeder */
+    for (let i = 0; i < 6; i++) {
+      const p = scatter(0.5, 2.2);
+      const crystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.15 + rng() * 0.1, 0),
+        new THREE.MeshStandardMaterial({ color: 0xe8f0ff, roughness: 0.2, metalness: 0.6, emissive: 0xc8e0ff, emissiveIntensity: 0.35, transparent: true, opacity: 0.88 })
+      );
+      crystal.position.set(p.x, 0.35 + rng() * 0.15, p.z);
+      crystal.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+      crystal.castShadow = false;
+      out.push(crystal);
+    }
+    /* Schneehaufen — weiße Kugeln */
+    for (let i = 0; i < 4; i++) {
+      const p = scatter(0.4, 2.0);
+      const snow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18 + rng() * 0.1, 10, 6),
+        new THREE.MeshStandardMaterial({ color: 0xf8f8ff, roughness: 0.85 })
+      );
+      snow.position.set(p.x, 0.18, p.z);
+      snow.castShadow = false;
+      out.push(snow);
+    }
+    /* Polarlicht — hängender leuchtender Streifen (deko, nicht begehbar) */
+    const aurora = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.0, 0.35),
+      new THREE.MeshStandardMaterial({ color: 0x7bff7b, emissive: 0x7bff7b, emissiveIntensity: 0.6, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+    );
+    aurora.position.set(cx, 2.8, cz);
+    aurora.userData.spin = 0.1;
+    out.push(aurora);
+  }
+
+  else if (biome === 'volcano') {
+    /* Vulkanland: Lavasee, Lavaspritzer, rauchende Felsen, glühende Risse */
+    /* Lavasee — flache glühend-rote Fläche */
+    const lavaLake = new THREE.Mesh(
+      new THREE.CircleGeometry(1.5, 20),
+      new THREE.MeshStandardMaterial({ color: 0xff4a1a, emissive: 0xff2a00, emissiveIntensity: 1.4, roughness: 0.4, metalness: 0.3 })
+    );
+    lavaLake.rotation.x = -Math.PI / 2;
+    lavaLake.position.set(cx, 0.08, cz);
+    out.push(lavaLake);
+    addGlow(lavaLake, '#ff5a2a', 1.5, 1.2);
+    /* Vulkan-Kegel — kleiner Krater in der Mitte */
+    const volcano = new THREE.Mesh(
+      new THREE.ConeGeometry(0.7, 0.9, 12, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x3a2a2a, roughness: 0.95, side: THREE.DoubleSide })
+    );
+    volcano.position.set(cx, 0.65, cz);
+    volcano.castShadow = false;
+    out.push(volcano);
+    /* Lava im Krater — kleine glühende Kappe */
+    const lavaCap = new THREE.Mesh(
+      new THREE.CircleGeometry(0.25, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff6a00, emissiveIntensity: 1.6 })
+    );
+    lavaCap.rotation.x = -Math.PI / 2;
+    lavaCap.position.set(cx, 1.05, cz);
+    out.push(lavaCap);
+    /* Rauchende Felsen — schwarze Brocken mit kleinem Glühen */
+    for (let i = 0; i < 5; i++) {
+      const p = scatter(0.6, 2.2);
+      const rock = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.16 + rng() * 0.16, 0),
+        new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.98, emissive: 0xff3a00, emissiveIntensity: rng() * 0.25 })
+      );
+      rock.position.set(p.x, 0.32 + rng() * 0.12, p.z);
+      rock.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+      rock.castShadow = false;
+      out.push(rock);
+    }
+    /* Glühende Risse — schmale Streifen */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.5, 1.8);
+      const crack = new THREE.Mesh(
+        new THREE.BoxGeometry(0.35, 0.03, 0.04),
+        new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff4a00, emissiveIntensity: 1.5 })
+      );
+      crack.position.set(p.x, 0.08, p.z);
+      crack.rotation.y = rng() * Math.PI;
+      out.push(crack);
+    }
+  }
+
+  else if (biome === 'clouds') {
+    /* Wolkenreich: schwebende Wolken, Regenbogenbögen, schwebende Insel,
+       leuchtende Sterne. Höher als andere Biome (biomeHeightOffset). */
+    /* Schwebende Wolkeninsel — flache weiß-zyanfläche */
+    const cloudIsland = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.8, 1.5, 0.18, 16),
+      new THREE.MeshStandardMaterial({ color: 0xf0e8ff, roughness: 0.95, emissive: 0xc8b8e8, emissiveIntensity: 0.18 })
+    );
+    cloudIsland.position.set(cx, 0.15, cz);
+    cloudIsland.castShadow = false;
+    out.push(cloudIsland);
+    /* Wolkenbüschel — weiße Kugelgruppen die scheinbar schweben */
+    for (let i = 0; i < 5; i++) {
+      const p = scatter(0.6, 2.4);
+      const cloud = new THREE.Group();
+      const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe8d8f8, emissiveIntensity: 0.15, transparent: true, opacity: 0.9 });
+      for (let j = 0; j < 3; j++) {
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22 + rng() * 0.1, 10, 6),
+          cloudMat
+        );
+        puff.position.set((j - 1) * 0.22, rng() * 0.1, 0);
+        cloud.add(puff);
+      }
+      cloud.position.set(p.x, 0.5 + rng() * 0.8, p.z);
+      cloud.userData.spin = 0.05;
+      out.push(cloud);
+    }
+    /* Regenbogenbogen — leuchtender farbiger Ring (halb) */
+    const rainbow = new THREE.Mesh(
+      new THREE.TorusGeometry(1.0, 0.06, 8, 32, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xff6acb, emissive: 0xff6acb, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.4, transparent: true, opacity: 0.85 })
+    );
+    rainbow.position.set(cx, 0.9, cz);
+    rainbow.userData.spin = 0.15;
+    out.push(rainbow);
+    /* Leuchtende Sterne — kleine gelbe Oktaeder */
+    for (let i = 0; i < 4; i++) {
+      const p = scatter(0.4, 1.8);
+      const star = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.08, 0),
+        new THREE.MeshStandardMaterial({ color: 0xffd34e, emissive: 0xffd34e, emissiveIntensity: 1.0 })
+      );
+      star.position.set(p.x, 1.2 + rng() * 0.6, p.z);
+      star.userData.spin = 0.6;
+      star.userData.orbit = 0.3 + rng() * 0.2;
+      out.push(star);
+    }
+  }
+
   return out;
 }
 
@@ -511,77 +840,150 @@ function buildBoard() {
   boardGroup.position.y = -0.85;
   scene.add(boardGroup);
 
-  /* Landkarten-Basis: große unregelmäßige Plattform statt Scheibe */
-  const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(7.2, 7.6, 0.5, 96),
-    material('#1a3a2e', { metalness: 0.3, roughness: 0.8, emissive: '#0a1a14', emissiveIntensity: 0.1 })
-  );
-  base.scale.set(1.15, 1, 0.95);
+  /* Etappe 2.5 Landschaft: Terrain-Heightmap statt flacher Plattform.
+     Der Pfad verläuft IN der Landschaft — mittiger Berg, Biome in Tälern/Hängen.
+     Plane wird pro Vertex auf Höhe gesetzt via terrainHeight() (Modul-global). */
+  const TERRAIN_SIZE = 52;   /* Ausdehnung */
+  const TERRAIN_SEG = 96;    /* Vertex-Auflösung (96×96 = ~9k Verts, ok für Performance) */
+  const terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEG, TERRAIN_SEG);
+  terrainGeo.rotateX(-Math.PI / 2);   /* Plane liegt flach in XZ */
+  const tpos = terrainGeo.attributes.position;
+  for (let v = 0; v < tpos.count; v++) {
+    const x = tpos.getX(v);
+    const z = tpos.getZ(v);
+    tpos.setY(v, terrainHeight(x, z));
+  }
+  terrainGeo.computeVertexNormals();
+  /* Terrain-Material: grün-braune Basis, Vertex-Colors nach Höhe für Schnee/Gipfel. */
+  const terrainColors = new Float32Array(tpos.count * 3);
+  const colLow = new THREE.Color('#3a5a3a');    /* Tal — grün */
+  const colMid = new THREE.Color('#6a5a3a');    /* Hang — braun */
+  const colHigh = new THREE.Color('#aab8c0');   /* Gipfel — grau */
+  const colSnow = new THREE.Color('#f0f4f8');   /* Schneegipfel */
+  for (let v = 0; v < tpos.count; v++) {
+    const y = tpos.getY(v);
+    const c = new THREE.Color();
+    if (y < 1.5) c.copy(colLow);
+    else if (y < 3.5) c.lerpColors(colLow, colMid, (y - 1.5) / 2.0);
+    else if (y < 5.0) c.lerpColors(colMid, colHigh, (y - 3.5) / 1.5);
+    else c.lerpColors(colHigh, colSnow, Math.min(1, (y - 5.0) / 1.5));
+    terrainColors[v * 3] = c.r;
+    terrainColors[v * 3 + 1] = c.g;
+    terrainColors[v * 3 + 2] = c.b;
+  }
+  terrainGeo.setAttribute('color', new THREE.BufferAttribute(terrainColors, 3));
+  const terrainMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    metalness: 0.15,
+    roughness: 0.92,
+    flatShading: false,
+  });
+  const base = new THREE.Mesh(terrainGeo, terrainMat);
   base.receiveShadow = true;
-  base.castShadow = true;
+  base.castShadow = true;   /* Etappe 2.5 Perf: Terrain wirft Schatten auf sich selbst */
   boardGroup.add(base);
 
-  /* Regionen: 4 farbige Zonen auf der Karte mit biom-spezifischer Dekoration.
-     Jede Region bekommt eine optisch unterscheidbare Landschaft:
-     village → Häuser + Brunnen + Brunnen, desert → Dünen + Kakteen + Pyramide,
-     forest → Bäume + Pilze + Baumstümpfe, mountain → Felsen + Schnee + Gipfel. */
+  /* Regionen als fließende Landschaft — Kleeblatt: 8 Biome je ein Lappen.
+     Jede Region liegt im Mittelpunkt ihres Biom-Segments (bei Feld idx = segment*20 + 10).
+     Biome sind jetzt zusammenhängende Zonen entlang des Pfads, keine isolierten Kreise mehr. */
   MAP_REGIONS.forEach((region, ri) => {
-    const rAngle = (ri / 4) * Math.PI * 2 - Math.PI / 2;
-    const rPos = { x: Math.cos(rAngle) * 4.5, z: Math.sin(rAngle) * 3.5 };
-    /* Boden-Textur pro Biom — unterschiedlicher Farbton auf der Plattform */
+    /* Etappe 2.5: Region-Mittelpunkt = Position des mittleren Feldes im Biom-Segment. */
+    const midIdx = ri * 20 + 10;
+    const midPos = mainPathPosition(midIdx, 160);
+    /* Etwas weiter nach außen als der Pfad → Deko liegt neben dem Pfad, nicht drauf. */
+    const outLen = Math.hypot(midPos.x, midPos.z) || 1;
+    const outPush = 2.5;
+    const rPos = {
+      x: midPos.x + (midPos.x / outLen) * outPush,
+      z: midPos.z + (midPos.z / outLen) * outPush,
+    };
     const biomeColors = {
-      village:  { ground: '#6b5236', tint: '#a0784a' },  /* sandiger Dorf-Boden */
-      desert:   { ground: '#c89b5a', tint: '#e0b070' },  /* warmes Sandgelb */
-      forest:   { ground: '#1f3a26', tint: '#2d5a3a' },  /* dunkles Waldboden-Grün */
-      mountain: { ground: '#4a4a5a', tint: '#6a6a7a' },  /* graues Felsgestein */
+      village:  { ground: '#6b5236', tint: '#a0784a', edge: '#8a6a4a' },
+      desert:   { ground: '#c89b5a', tint: '#e0b070', edge: '#a87a3a' },
+      forest:   { ground: '#1f3a26', tint: '#2d5a3a', edge: '#1a2a1a' },
+      mountain: { ground: '#4a4a5a', tint: '#6a6a7a', edge: '#2a2a3a' },
+      swamp:    { ground: '#2a3a2a', tint: '#4a6a3a', edge: '#1a2a1a' },
+      ice:      { ground: '#a8c8e8', tint: '#d8e8f8', edge: '#88a8c8' },
+      volcano:  { ground: '#3a1a1a', tint: '#6a2a1a', edge: '#2a0a0a' },
+      clouds:   { ground: '#c8b8e8', tint: '#e8d8f8', edge: '#a898c8' },
     };
     const bc = biomeColors[region.biome] || biomeColors.village;
-    /* Großer Biom-Boden — kreisförmige Fläche in Regionsfarbe */
-    const biomeGround = new THREE.Mesh(
-      new THREE.CircleGeometry(3.0, 36),
+    /* 6-8 organische Shape-Patches pro Region — entlang des Biom-Segments gestreut. */
+    const rng = mulberry32(ri * 1337 + 42);
+    const patchCount = 8 + Math.floor(rng() * 3);
+    for (let pi = 0; pi < patchCount; pi++) {
+      /* Patches entlang des Segments verteilen, nicht nur um rPos. */
+      const segT = (pi + 0.5) / patchCount;
+      const patchIdx = ri * 20 + Math.floor(segT * 20);
+      const patchPathPos = mainPathPosition(patchIdx, 160);
+      /* Patch-Position: neben dem Pfad, leicht nach außen versetzt. */
+      const pOut = Math.hypot(patchPathPos.x, patchPathPos.z) || 1;
+      const pPush = 1.5 + rng() * 2.0;
+      const px = patchPathPos.x + (patchPathPos.x / pOut) * pPush + (rng() - 0.5) * 2.0;
+      const pz = patchPathPos.z + (patchPathPos.z / pOut) * pPush + (rng() - 0.5) * 2.0;
+      const prad = 2.5 + rng() * 1.8;  /* große Patches für Biom-Zonen */
+      /* Haupt-Patch in Biom-Farbe */
+      const patch = new THREE.Mesh(
+        new THREE.CircleGeometry(prad, 14 + Math.floor(rng() * 6)),
+        new THREE.MeshStandardMaterial({
+          color: color(bc.ground), roughness: 0.96, metalness: 0.0,
+          emissive: color(bc.tint), emissiveIntensity: 0.05
+        })
+      );
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set(px, 0.265 + rng() * 0.03, pz);
+      patch.receiveShadow = true;
+      boardGroup.add(patch);
+      /* 2-3 Unter-Patches mit Edge-Farbe → organische Kanten, kein harter Kreis */
+      const subs = 2 + Math.floor(rng() * 2);
+      for (let si = 0; si < subs; si++) {
+        const sa = rng() * Math.PI * 2;
+        const sr = prad * (0.4 + rng() * 0.3);
+        const sub = new THREE.Mesh(
+          new THREE.CircleGeometry(prad * (0.7 + rng() * 0.2), 10),
+          new THREE.MeshStandardMaterial({
+            color: color(bc.edge), roughness: 0.95,
+            emissive: color(bc.tint), emissiveIntensity: 0.03,
+            transparent: true, opacity: 0.6
+          })
+        );
+        sub.rotation.x = -Math.PI / 2;
+        sub.position.set(px + Math.cos(sa) * sr * 0.6, 0.27, pz + Math.sin(sa) * sr * 0.6);
+        sub.receiveShadow = true;
+        boardGroup.add(sub);
+      }
+    }
+    /* Dezenter Glow-Verlauf in Regionsfarbe — sehr sanft, nicht mehr als Kreis erkennbar.
+       Liegt knapp über dem Biom-Boden, sehr niedrige Opacity. */
+    const glow = new THREE.Mesh(
+      new THREE.CircleGeometry(5.0, 24),  /* Etappe 2: größerer Glow */
       new THREE.MeshStandardMaterial({
-        color: color(bc.ground), roughness: 0.95, metalness: 0.0,
-        emissive: color(bc.tint), emissiveIntensity: 0.04
+        color: color(region.color), transparent: true, opacity: 0.06,
+        emissive: color(region.color), emissiveIntensity: 0.04, roughness: 0.95
       })
     );
-    biomeGround.rotation.x = -Math.PI / 2;
-    biomeGround.position.set(rPos.x, 0.27, rPos.z);
-    biomeGround.receiveShadow = true;
-    boardGroup.add(biomeGround);
-
-    /* Sanfte Glow-Zone (wie bisher, aber dezenter — Biom-Boden dominiert jetzt) */
-    const zone = new THREE.Mesh(
-      new THREE.CircleGeometry(2.8, 32),
-      new THREE.MeshStandardMaterial({
-        color: color(region.color), transparent: true, opacity: 0.08,
-        emissive: color(region.color), emissiveIntensity: 0.05, roughness: 0.9
-      })
-    );
-    zone.rotation.x = -Math.PI / 2;
-    zone.position.set(rPos.x, 0.28, rPos.z);
-    boardGroup.add(zone);
-
-    /* Region-Beschriftung */
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.set(rPos.x, 0.29, rPos.z);
+    boardGroup.add(glow);
+    /* Region-Beschriftung — schwebt über der Region */
     const regionLabel = makeLabelSprite(region.name.toUpperCase(), region.color, 32);
     regionLabel.position.set(rPos.x, 0.4, rPos.z);
     regionLabel.scale.setScalar(1.1);
     boardGroup.add(regionLabel);
-
-    /* Biom-spezifische Dekoration — gestreut um den Regionsmittelpunkt.
-       Seeded Pseudo-Zufall damit Layout deterministic & stabil über rebuilds. */
-    const rng = mulberry32(ri * 1337 + 42);
+    /* Biom-spezifische Deko (Häuser/Brunnen, Dünen/Kakteen, Bäume/Pilze, Felsen/Kristalle) */
     const decor = biomeDecor(region.biome, rPos, rng);
     decor.forEach(d => boardGroup.add(d));
   });
 
-  /* Zentrale Landmarke — großer Stern in der Mitte */
+  /* Zentrale Landmarke — großer Stern in der Mitte (Etappe 2: größer für größeres Board) */
   const centerStar = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.9, 2),
+    new THREE.OctahedronGeometry(1.8, 2),
     material('#ffd34e', { metalness: 0.5, emissive: '#ffd34e', emissiveIntensity: 0.78 })
   );
-  centerStar.position.y = 1.4;
+  /* Etappe 2.5 Landschaft: Stern auf dem zentralen Berg (terrainHeight(0,0)+4). */
+  centerStar.position.y = terrainHeight(0, 0) + 3.2;
   centerStar.userData.spin = 0.5;
-  centerStar.castShadow = true;
+  centerStar.castShadow = false;
   boardGroup.add(centerStar);
   addGlow(centerStar, '#ffd34e', 1.8, 1.5);
 
@@ -599,7 +1001,7 @@ function buildBoard() {
         new THREE.MeshStandardMaterial({ color: 0x6a6a78, roughness: 0.9 })
       );
       pebble.position.set(gx, 0.32 + globalRng() * 0.05, gz);
-      pebble.castShadow = true;
+      pebble.castShadow = false;
       boardGroup.add(pebble);
     } else {
       const grass = new THREE.Mesh(
@@ -607,7 +1009,7 @@ function buildBoard() {
         new THREE.MeshStandardMaterial({ color: 0x3a6a3a, roughness: 0.95, emissive: 0x1a3a1a, emissiveIntensity: 0.08 })
       );
       grass.position.set(gx, 0.36, gz);
-      grass.castShadow = true;
+      grass.castShadow = false;
       boardGroup.add(grass);
     }
   }
@@ -623,40 +1025,53 @@ function buildBoard() {
 
   /* Pfad-Stücke zwischen aufeinanderfolgenden Feldern */
   const pathMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.85, metalness: 0.05 });
-  for (let i = 0; i < tiles.length; i++) {
-    const pos1 = tilePosition(Number(tiles[i].idx) || i, tiles.length);
-    const pos2 = tilePosition(Number(tiles[(i + 1) % tiles.length].idx) || ((i + 1) % tiles.length), tiles.length);
-    /* Pfad als dünnes Band zwischen den Feldern */
-    const dx = pos2.x - pos1.x, dz = pos2.z - pos1.z;
-    const len = Math.sqrt(dx * dx + dz * dz);
-    const midX = (pos1.x + pos2.x) / 2, midZ = (pos1.z + pos2.z) / 2;
-    const angle = Math.atan2(dz, dx);
-    const path = new THREE.Mesh(new THREE.BoxGeometry(len, 0.08, 0.42), pathMat);
-    path.position.set(midX, 0.3, midZ);
-    path.rotation.y = -angle;
-    path.receiveShadow = true;
-    path.castShadow = true;
-    boardGroup.add(path);
-  }
+  /* Pfad-Bänder entlang der Graph-Verbindungen (tile.next).
+     Etappe 2: statt (i+1)%length nutzen wir das next-Array aus dem Tile. */
+  const drawnEdges = new Set();  /* "a-b" Key um Doppelkanten zu vermeiden */
+  tiles.forEach((tile, i) => {
+    const idxA = Number(tile.idx == null ? i : tile.idx);
+    const pos1 = tilePosition(idxA, tiles.length);
+    const nxts = tile.next || [];
+    if (!nxts.length) {
+      /* Fallback: linearer Wrap (alte Boards ohne next-Array) */
+      const nextIdx = (i + 1) % tiles.length;
+      const pos2 = tilePosition(Number(tiles[nextIdx].idx || nextIdx), tiles.length);
+      drawPathBand(pos1, pos2);
+      return;
+    }
+    nxts.forEach(nIdx => {
+      const key = idxA < nIdx ? `${idxA}-${nIdx}` : `${nIdx}-${idxA}`;
+      if (drawnEdges.has(key)) return;
+      drawnEdges.add(key);
+      const pos2 = tilePosition(Number(nIdx), tiles.length);
+      drawPathBand(pos1, pos2);
+    });
+  });
 
   tiles.forEach((tile, index) => {
     const pos = tilePosition(Number(tile.idx) || index, tiles.length);
-    const tileY = 0.46 + pos.y;
+    /* Etappe 2.5 Landschaft: Tiles sitzen auf dem Terrain auf (terrainHeight + Versatz).
+       pos.y aus mainPathPosition wird nicht mehr genutzt — terrainHeight gibt die echte Höhe. */
+    const tileY = terrainHeight(pos.x, pos.z) + 0.15;
     const ownerId = (state.board.owners || {})[String(tile.idx == null ? index : tile.idx)];
     const owner = players.find(player => player.id === ownerId);
-    const tileMat = material(tileColor(tile, owner), { metalness: 0.5, emissiveIntensity: owner ? 0.44 : 0.24 });
-    /* Feld — abgerundete Box, flach auf dem Pfad */
-    const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.3, 0.8, 4, 2, 4), tileMat);
+    /* Junction-Tiles bekommen eine besondere Farbe (Wegweiser-Look) */
+    const isJunction = tile.type === 'junction' || (tile.next && tile.next.length > 1);
+    const baseTileColor = tileColor(tile, owner);
+    const tileMat = material(baseTileColor, { metalness: 0.5, emissiveIntensity: owner ? 0.44 : (isJunction ? 0.5 : 0.24) });
+    /* Feld — abgerundete Box, flach auf dem Pfad. Etappe 2.5 Perf: Segmente 1,1,1
+       (vorher 4,2,4) → bei 240 Feldern massig weniger Polygone. */
+    const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.36, 1, 1, 1), tileMat);
     tileMesh.position.set(pos.x, tileY, pos.z);
     tileMesh.rotation.y = -pos.angle;
     tileMesh.userData.index = tile.idx == null ? index : tile.idx;
-    tileMesh.castShadow = true;
+    tileMesh.castShadow = true;   /* Etappe 2.5 Perf: Tiles werfen Schatten (wichtig für Tiefe) */
     tileMesh.receiveShadow = true;
     boardGroup.add(tileMesh);
 
     /* Cap — farbige Oberfläche zeigt Feld-Typ */
     const cap = new THREE.Mesh(
-      new THREE.BoxGeometry(0.85, 0.03, 0.55),
+      new THREE.BoxGeometry(0.4, 0.03, 0.28),
       new THREE.MeshStandardMaterial({ color: color(tileColor(tile, owner)), transparent: true, opacity: 0.82, roughness: 0.5, emissive: color(tileColor(tile, owner)), emissiveIntensity: 0.12 })
     );
     cap.position.set(pos.x, tileY + 0.18, pos.z);
@@ -692,16 +1107,94 @@ function buildBoard() {
       addGlow(shopStar, '#ffd34e', 0.9, 0.6);
     }
     if (tile.type === 'itemshop') {
-      const gift = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.26), material('#2bffb9', { emissiveIntensity: 0.7 }));
-      gift.position.set(pos.x, tileY + 0.7, pos.z);
-      gift.userData.spin = 0.4;
+      /* Etappe 2.5: Item-Shop als 3D-Gebäude (Laden/Hütte) statt Popup-Box.
+         Gebäude steht auf dem Feld: Basis aus Holz, markantes grünes Dach,
+         Eingang mit Vorhang, Waren-Tische außen, schwebendes Gift-Icon als
+         Blickfang darüber. Gebäudemodell immer in Pfad-Richtung ausgerichtet. */
+      const shop = new THREE.Group();
+      /* Bodenplatte — leicht erhöhter Steinsockel */
+      const shopBase = new THREE.Mesh(
+        new THREE.BoxGeometry(0.42, 0.06, 0.32),
+        new THREE.MeshStandardMaterial({ color: 0x8a7a6a, roughness: 0.95 })
+      );
+      shopBase.position.y = 0.05;
+      shopBase.castShadow = false;
+      shopBase.receiveShadow = true;
+      shop.add(shopBase);
+      /* Wände — holzfarbene Box, offen an der Vorderseite (Richtung Pfad-Außenseite) */
+      const walls = new THREE.Mesh(
+        new THREE.BoxGeometry(0.38, 0.27, 0.28),
+        new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.88 })
+      );
+      walls.position.y = 0.22;
+      walls.castShadow = false;
+      walls.receiveShadow = true;
+      shop.add(walls);
+      /* Markantes grünes Satteldach — Pyramidkegel, passend zur Item-Shop-Farbe */
+      const roof = new THREE.Mesh(
+        new THREE.ConeGeometry(0.34, 0.24, 4),
+        new THREE.MeshStandardMaterial({ color: 0x2bffb9, roughness: 0.5, emissive: 0x0a8a6a, emissiveIntensity: 0.3, metalness: 0.3 })
+      );
+      roof.position.y = 0.47;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = false;
+      shop.add(roof);
+      /* Dachhaube — kleine goldene Kugel auf der Spitze */
+      const roofKnob = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xffd34e, emissive: 0xffd34e, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.2 })
+      );
+      roofKnob.position.y = 0.62;
+      shop.add(roofKnob);
+      /* Eingangsvorhang — leuchtender Vorhang aus kleinen Boxen */
+      const curtainMat = new THREE.MeshStandardMaterial({ color: 0xff3cac, emissive: 0xff3cac, emissiveIntensity: 0.4, roughness: 0.6 });
+      for (let ci = 0; ci < 3; ci++) {
+        const curtain = new THREE.Mesh(
+          new THREE.BoxGeometry(0.06, 0.19, 0.015),
+          curtainMat
+        );
+        curtain.position.set(-0.11 + ci * 0.11, 0.22, 0.15);
+        shop.add(curtain);
+      }
+      /* Theke / Waren-Tisch außen vor dem Eingang — zwei kleine Kisten mit Items */
+      for (let ti = 0; ti < 2; ti++) {
+        const crate = new THREE.Mesh(
+          new THREE.BoxGeometry(0.1, 0.07, 0.07),
+          new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.9 })
+        );
+        crate.position.set(-0.12 + ti * 0.24, 0.1, 0.2);
+        crate.castShadow = false;
+        shop.add(crate);
+        /* Kleines leuchtendes Item auf der Kiste — als Ware angedeutet */
+        const wareColor = ti === 0 ? 0xff3cac : 0xffd34e;
+        const ware = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.04, 0),
+          new THREE.MeshStandardMaterial({ color: wareColor, emissive: wareColor, emissiveIntensity: 0.9 })
+        );
+        ware.position.set(-0.12 + ti * 0.24, 0.15, 0.2);
+        ware.userData.spin = 0.5;
+        ware.userData.orbit = 0.4 + ti * 0.1;
+        shop.add(ware);
+      }
+      /* Ausrichtung: Gebäude blickt zur Pfad-Außenseite (Richtung = -pos.angle + π/2) */
+      shop.position.set(pos.x, tileY, pos.z);
+      shop.rotation.y = -pos.angle + Math.PI / 2;
+      shop.userData.isShop = true;
+      boardGroup.add(shop);
+      /* Schwebendes Gift-Icon über dem Dach — als Werbeschild / Blickfang.
+         Dreht und hüpft leicht → signalisiert Item-Shop von weitem. */
+      const gift = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), material('#2bffb9', { emissiveIntensity: 0.85 }));
+      gift.position.set(pos.x, tileY + 1.15, pos.z);
+      gift.userData.spin = 0.5;
       gift.userData.orbit = 0.5 + index * 0.05;
       boardGroup.add(gift);
+      addGlow(gift, '#2bffb9', 0.6, 0.5);
+      /* Schleife auf dem Icon */
       const ribbon = new THREE.Mesh(
-        new THREE.BoxGeometry(0.28, 0.04, 0.06),
-        new THREE.MeshStandardMaterial({ color: 0xff3cac, emissive: 0xff3cac, emissiveIntensity: 0.6 })
+        new THREE.BoxGeometry(0.24, 0.04, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xff3cac, emissive: 0xff3cac, emissiveIntensity: 0.7 })
       );
-      ribbon.position.set(pos.x, tileY + 0.85, pos.z);
+      ribbon.position.set(pos.x, tileY + 1.3, pos.z);
       ribbon.userData.orbit = 0.5 + index * 0.05;
       boardGroup.add(ribbon);
     }
@@ -733,22 +1226,49 @@ function buildBoard() {
       flag.userData.orbit = 0.5;
       boardGroup.add(flag);
     }
+    if (isJunction) {
+      /* Etappe 2: Wegweiser-Pfahl mit Pfeil-Schild an Junctions. */
+      const signPole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 0.85, 8),
+        new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.85 })
+      );
+      signPole.position.set(pos.x, tileY + 0.45, pos.z);
+      signPole.castShadow = false;
+      boardGroup.add(signPole);
+      const arrow = new THREE.Mesh(
+        new THREE.ConeGeometry(0.22, 0.4, 4),
+        material('#ff9e3c', { emissiveIntensity: 0.55, metalness: 0.3 })
+      );
+      arrow.position.set(pos.x, tileY + 1.05, pos.z);
+      arrow.userData.spin = 0.8;
+      arrow.userData.orbit = 0.5 + index * 0.05;
+      boardGroup.add(arrow);
+      const jlabel = makeLabelSprite('⇄', '#ff9e3c', 24);
+      jlabel.position.set(pos.x, tileY + 1.45, pos.z);
+      jlabel.scale.setScalar(0.5);
+      boardGroup.add(jlabel);
+    }
   });
 
   /* Pawns: wenn eine Hop-Animation läuft, behalte existierende Pawn-Meshes
      und re-parente sie ins neue boardGroup — sonst teleportiert der rebuild. */
+  /* BUGFIX: Object.keys() liefert Strings, player.id ist Number aus JSON.
+     Set.has(1) !== Set.has("1") → der Schutz griff nie → Pawns wurden bei
+     jedem board:update neu gebaut → Hop-Animation sofort abgebrochen.
+     Fix: String-Konvertierung für konsistente Keys. */
   const livePawns = new Set(Object.keys(pawnAnim).filter(pid => pawnAnim[pid] && pawnAnim[pid].active));
   players.forEach((player, index) => {
     const position = Number(player.position) || 0;
     const sameIndex = players.slice(0, index).filter(p => (Number(p.position) || 0) === position).length;
-    const existing = pawnMeshes[player.id];
-    if (livePawns.has(player.id) && existing) {
+    const pid = String(player.id);
+    const existing = pawnMeshes[pid];
+    if (livePawns.has(pid) && existing) {
       /* Hop läuft — Mesh behalten, nur ins neue boardGroup umhängen.
          Position wird von updatePawnHops() weiter getrieben. */
       boardGroup.add(existing);
     } else {
       const p = pawn(player, sameIndex, totalByTile[position] || 1);
-      pawnMeshes[player.id] = p;
+      pawnMeshes[pid] = p;
       boardGroup.add(p);
     }
   });
@@ -765,23 +1285,34 @@ function buildBoard() {
 
 /* Pawn-Hop-Animation: Pawns hüpfen Feld-für-Feld statt zu teleportieren.
    Wird von host.js/player.js bei 'board:rolled' aufgerufen. */
+/* Etappe 2: Path-basierte Hop-Animation.
+   API: animatePawnMove(playerId, path) — path = [idx0, idx1, ..., idxN]
+   Der Pawn hüpft Feld für Feld entlang des Pfads.
+   Rückwärts-kompatibel: (playerId, from, to, total) wird zu einem
+   zirkulären Pfad expandiert (altes 40-Felder-Board). */
 function animatePawnMove(playerId, from, to, total) {
-  if (!playerId || !Number.isFinite(from) || !Number.isFinite(to)) return;
-  const size = Math.max(1, total || state.board.tiles.length || 24);
-  /* Vorwärts-Richtung (mit wrap-around) */
-  let steps = to - from;
-  if (steps < 0) steps += size;  /* wrap */
-  if (steps === 0) return;
-  pawnAnim[playerId] = {
+  if (!playerId) return;
+  const pidKey = String(playerId);  /* konsistente String-Keys für pawnMeshes/pawnAnim */
+  let path;
+  if (Array.isArray(from)) {
+    /* Neue API: from ist bereits der Pfad */
+    path = from;
+  } else {
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+    const size = Math.max(1, total || state.board.tiles.length || 24);
+    let steps = to - from;
+    if (steps < 0) steps += size;
+    if (steps === 0) return;
+    path = [];
+    for (let s = 0; s <= steps; s++) path.push((from + s) % size);
+  }
+  if (path.length < 2) return;
+  pawnAnim[pidKey] = {
     active: true,
-    from: from,
-    to: to,
-    currentStep: from,
-    nextStep: (from + 1) % size,
-    size: size,
+    path: path,
+    currentIdx: 0,
     progress: 0,
-    hopDuration: 0.28,  /* Sekunden pro Feld-Hop */
-    stepsRemaining: steps,
+    hopDuration: 0.28,
   };
 }
 
@@ -791,7 +1322,7 @@ function pawnPosOnTile(tileIdx, playerIdx, totalAtTile) {
   const offset = (playerIdx - (totalAtTile - 1) / 2) * 0.46;
   return {
     x: pos.x + offset * Math.cos(pos.angle + Math.PI / 2),
-    y: pos.y + 0.18,
+    y: terrainHeight(pos.x + offset * Math.cos(pos.angle + Math.PI / 2), pos.z + offset * Math.sin(pos.angle + Math.PI / 2)) + 0.18,
     z: pos.z + offset * Math.sin(pos.angle + Math.PI / 2),
     angle: pos.angle,
   };
@@ -805,42 +1336,41 @@ function hopArc(t, hopHeight) {
 function updatePawnHops(delta) {
   Object.keys(pawnAnim).forEach(pid => {
     const anim = pawnAnim[pid];
-    if (!anim || !anim.active) return;
+    if (!anim || !anim.active || !anim.path) return;
     const mesh = pawnMeshes[pid];
     if (!mesh) { anim.active = false; return; }
 
     anim.progress += delta / anim.hopDuration;
     /* Fertig mit aktuellem Hop? → nächsten Schritt beginnen */
-    while (anim.progress >= 1 && anim.stepsRemaining > 0) {
+    while (anim.progress >= 1 && anim.currentIdx < anim.path.length - 1) {
       anim.progress -= 1;
-      anim.currentStep = anim.nextStep;
-      anim.stepsRemaining -= 1;
-      if (anim.stepsRemaining <= 0) {
+      anim.currentIdx += 1;
+      if (anim.currentIdx >= anim.path.length - 1) {
         anim.active = false;
         anim.progress = 0;
         break;
       }
-      anim.nextStep = (anim.currentStep + 1) % anim.size;
     }
 
+    const lastIdx = anim.path[anim.path.length - 1];
     if (!anim.active) {
       /* Animation beendet — Pawn auf Zielfeld platzieren */
-      const target = pawnPosOnTile(anim.to, 0, 1);
+      const target = pawnPosOnTile(lastIdx, 0, 1);
       mesh.position.set(target.x, target.y, target.z);
       mesh.rotation.y = -target.angle;
       return;
     }
 
-    /* Zwischen currentStep und nextStep interpolieren + Hop-Bogen */
+    /* Zwischen currentIdx und currentIdx+1 interpolieren + Hop-Bogen */
     const t = Math.min(1, anim.progress);
-    const fromPos = pawnPosOnTile(anim.currentStep, 0, 1);
-    const toPos = pawnPosOnTile(anim.nextStep, 0, 1);
-    /* Pawn schaut in Laufrichtung */
+    const fromIdx = anim.path[anim.currentIdx];
+    const toIdx = anim.path[anim.currentIdx + 1] ?? lastIdx;
+    const fromPos = pawnPosOnTile(fromIdx, 0, 1);
+    const toPos = pawnPosOnTile(toIdx, 0, 1);
     const x = fromPos.x + (toPos.x - fromPos.x) * t;
     const z = fromPos.z + (toPos.z - fromPos.z) * t;
-    const hop = hopArc(t, 0.55);  /* 0.55 Einheiten Hop-Höhe */
+    const hop = hopArc(t, 0.55);
     mesh.position.set(x, fromPos.y + hop, z);
-    /* Rotation sanft in Laufrichtung drehen */
     const targetAngle = -Math.atan2(toPos.z - fromPos.z, toPos.x - fromPos.x);
     mesh.rotation.y = targetAngle;
   });
@@ -875,7 +1405,7 @@ function arenaShape(group, theme, index) {
   } else {
     mesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 24), material(index % 2 ? theme.a : theme.b, { emissiveIntensity: 0.5 }));
   }
-  mesh.castShadow = true;
+  mesh.castShadow = false;
   holder.add(mesh);
   holder.add(addGlow(holder, index % 2 ? theme.a : theme.b, 0.75, 0.55));
   group.add(holder);
@@ -921,7 +1451,7 @@ function buildArena(gameId) {
   else core = new THREE.Mesh(new THREE.TorusKnotGeometry(0.9, 0.22, 96, 16), material(theme.a, { emissiveIntensity: 0.64 }));
   core.position.y = 1.55;
   core.userData.spin = 0.55;
-  core.castShadow = true;
+  core.castShadow = false;
   arenaGroup.add(core);
   addGlow(core, theme.a, 2.4, 1.4);
 
@@ -967,7 +1497,7 @@ function buildWorld() {
     );
     hill.position.set(Math.cos(ang) * dist, h / 2 - 1.4, Math.sin(ang) * dist);
     hill.rotation.y = i * 0.7;
-    hill.castShadow = true;
+    hill.castShadow = true;   /* Etappe 2.5 Perf: Berge werfen Schatten (große Form, sichtbar) */
     hill.receiveShadow = true;
     scene.add(hill);
   }
@@ -982,7 +1512,7 @@ function buildWorld() {
       new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 })
     );
     trunk.position.y = -0.9;
-    trunk.castShadow = true;
+    trunk.castShadow = false;
     tree.add(trunk);
     const leafColor = [0x2d8a3e, 0x3aa050, 0x226e30][i % 3];
     const leaves = new THREE.Mesh(
@@ -990,7 +1520,7 @@ function buildWorld() {
       new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.82, flatShading: true })
     );
     leaves.position.y = -0.1;
-    leaves.castShadow = true;
+    leaves.castShadow = false;
     tree.add(leaves);
     tree.position.set(Math.cos(ang) * dist, -1.3, Math.sin(ang) * dist);
     tree.scale.setScalar(0.8 + Math.random() * 0.6);
@@ -1047,7 +1577,7 @@ function buildDice() {
   const size = 0.6;
   const dice = new THREE.Group();
   const cube = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), diceMat);
-  cube.castShadow = true;
+  cube.castShadow = false;
   dice.add(cube);
   /* Pips on each face — arranged like a real die */
   const faces = [
@@ -1064,7 +1594,7 @@ function buildDice() {
       if (face.axis === 'y') { pip.position.set(px, face.sign * size / 2 + face.sign * 0.01, py); }
       else if (face.axis === 'x') { pip.position.set(face.sign * size / 2 + face.sign * 0.01, px, py); }
       else { pip.position.set(px, py, face.sign * size / 2 + face.sign * 0.01); }
-      pip.castShadow = true;
+      pip.castShadow = false;
       dice.add(pip);
     });
   });
@@ -1179,7 +1709,7 @@ function buildShowcase() {
   const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 2), material('#00f0ff', { emissiveIntensity: 0.75 }));
   crystal.position.y = 2.25;
   crystal.userData.spin = 0.5;
-  crystal.castShadow = true;
+  crystal.castShadow = false;
   showcaseGroup.add(crystal);
   addGlow(crystal, '#00f0ff', 2.6, 1.5);
 
@@ -1190,7 +1720,7 @@ function buildShowcase() {
       material(palette[i], { emissiveIntensity: 0.45 })
     );
     pillar.position.set(Math.cos(angle) * 4.3, 0.9, Math.sin(angle) * 3.1);
-    pillar.castShadow = true;
+    pillar.castShadow = false;
     showcaseGroup.add(pillar);
   }
 }
@@ -1210,8 +1740,33 @@ function buildParticles() {
   scene.add(particles);
 }
 
+/* Etappe 2.5: Kamera-Fokus auf aktive Spielerfigur.
+   Gibt die Welt-Position des aktiven Pawns zurück (oder Board-Mitte als Fallback). */
+function activePawnWorldPos() {
+  const ap = state.activePawnId != null ? String(state.activePawnId) : null;
+  if (ap && pawnMeshes[ap]) {
+    const p = pawnMeshes[ap];
+    /* Etappe 2.5: getWorldPosition weil Pawns in boardGroup (offset y=-0.85) liegen. */
+    const v = new THREE.Vector3();
+    p.getWorldPosition(v);
+    v.y += 0.5;
+    return v;
+  }
+  /* Fallback: aktueller Spieler anhand Position im Board-State. */
+  const players = state.board && state.board.players;
+  if (players && players.length) {
+    const idx = Number(state.activePlayerIdx || 0);
+    const pl = players[idx] || players[0];
+    if (pl) {
+      const pos = tilePosition(Number(pl.position) || 0, state.board.tiles.length || 24);
+      return new THREE.Vector3(pos.x, terrainHeight(pos.x, pos.z) + 0.5 - 0.85, pos.z);
+    }
+  }
+  return new THREE.Vector3(0, 0.2, 0);
+}
+
 function lookTarget() {
-  if (state.mode === 'board') return new THREE.Vector3(0, 0.2, 0);
+  if (state.mode === 'board') return activePawnWorldPos();
   if (state.mode === 'game') return new THREE.Vector3(0, 0.25, 0);
   return new THREE.Vector3(0, 0.75, 0);
 }
@@ -1220,12 +1775,33 @@ function updateCamera() {
   if (!camera) return;
   const board = state.mode === 'board';
   const game = state.mode === 'game';
-  const base = board ? { x: 0, y: 10.2, z: 10.6 } : game ? { x: 0, y: 8.2, z: 11.4 } : { x: 0, y: 6.8, z: 12.6 };
-  const targetX = base.x + pointer.x * 1.2;
-  const targetY = base.y + pointer.y * 0.45;
-  camera.position.x += (targetX - camera.position.x) * 0.035;
-  camera.position.y += (targetY - camera.position.y) * 0.035;
-  camera.position.z += (base.z - camera.position.z) * 0.035;
+  /* Etappe 2.5: Im Board-Modus folgt die Kamera dem aktiven Spieler.
+     Kamera positioniert sich hinter/über dem Pawn (Richtung Mitte + Höhe).
+     Beim ersten Board-Bild (kein aktiver Spieler) fällt sie auf Übersicht zurück. */
+  let base;
+  if (board) {
+    const focus = activePawnWorldPos();
+    /* Kamera steht leicht versetzt vom Pawn Richtung Board-Außenrand + deutlich höher. */
+    const outLen = Math.hypot(focus.x, focus.z) || 1;
+    const camDist = 7.5;   /* Abstand hinter dem Pawn */
+    const camHeight = 8.5; /* Höhe über dem Pawn */
+    base = {
+      x: focus.x + (focus.x / outLen) * camDist,
+      y: focus.y + camHeight,
+      z: focus.z + (focus.z / outLen) * camDist,
+    };
+    /* Wenn der Pawn nah an der Mitte ist (Start), Übersicht behalten. */
+    if (outLen < 3) base = { x: 0, y: 14, z: 14 };
+  } else if (game) {
+    base = { x: 0, y: 8.2, z: 11.4 };
+  } else {
+    base = { x: 0, y: 6.8, z: 12.6 };
+  }
+  const targetX = base.x + pointer.x * (board ? 1.5 : 1.2);
+  const targetY = base.y + pointer.y * (board ? 0.6 : 0.45);
+  camera.position.x += (targetX - camera.position.x) * 0.045;
+  camera.position.y += (targetY - camera.position.y) * 0.045;
+  camera.position.z += (base.z - camera.position.z) * 0.045;
   camera.lookAt(lookTarget());
 }
 
@@ -1235,6 +1811,8 @@ function animate() {
   const delta = Math.min(0.04, clock.getDelta());
   updateCamera();
   updatePawnHops(delta);
+  /* Etappe 2.5 Perf: Bloom nur im Showcase/Mini-Game — im Board-Modus abgestellt. */
+  if (bloomPass) bloomPass.enabled = state.mode !== 'board';
 
   if (particles) particles.rotation.y += delta * 0.008;
   animateDice(delta, elapsed);
@@ -1317,6 +1895,9 @@ function setBoardState(payload) {
     players: Array.isArray(payload.players) ? payload.players : state.board.players,
     owners: payload.owners || state.board.owners || {},
   };
+  /* Etappe 2.5: aktiver Spieler für Kamera-Fokus. Wird vom Host/Player-Modul
+     gesetzt wenn das Board aktualisiert wird (turnPlayerId vom Server). */
+  if (payload.turnPlayerId != null) state.activePawnId = payload.turnPlayerId;
   if (state.ready) {
     buildBoard();
     if (state.mode !== 'game') state.mode = 'board';
@@ -1342,8 +1923,8 @@ function init() {
   }
   try {
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    // Hoehere Pixel-Ratio fuer schaerfe 3D-Elemente auf HiDPI/Retina-Displays
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+    // Etappe 2.5 Perf: PixelRatio 2.5→1.5 (groesster FPS-Hebel auf HiDPI/Retina)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
     else if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
@@ -1361,7 +1942,7 @@ function init() {
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x08091f, 0.032);
     camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 7, 13);
+    camera.position.set(0, 22, 22);
     clock = new THREE.Clock();
 
     /* Environment-Map fuer Reflexionen auf Pawns/Tiles (lackiertes Plastik-Look)
@@ -1380,15 +1961,15 @@ function init() {
     scene.add(new THREE.HemisphereLight(0x9ba6ff, 0x110c32, 0.9));  /* vorher 1.4 → zu hell */
     const key = new THREE.DirectionalLight(0xffffff, 1.5);  /* vorher 2.4 → mit physicallyCorrectLights zu hell */
     key.position.set(4, 10, 7);
-    // Schattenwerfendes Hauptlicht — hochaufloesende 4096 mapSize fuer scharfe Kanten
-    key.castShadow = true;
-    key.shadow.mapSize.set(4096, 4096);
+    // Schattenwerfendes Hauptlicht — Etappe 2.5 Perf: 4096→2048 mapSize (halbiert VRAM+FPS)
+    key.castShadow = false;
+    key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 35;
-    key.shadow.camera.left = -12;
-    key.shadow.camera.right = 12;
-    key.shadow.camera.top = 12;
-    key.shadow.camera.bottom = -12;
+    key.shadow.camera.far = 45;
+    key.shadow.camera.left = -20;
+    key.shadow.camera.right = 20;
+    key.shadow.camera.top = 20;
+    key.shadow.camera.bottom = -20;
     key.shadow.bias = -0.0004;
     key.shadow.radius = 6;
     scene.add(key);
@@ -1400,21 +1981,21 @@ function init() {
     scene.add(rim);
 
     /* Postprocessing-Pipeline: RenderPass + UnrealBloomPass
-       Bloom macht leuchtende Sterne/Items/Neon-Kanten richtig glowen —
-       der groesste „professionell vs. amateur"-Unterschied. */
+       Etappe 2.5 Perf: Bloom nur im Showcase/Mini-Game (kosmetisch), im Board-Modus abgestellt
+       weil es dort der größte FPS-Killer ist und das Board ohnehin nicht glühen muss. */
     try {
       composer = new EffectComposer(renderer);
       const renderPass = new RenderPass(scene, camera);
       composer.addPass(renderPass);
-      const bloomPass = new UnrealBloomPass(
+      bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.45,  /* strength: vorher 0.85 → zu viel Ueberstrahlung, jetzt dezentes Glow */
-        0.4,   /* radius: vorher 0.55, etwas enger */
-        0.7    /* threshold: vorher 0.2 (erfasste mittelhelle Flaechen → „zu hell"), jetzt 0.7 = nur echte Highlights glühen */
+        0.32,  /* strength: vorher 0.45 → dezentes Glow, Etappe 2.5 reduziert */
+        0.35,  /* radius: enger */
+        0.85   /* threshold: vorher 0.7 → nur ganz helle Highlights glühen */
       );
       composer.addPass(bloomPass);
       composer.setSize(window.innerWidth, window.innerHeight);
-      composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+      composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     } catch (err) {
       console.warn('[Party3D] Composer init failed, fallback to direct render', err);
       composer = null;
@@ -1440,7 +2021,7 @@ function init() {
       renderer.setSize(window.innerWidth, window.innerHeight);
       if (composer) {
         composer.setSize(window.innerWidth, window.innerHeight);
-        composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+        composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       }
     });
     window.addEventListener('pointermove', event => {
