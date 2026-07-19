@@ -323,6 +323,108 @@
     addGlow(arenaGroup, theme.b, 4.5, 0.85);
   }
 
+  function buildWorld() {
+    /* Sky dome — gradient from deep purple to warm horizon */
+    const skyGeo = new THREE.SphereGeometry(48, 32, 24);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: {
+        top: { value: new THREE.Color(0x0a0a2f) },
+        mid: { value: new THREE.Color(0x2b1a5e) },
+        bot: { value: new THREE.Color(0x6b2a8e) },
+      },
+      vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 mid; uniform vec3 bot; void main(){ float h = normalize(vP).y; vec3 c = mix(bot, mid, smoothstep(-0.1, 0.3, h)); c = mix(c, top, smoothstep(0.3, 0.8, h)); gl_FragColor = vec4(c, 1.0); }',
+    });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
+
+    /* Ground — large grassy disc */
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(40, 64),
+      new THREE.MeshStandardMaterial({ color: 0x1a4d2e, roughness: 0.9, metalness: 0.05 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.4;
+    scene.add(ground);
+
+    /* Rolling hills — low-poly cones around the board */
+    const hillColors = [0x2d6e3e, 0x3a8a4a, 0x2560b0, 0x4a2a6e];
+    for (let i = 0; i < 14; i += 1) {
+      const ang = (i / 14) * Math.PI * 2 + (i % 2) * 0.3;
+      const dist = 16 + (i % 4) * 3;
+      const h = 2.5 + (i % 5) * 1.2;
+      const hill = new THREE.Mesh(
+        new THREE.ConeGeometry(3 + (i % 3) * 1.5, h, 8),
+        new THREE.MeshStandardMaterial({ color: hillColors[i % hillColors.length], roughness: 0.88, flatShading: true })
+      );
+      hill.position.set(Math.cos(ang) * dist, h / 2 - 1.4, Math.sin(ang) * dist);
+      hill.rotation.y = i * 0.7;
+      scene.add(hill);
+    }
+
+    /* Trees — simple cone + trunk, scattered around */
+    for (let i = 0; i < 22; i += 1) {
+      const ang = (i / 22) * Math.PI * 2 + Math.random() * 0.4;
+      const dist = 11 + Math.random() * 18;
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.18, 0.8, 6),
+        new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 })
+      );
+      trunk.position.y = -0.9;
+      tree.add(trunk);
+      const leafColor = [0x2d8a3e, 0x3aa050, 0x226e30][i % 3];
+      const leaves = new THREE.Mesh(
+        new THREE.ConeGeometry(0.85, 1.6, 7),
+        new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.82, flatShading: true })
+      );
+      leaves.position.y = -0.1;
+      tree.add(leaves);
+      tree.position.set(Math.cos(ang) * dist, -1.3, Math.sin(ang) * dist);
+      tree.scale.setScalar(0.8 + Math.random() * 0.6);
+      scene.add(tree);
+    }
+
+    /* Floating clouds — soft spheres drifting above */
+    for (let i = 0; i < 10; i += 1) {
+      const cloud = new THREE.Group();
+      const cloudMat = new THREE.MeshStandardMaterial({ color: 0xe8e0ff, roughness: 0.95, transparent: true, opacity: 0.78, emissive: 0x4a3a6e, emissiveIntensity: 0.08 });
+      for (let j = 0; j < 4; j += 1) {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.7 + Math.random() * 0.4, 10, 8), cloudMat);
+        puff.position.set(j * 0.7 - 1, Math.random() * 0.3, Math.random() * 0.4);
+        cloud.add(puff);
+      }
+      cloud.position.set((Math.random() - 0.5) * 36, 6 + Math.random() * 4, (Math.random() - 0.5) * 30);
+      cloud.userData.drift = 0.3 + Math.random() * 0.4;
+      cloud.userData.driftX = (Math.random() - 0.5) * 0.2;
+      scene.add(cloud);
+      if (!state.clouds) state.clouds = [];
+      state.clouds.push(cloud);
+    }
+
+    /* Stars — twinkling points high in the sky */
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(300 * 3);
+    for (let i = 0; i < 300; i += 1) {
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      const r = 35;
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.cos(phi) * 0.5 + 6;
+      starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffeecc, size: 0.12, transparent: true, opacity: 0.85, sizeAttenuation: true });
+    state.stars = new THREE.Points(starGeo, starMat);
+    scene.add(state.stars);
+
+    /* Central glow light under the board */
+    const worldLight = new THREE.PointLight(0x7b2ff7, 1.8, 30, 2);
+    worldLight.position.set(0, -1, 0);
+    scene.add(worldLight);
+  }
+
   function buildShowcase() {
     if (!scene) return;
     if (showcaseGroup) {
@@ -404,6 +506,17 @@
     updateCamera();
 
     if (particles) particles.rotation.y += delta * 0.008;
+    /* World animations: cloud drift + star twinkle */
+    if (state.clouds) {
+      state.clouds.forEach(c => {
+        c.position.x += c.userData.driftX * delta;
+        if (c.position.x > 22) c.position.x = -22;
+        if (c.position.x < -22) c.position.x = 22;
+      });
+    }
+    if (state.stars) {
+      state.stars.material.opacity = 0.6 + Math.sin(elapsed * 1.5) * 0.25;
+    }
     if (boardGroup && boardGroup.visible) {
       boardGroup.rotation.y += delta * (state.reducedMotion ? 0.006 : 0.018);
       boardGroup.traverse(node => {
@@ -524,6 +637,7 @@
       scene.add(rim);
 
       buildParticles();
+      buildWorld();
       buildShowcase();
       buildBoard();
       buildArena('reaction');

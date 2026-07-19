@@ -258,8 +258,7 @@
     renderBoardTimeline();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
-    const status = $('#board-status');
-    if (status) status.textContent = board.log || 'Warte auf deinen Zug…';
+    setBoardStatus(board.log || 'Warte auf deinen Zug…');
     const myActionable =
       (board.phase === 'turn' && board.turnPlayerId === me.id) ||
       (board.phase === 'decision' && board.pendingPlayerId === me.id);
@@ -319,8 +318,7 @@
   });
 
   Net.on('board:chaos', m => {
-    const status = $('#board-status');
-    if (status) status.textContent = m.text || 'Chaos ausgelöst!';
+    setBoardStatus(m.text || 'Chaos ausgelöst!');
     FX.Sound.whoosh();
   });
 
@@ -331,8 +329,7 @@
   });
 
   Net.on('board:announce', m => {
-    const status = $('#board-status');
-    if (status) status.textContent = m.text || 'Neue Phase startet…';
+    setBoardStatus(m.text || 'Neue Phase startet…');
     showBoardPrompt(m.text || 'Neue Phase startet…');
   });
 
@@ -359,16 +356,14 @@
   Net.on('board:duelLive', m => {
     const cs = (m.scores && m.scores[m.challenger]) || 0;
     const os = (m.scores && m.scores[m.owner]) || 0;
-    const status = $('#board-status');
-    if (status) status.textContent = `⚔️ Duell live: ${cs} : ${os}`;
+    setBoardStatus(`⚔️ Duell live: ${cs} : ${os}`);
   });
 
   Net.on('board:globalResult', m => {
     if (!m || !Array.isArray(m.ranking)) return;
     const top = m.ranking.slice(0, 3).map((r, i) => `${i + 1}. ${r.name} (${r.score})`).join('  |  ');
     showBoardPrompt(`📊 Runden-Scoreboard: ${top || 'keine Punkte'}`);
-    const status = $('#board-status');
-    if (status) status.textContent = `📊 Runden-Scoreboard: ${top || 'keine Punkte'}`;
+    setBoardStatus(`📊 Runden-Scoreboard: ${top || 'keine Punkte'}`);
     bumpPlayerBoardBadge('ranking');
     hideTurnNotice();
     showScreen('board');
@@ -605,6 +600,18 @@
   /* ---------- Helfer ---------- */
   function isActive(name) { return screens[name] && screens[name].classList.contains('active'); }
   function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function setBoardStatus(text) {
+    const value = text || '...';
+    const chip = $('#board-status');
+    if (chip) chip.textContent = value;
+    const banner = $('#board-banner');
+    if (banner) {
+      banner.textContent = value;
+      banner.style.animation = 'none';
+      void banner.offsetWidth;
+      banner.style.animation = '';
+    }
+  }
   function initials(name) {
     const parts = String(name).trim().split(/\s+/);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();

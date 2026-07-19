@@ -65,6 +65,13 @@
     if (top) top.textContent = value;
     const panel = $('#board-log-panel');
     if (panel) panel.textContent = value;
+    const banner = $('#board-banner');
+    if (banner) {
+      banner.textContent = value;
+      banner.style.animation = 'none';
+      void banner.offsetWidth;
+      banner.style.animation = '';
+    }
   }
 
   function ensureTurnNotice() {

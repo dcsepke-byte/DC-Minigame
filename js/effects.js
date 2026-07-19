@@ -239,7 +239,7 @@ const FX = (() => {
     t.textContent = text;
     t.style.color = color;
     parent.appendChild(t);
-    setTimeout(() => t.remove(), 850);
+    setTimeout(() => t.remove(), 3500);
   }
 
   return {
