@@ -2,7 +2,7 @@
 
 ## Priority: High
 
-- [ ] **3D-Modelle verbessern** — Pawns: bessere Geometrie (z.B. abgerundet, Glow), Tiles: Biom-spezifische Texturen/Deko,Animations-Polish
+- [x] **3D-Modelle verbessern** — Pawns: bessere Geometrie (z.B. abgerundet, Glow), Tiles: Biom-spezifische Texturen/Deko,Animations-Polish
 - [ ] **Code-Duplikate auslagern** — host.js/player.js shared Funktionen (el, escapeHtml, initials, renderBoardPills, etc.) in js/shared.js
 - [ ] **Memory Leaks fixen** — Quiz-Bank-Cache begrenzen, Konfetti-Array cappen
 - [ ] **Diff-basierte Board-Updates** — board_payload nur geänderte Tiles senden statt Full-State (240 Tiles)

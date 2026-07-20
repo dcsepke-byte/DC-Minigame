@@ -12,6 +12,8 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 /* Global exposure fuer Konsumenten (host.js/player.js/main.js pruefen window.Party3D) */
 window.THREE = THREE;
@@ -33,6 +35,7 @@ let camera = null;
 let clock = null;
 let composer = null;
 let bloomPass = null;  /* Etappe 2.5 Perf: Bloom im Board-Modus abstellbar */
+let fxaaPass = null;   /* FXAA Anti-Aliasing Pass (zusaetzlich zu MSAA im Renderer) */
 let pmremEnv = null;
 let boardGroup = null;
 let arenaGroup = null;
@@ -40,6 +43,8 @@ let showcaseGroup = null;
 let particles = null;
 let pointer = { x: 0, y: 0 };
 let activeArenaId = '';
+/* Reusable Vector3 fuer Sprite-LOD im animate-Loop (vermeidet GC-Druck). */
+const _lodVec = new THREE.Vector3();
 /* Pawn-Hop-Animation — Meshes und Anim-State werden über rebuilds hinweg behalten */
 let pawnMeshes = {};   /* playerId -> THREE.Group */
 let pawnAnim = {};     /* playerId -> {active, from, to, currentStep, nextStep, progress, ...} */
@@ -280,13 +285,30 @@ function pawn(player, index, totalAtTile) {
   /* Glow ring under pawn */
   addGlow(group, baseColor, 0.85, 0.75);
 
-  /* Haupt-Charakter: großes Emoji-Modell als Körper
+  /* Haupt-Charakter: 3D-Modell (Body + Head) statt flaches Emoji-Sprite.
      Das Emoji entspricht der Figur, die am Anfang ausgewählt wurde.
-     Es schwebt über dem Podest und wackelt leicht (idle-Animation). */
+     Es schwebt als kleine Textur auf dem Kopf — der Körper ist eine echte
+     Capsule + Sphere die Schatten wirft und Volumen hat. */
   const emoji = String(player.figure || player.char || player.emoji || '★');
+  const pawnMat = new THREE.MeshStandardMaterial({
+    color: color(baseColor), roughness: 0.38, metalness: 0.42,
+    emissive: color(baseColor), emissiveIntensity: 0.18,
+  });
+  /* Body: Capsule in Spielerfarbe */
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.4, 4, 8), pawnMat);
+  body.position.y = 0.5;
+  body.castShadow = true;
+  group.add(body);
+  /* Head: Sphere in Spielerfarbe */
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), pawnMat);
+  head.position.y = 0.85;
+  head.castShadow = true;
+  group.add(head);
+  /* Emoji als kleine Textur auf dem Kopf (Sprite, depthTest=true damit es
+     nicht durch Modelle scheint). */
   const charSprite = makeTextSprite(emoji, baseColor);
-  charSprite.scale.setScalar(0.85);
-  charSprite.position.y = 0.85;
+  charSprite.scale.setScalar(0.3);
+  charSprite.position.y = 1.0;
   charSprite.userData.bob = index * 0.5;  /* phasenversetzte Schwebeanimation */
   group.add(charSprite);
   group.userData.charSprite = charSprite;
@@ -320,7 +342,7 @@ function makeTextSprite(text, hex) {
   ctx.fillText(text, 128, 136);
   const tex = new THREE.CanvasTexture(canvas);
   if ('anisotropy' in tex) tex.anisotropy = 8;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false });
   return new THREE.Sprite(mat);
 }
 
@@ -368,7 +390,7 @@ function makeLabelSprite(text, hex, fontSize) {
   ctx.fillText(text, 256, 96);
   const tex = new THREE.CanvasTexture(canvas);
   if ('anisotropy' in tex) tex.anisotropy = 8;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true, depthWrite: false });
   return new THREE.Sprite(mat);
 }
 
@@ -382,6 +404,50 @@ function mulberry32(seed) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/* Prozedurale Noise-Textur fuer Tiles — gibt dem Material Struktur statt Flat-Color.
+   baseHex = Grundfarbe, accentHex = Akzentfarbe fuer Rauschen/Punkte.
+   Textur wird pro (baseHex,accentHex) gecacht um Canvas-Erzeugung zu minimieren. */
+const _noiseTexCache = {};
+function makeNoiseTexture(baseHex, accentHex, size = 64) {
+  const cacheKey = baseHex + '|' + accentHex + '|' + size;
+  if (_noiseTexCache[cacheKey]) return _noiseTexCache[cacheKey];
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  /* Basisflaeche in Grundfarbe */
+  ctx.fillStyle = baseHex;
+  ctx.fillRect(0, 0, size, size);
+  /* Rauschen: viele kleine Punkte in Akzentfarbe mit variierender Deckkraft */
+  const rng = mulberry32((baseHex.charCodeAt(1) || 1) * 97 + (accentHex.charCodeAt(1) || 1) * 31 + size);
+  for (let i = 0; i < size * size * 0.18; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const a = rng() * 0.35;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = accentHex;
+    ctx.fillRect(x, y, 1, 1);
+  }
+  ctx.globalAlpha = 1;
+  /* Wenige groessere Flecken fuer organische Struktur */
+  for (let i = 0; i < 8; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const r = 1 + Math.floor(rng() * 2);
+    ctx.globalAlpha = 0.15 + rng() * 0.2;
+    ctx.fillStyle = accentHex;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(canvas);
+  if ('anisotropy' in tex) tex.anisotropy = 4;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  _noiseTexCache[cacheKey] = tex;
+  return tex;
 }
 
 /* Biom-spezifische Dekoration — gibt Array von THREE.Object3D zurück.
@@ -969,6 +1035,7 @@ function buildBoard() {
     const regionLabel = makeLabelSprite(region.name.toUpperCase(), region.color, 32);
     regionLabel.position.set(rPos.x, 0.4, rPos.z);
     regionLabel.scale.setScalar(1.1);
+    regionLabel.userData.isLabel = true;   /* Etappe 2.5: Sprite-LOD im animate-Loop */
     boardGroup.add(regionLabel);
     /* Biom-spezifische Deko (Häuser/Brunnen, Dünen/Kakteen, Bäume/Pilze, Felsen/Kristalle) */
     const decor = biomeDecor(region.biome, rPos, rng);
@@ -1058,7 +1125,15 @@ function buildBoard() {
     /* Junction-Tiles bekommen eine besondere Farbe (Wegweiser-Look) */
     const isJunction = tile.type === 'junction' || (tile.next && tile.next.length > 1);
     const baseTileColor = tileColor(tile, owner);
+    /* Etappe 2.5: Prozedurale Noise-Textur pro Tile-Farbe statt Flat-Color.
+       Accent = leicht aufgehellt/abgedunkelt fuer sichtbare Struktur.
+       Textur wird gecacht (makeNoiseTexture) → nur einmal pro Farbe erzeugt. */
+    const baseThree = new THREE.Color(baseTileColor);
+    const accentThree = baseThree.clone().offsetHSL(0, 0, 0.12);
+    const accentHex = '#' + accentThree.getHexString();
+    const noiseMap = makeNoiseTexture(baseTileColor, accentHex, 64);
     const tileMat = material(baseTileColor, { metalness: 0.5, emissiveIntensity: owner ? 0.44 : (isJunction ? 0.5 : 0.24) });
+    tileMat.map = noiseMap;   /* Base-Color-Textur ueberlagert Solid-Farbe mit Noise */
     /* Feld — abgerundete Box, flach auf dem Pfad. Etappe 2.5 Perf: Segmente 1,1,1
        (vorher 4,2,4) → bei 240 Feldern massig weniger Polygone. */
     const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.36, 1, 1, 1), tileMat);
@@ -1083,6 +1158,7 @@ function buildBoard() {
     const label = makeLabelSprite(tileLabel(tile), tileColor(tile, owner), 28);
     label.position.set(pos.x, tileY + 0.95, pos.z);
     label.scale.setScalar(0.7);
+    label.userData.isLabel = true;   /* Etappe 2.5: Sprite-LOD im animate-Loop */
     boardGroup.add(label);
 
     /* Feld-Nummer — klein unten */
@@ -1246,6 +1322,7 @@ function buildBoard() {
       const jlabel = makeLabelSprite('⇄', '#ff9e3c', 24);
       jlabel.position.set(pos.x, tileY + 1.45, pos.z);
       jlabel.scale.setScalar(0.5);
+      jlabel.userData.isLabel = true;
       boardGroup.add(jlabel);
     }
   });
@@ -1832,7 +1909,17 @@ function animate() {
     boardGroup.traverse(node => {
       if (node.userData && node.userData.spin) node.rotation.y += delta * node.userData.spin;
       if (node.userData && node.userData.orbit) node.position.y = 0.95 + Math.sin(elapsed * node.userData.orbit) * 0.12;
-      if (node.userData && node.userData.playerId) node.position.y = 0.18 + Math.abs(Math.sin(elapsed * 2.4 + node.userData.phase)) * 0.08;
+      if (node.userData && node.userData.playerId) {
+        node.position.y = 0.18 + Math.abs(Math.sin(elapsed * 2.4 + node.userData.phase)) * 0.08;
+        /* Etappe 2.5: Wobble-Rotation — leichte Z-Rotation fuer lebendige Idle-Anim. */
+        node.rotation.z = Math.sin(elapsed * 2.4 + node.userData.phase) * 0.08;
+      }
+      /* Etappe 2.5: Sprite-LOD — Labels nur sichtbar wenn Kamera nahe genug.
+         Reduziert Sprite-Overdraw bei vielen Feldern aus der Distanz. */
+      if (node.userData && node.userData.isLabel) {
+        const dist = camera.position.distanceTo(node.getWorldPosition(_lodVec));
+        node.visible = dist < 15;
+      }
     });
   }
   if (arenaGroup && arenaGroup.visible) {
@@ -1962,7 +2049,7 @@ function init() {
     const key = new THREE.DirectionalLight(0xffffff, 1.5);  /* vorher 2.4 → mit physicallyCorrectLights zu hell */
     key.position.set(4, 10, 7);
     // Schattenwerfendes Hauptlicht — Etappe 2.5 Perf: 4096→2048 mapSize (halbiert VRAM+FPS)
-    key.castShadow = false;
+    key.castShadow = true;   /* BUGFIX: Schatten-Infrastruktur war da aber nie aktiviert */
     key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.near = 0.5;
     key.shadow.camera.far = 45;
@@ -1994,6 +2081,16 @@ function init() {
         0.85   /* threshold: vorher 0.7 → nur ganz helle Highlights glühen */
       );
       composer.addPass(bloomPass);
+      /* FXAA-Pass nach Bloom — kantenglaettung als letzter Pass vor Output.
+         uniforms.resolution muss bei Resize aktualisiert werden (siehe unten). */
+      fxaaPass = new ShaderPass(FXAAShader);
+      fxaaPass.material.transparent = true;
+      const pr = Math.min(window.devicePixelRatio || 1, 1.5);
+      fxaaPass.uniforms.resolution.value.set(
+        1 / (window.innerWidth * pr),
+        1 / (window.innerHeight * pr)
+      );
+      composer.addPass(fxaaPass);
       composer.setSize(window.innerWidth, window.innerHeight);
       composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     } catch (err) {
@@ -2022,6 +2119,14 @@ function init() {
       if (composer) {
         composer.setSize(window.innerWidth, window.innerHeight);
         composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      }
+      /* FXAA-Resolution-Uniforms bei Resize aktualisieren. */
+      if (fxaaPass) {
+        const pr2 = Math.min(window.devicePixelRatio || 1, 1.5);
+        fxaaPass.uniforms.resolution.value.set(
+          1 / (window.innerWidth * pr2),
+          1 / (window.innerHeight * pr2)
+        );
       }
     });
     window.addEventListener('pointermove', event => {
