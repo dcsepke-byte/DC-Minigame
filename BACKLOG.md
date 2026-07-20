@@ -2,6 +2,20 @@
 
 ## Priority: High
 
+- [ ] **NEUE MINISPIELE** — Aktuelle Spiele sind zu simpel (nur Reaktion/Memory/Tap), werden schnell langweilig. Neue Spiele mit Tiefe, Strategie, Skill-Ceiling und "One More Try"-Suchtpotenzial entwickeln. Ideen:
+  - **Tower Stack** — Bausteine stapeln, Timing-basiert, immer schmaler werdend (wie Stack/Ketchapp)
+  - **Bubble Pop** — Bunte Blasen steigen auf, nur eigene Farbe poppen, Kettenreaktion-Bonus
+  - **Draw Path** — Linie zeichnen um fallende Objekte zu fangen, ohne Barrieren zu beruehren
+  - **Color Catch** — Schiebender Korb, nur richtige Farben auffangen, falsche meiden
+  - **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden
+  - **Tile Flip Puzzle** — Memory-Grid aufdecken, Paare finden gegen die Zeit, mit Boostern
+  - **Dodgeball** — Ausweichen vor heranfliegenden Objekten, immer schneller werdend
+  - **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen
+  - **Rhythm Tap** — Im Takt tippen, musik-basiert, Combo-Multiplikator
+  - **Shape Match** — Formen rotieren/skalieren bis sie passen, Puzzle-Style
+  - **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt
+  - **Quick Draw Duel** — Western-Duell: waechst bis Signal, dann schnellstes Tippen
+  Alte simple Spiele behalten als "Classic Mix", neue Spiele als "Action Mix" Kategorie
 - [x] **3D-Modelle verbessern** — Pawns: bessere Geometrie (z.B. abgerundet, Glow), Tiles: Biom-spezifische Texturen/Deko,Animations-Polish
 - [ ] **Code-Duplikate auslagern** — host.js/player.js shared Funktionen (el, escapeHtml, initials, renderBoardPills, etc.) in js/shared.js
 - [ ] **Memory Leaks fixen** — Quiz-Bank-Cache begrenzen, Konfetti-Array cappen
