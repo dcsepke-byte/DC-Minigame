@@ -1513,12 +1513,12 @@ const Games = (() => {
     }, runMeta);
   }
 
-  /* ---------- leichter Ton für Simon (ohne FX-Abhängigkeitschaos) ---------- */
-  let _ac = null;
+  /* ---------- leichter Ton fuer Simon (nutzt FX AudioContext, kein eigener) ---------- */
   function _beep(freq) {
     try {
       if (!FX.isSoundEnabled()) return;
-      _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
+      const _ac = FX.ensureCtx ? FX.ensureCtx() : null;
+      if (!_ac) return;
       if (_ac.state === 'suspended') _ac.resume();
       const o = _ac.createOscillator(), g = _ac.createGain();
       o.type = 'sine'; o.frequency.value = freq;

@@ -130,8 +130,11 @@
     });
   }
 
-  /* NEU Layout C: Slide-In-Panels öffnen/schließen + Menü-Button */
+  /* NEU Layout C: Slide-In-Panels oeffnen/schliessen + Menue-Button (einmalig binden) */
+  let slidesBound = false;
   function setupBoardSlides() {
+    if (slidesBound) return;
+    slidesBound = true;
     const menu = $('#host-board-menu');
     let toggleState = 0; /* 0 = keins, 1 = score, 2 = profile */
     function open(id) {
@@ -286,6 +289,18 @@
         Net.send({ type: 'host:resume', code: savedCode, hostToken: savedToken });
       } else {
         Net.send({ type: 'host:create' });
+      }
+    }, () => {
+      /* Reconnect: versuche host:resume mit gespeicherten Daten */
+      let savedCode = '';
+      let savedToken = '';
+      try {
+        savedCode = (localStorage.getItem('pa_host_code') || '').toUpperCase();
+        savedToken = localStorage.getItem('pa_host_token') || '';
+      } catch (_) {}
+      if (savedCode && savedToken) {
+        setConn('🔄 Verbindung wiederhergestellt…', 'ok');
+        Net.send({ type: 'host:resume', code: savedCode, hostToken: savedToken });
       }
     });
   }
@@ -914,7 +929,7 @@
     }
   });
   window.addEventListener('resize', applyBoardCompactMode);
-  document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
+  document.addEventListener('pointerdown', () => FX.setSoundEnabled(true), { once: true });
 
   /* ---------- Helfer ---------- */
   function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }

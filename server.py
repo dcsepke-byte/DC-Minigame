@@ -506,6 +506,12 @@ class Room:
         if phase == "decision" and pending.get("player") == pid:
             self.board_decision(pid, "skip")
             return
+        if phase == "branchChoice" and pending.get("player") == pid:
+            # Spieler ist offline waehrend Wegwahl - Hauptpfad (Index 0) automatisch waehlen
+            self.board_story(f"{self.players[pid]['name']} ist offline. Pfad wird automatisch gewaehlt.")
+            self.send_board_update()
+            self.board_choose_branch(pid, 0)
+            return
         if phase in ("duel", "duelIntro") and self.board.get("duel"):
             d = self.board["duel"]
             if pid in (d.get("challenger"), d.get("owner")):
@@ -1921,6 +1927,21 @@ async def handle_websocket(reader, writer, headers):
     client = Client(writer)
     client.req_host = headers.get("host")
     client.req_proto = headers.get("x-forwarded-proto")
+
+    # --- WebSocket Keep-Alive: alle 30s einen Ping-Frame senden ---
+    # Verhindert Render/Cloud-Proxy-Timeouts (idle connections werden nach ~60s gekillt)
+    async def _ws_ping_loop():
+        while client.alive:
+            await asyncio.sleep(30)
+            if client.alive:
+                try:
+                    client.send_raw(0x9, b"pa-ping")
+                    await safe_drain(writer)
+                except Exception:
+                    break
+
+    ping_task = asyncio.ensure_future(_ws_ping_loop())
+
     try:
         while True:
             frame = await ws_read_frame(reader)
@@ -1945,6 +1966,7 @@ async def handle_websocket(reader, writer, headers):
         pass
     finally:
         client.alive = False
+        ping_task.cancel()
         if client.room:
             client.room.remove_client(client)
         try:

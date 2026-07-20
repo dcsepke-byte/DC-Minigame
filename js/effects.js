@@ -127,11 +127,14 @@ const FX = (() => {
   function setSoundEnabled(on) { soundEnabled = on; if (on) ensureCtx(); }
   function isSoundEnabled() { return soundEnabled; }
 
-  /* ---------------- Animated Particle Background (disabled — 3D replaces it) ---------------- */
+  /* ---------------- Animated Particle Background (disabled - 3D replaces it) ---------------- */
+  /* Stoppt automatisch wenn ein Three.js Canvas vorhanden ist (3D Board aktiv) */
   const bgCanvas = document.getElementById('bg-canvas');
   const bgCtx = bgCanvas ? bgCanvas.getContext('2d') : null;
   let bgParticles = [];
   let W = 0, H = 0;
+  let bgRunning = false;
+  let bgHas3D = false;
 
   function resizeBg() {
     if (!bgCanvas) return;
@@ -162,6 +165,14 @@ const FX = (() => {
 
   function drawBg() {
     if (!bgCtx) return;
+    /* Stoppe 2D-Partikel wenn 3D-Board aktiv ist (Performance auf Handy) */
+    if (bgHas3D || document.hidden) {
+      bgRunning = false;
+      /* Retry nach 2s falls 3D deaktiviert oder Tab wieder sichtbar */
+      setTimeout(() => { if (!bgHas3D && !document.hidden && bgCanvas) { bgRunning = true; requestAnimationFrame(drawBg); } }, 2000);
+      return;
+    }
+    bgRunning = true;
     bgCtx.clearRect(0, 0, W, H);
     for (let i = 0; i < bgParticles.length; i++) {
       const p = bgParticles[i];
@@ -192,6 +203,9 @@ const FX = (() => {
     requestAnimationFrame(drawBg);
   }
   if (bgCanvas) drawBg();
+
+  /* Oeffentliche Funktion: 3D-Modus aktivieren/deaktivieren */
+  function setBg3DActive(on) { bgHas3D = !!on; }
 
   /* ---------------- Confetti / FX Layer ---------------- */
   const fxCanvas = document.getElementById('fx-canvas');
@@ -344,6 +358,7 @@ const FX = (() => {
 
   return {
     Sound, setSoundEnabled, isSoundEnabled,
+    ensureCtx, setBg3DActive,
     startMusic, stopMusic,
     burst, rain, celebrate, shake, toast,
     coinRain, scorePopup, transitionScreen,

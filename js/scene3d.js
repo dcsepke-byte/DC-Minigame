@@ -2029,6 +2029,8 @@ function init() {
       pointer.y = (event.clientY / Math.max(1, window.innerHeight) - 0.5) * -2;
     }, { passive: true });
     window.requestAnimationFrame(animate);
+    /* 3D aktiv - 2D Hintergrund-Partikel stoppen fuer Performance */
+    if (window.FX && FX.setBg3DActive) FX.setBg3DActive(true);
   } catch (error) {
     console.error('Party3D init failed:', error);
   }

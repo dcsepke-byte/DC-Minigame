@@ -150,7 +150,11 @@
   if (location.protocol === 'file:') {
     showJoinError('⚠️ Bitte die Adresse vom Host-Bildschirm im Browser öffnen (z.B. http://192.168.…:3000/), nicht die Datei direkt.');
   } else {
-    Net.connect(() => tryAutoJoin());
+    Net.connect(() => tryAutoJoin(), () => {
+      /* Reconnect: versuche auto-join mit gespeicherten Token */
+      autoJoinTried = false;
+      tryAutoJoin();
+    });
   }
 
   $('#btn-join').addEventListener('click', doJoin);
@@ -655,7 +659,7 @@
       }
     } catch (_) {}
   });
-  document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
+  document.addEventListener('pointerdown', () => FX.setSoundEnabled(true), { once: true });
   document.querySelectorAll('#player-board-nav .board-nav-btn').forEach(b => {
     b.addEventListener('click', () => switchPlayerBoardPanel(b.dataset.panel || 'map'));
   });
@@ -695,7 +699,7 @@
     arr.forEach(p => {
       const isTurn = (board.phase === 'turn' && board.turnPlayerId === p.id)
         || (board.phase === 'decision' && board.pendingPlayerId === p.id);
-      const isYou = p.id === pid;
+      const isYou = p.id === me.id;
       const pill = el('div', 'hud-pill' + (isTurn ? ' active' : '') + (isYou ? ' you' : ''));
       pill.setAttribute('role', 'listitem');
       pill.innerHTML = `
