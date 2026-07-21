@@ -1670,6 +1670,258 @@ const Games = (() => {
     }, 1200);
   }
 
+  /* =========================================================
+     BUBBLE POP — Bunte Blasen steigen auf, eigene Farbe poppen
+     Spieler hat eine Zielfarbe die periodisch wechselt.
+     Richtige Blase tippen → Punkte + Combo.
+     Falsche Blase tippen → Missed +1, Combo-Reset.
+     Spielerfarbe entkommen lassen → Missed +1.
+     5x verfehlt → Game Over.
+     Zeitlimit: 30 Sekunden.
+     ========================================================= */
+  function gameBubblePop(stage, api) {
+    const L = window.BubblePopLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 30000;
+    const COLORS = ['#ff3cac', '#3a86ff', '#2bffb9', '#ffd34e', '#ff9e5e'];
+    const COLOR_NAMES = ['Pink', 'Blau', 'Gruen', 'Gelb', 'Orange'];
+    const SPAWN_INTERVAL_START = 700;  /* ms zwischen Spawns */
+    const SPAWN_INTERVAL_MIN = 350;    /* beschleunigt mit der Zeit */
+    const BUBBLE_RADIUS = 28;
+    const SPEED_START = 0.04;          /* px/ms */
+    const SPEED_MAX = 0.09;
+    const COLOR_CHANGE_INTERVAL = 6000; /* ms — Spielerfarbe wechselt */
+    const endAt = performance.now() + TIME_MS;
+
+    /* Spielzustand */
+    const state = L.createBubbleState({ colors: COLORS, maxMissed: 5 });
+    L.setPlayerColor(state, rand(0, COLORS.length - 1));
+
+    let finished = false;
+    let lastSpawn = 0;
+    let lastColorChange = performance.now();
+    let spawnInterval = SPAWN_INTERVAL_START;
+    let speedMul = 1;
+    let lastFrame = performance.now();
+
+    /* DOM */
+    const wrap = el('div', 'bubble-wrap');
+    wrap.innerHTML = `
+      <div class="bubble-hud">
+        <span class="bubble-score" id="bp-score">0</span>
+        <div class="bubble-target" id="bp-target">
+          <span class="bubble-target-label">Deine Farbe:</span>
+          <span class="bubble-target-dot" id="bp-target-dot"></span>
+          <span class="bubble-target-name" id="bp-target-name"></span>
+        </div>
+        <div class="bubble-misses" id="bp-misses"></div>
+      </div>
+      <div class="bubble-canvas" id="bp-canvas"></div>
+      <div class="bubble-combo" id="bp-combo"></div>
+      <div class="bubble-instruction" id="bp-instruct">Tippe nur deine Farbe!</div>`;
+    stage.appendChild(wrap);
+
+    const canvas = wrap.querySelector('#bp-canvas');
+    const scoreEl = wrap.querySelector('#bp-score');
+    const targetDot = wrap.querySelector('#bp-target-dot');
+    const targetName = wrap.querySelector('#bp-target-name');
+    const missesEl = wrap.querySelector('#bp-misses');
+    const comboEl = wrap.querySelector('#bp-combo');
+    const instructEl = wrap.querySelector('#bp-instruct');
+
+    /* UI-Helfer */
+    function updateTargetUI() {
+      targetDot.style.background = state.playerColor;
+      targetDot.style.boxShadow = '0 0 12px ' + state.playerColor;
+      const idx = COLORS.indexOf(state.playerColor);
+      targetName.textContent = idx >= 0 ? COLOR_NAMES[idx] : '';
+    }
+    function updateMissesUI() {
+      const remaining = state.maxMissed - state.missed;
+      let dots = '';
+      for (let i = 0; i < state.maxMissed; i++) {
+        dots += i < state.missed
+          ? '<span class="miss-dot used"></span>'
+          : '<span class="miss-dot"></span>';
+      }
+      missesEl.innerHTML = dots;
+    }
+    function showCombo(text, color) {
+      comboEl.textContent = text;
+      comboEl.style.color = color;
+      comboEl.classList.remove('show');
+      void comboEl.offsetWidth; /* reflow → animation restart */
+      comboEl.classList.add('show');
+    }
+
+    updateTargetUI();
+    updateMissesUI();
+
+    /* Blase visuell erzeugen */
+    function renderBubble(bubble) {
+      const div = el('div', 'bubble');
+      div.dataset.id = bubble.id;
+      div.style.width = bubble.radius * 2 + 'px';
+      div.style.height = bubble.radius * 2 + 'px';
+      div.style.background = `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5), ${bubble.color} 60%, ${bubble.color})`;
+      div.style.boxShadow = `0 0 12px ${bubble.color}88, inset 0 -4px 8px rgba(0,0,0,0.15)`;
+      div.style.left = (bubble.x - bubble.radius) + 'px';
+      div.style.top = (bubble.y - bubble.radius) + 'px';
+      div.addEventListener('pointerdown', (ev) => {
+        ev.stopPropagation();
+        onPop(bubble.id, div);
+      });
+      canvas.appendChild(div);
+      return div;
+    }
+
+    /* Blase poppen */
+    function onPop(bubbleId, div) {
+      if (finished) return;
+      const result = L.popBubble(state, bubbleId);
+      div.classList.add('popped');
+
+      if (result.correct) {
+        FX.Sound.good();
+        FX.toast(stage, '+' + result.score, state.playerColor);
+        api.setScore(state.score);
+        scoreEl.textContent = state.score;
+        if (state.combo >= 3) {
+          showCombo('COMBO x' + state.combo + '!', '#ffd34e');
+          FX.Sound.star();
+        }
+      } else if (result.missed) {
+        FX.Sound.bad();
+        FX.shake(stage);
+        showCombo('Falsche Farbe!', '#ff4d6d');
+        updateMissesUI();
+        if (state.gameOver) {
+          finished = true;
+          FX.Sound.explode();
+          api.timeout(() => api.finish(state.score), 800);
+        }
+      }
+
+      /* Blase nach Animation entfernnen */
+      api.timeout(() => { if (div.parentNode) div.remove(); }, 300);
+    }
+
+    /* Neue Blase spawnen */
+    function trySpawn(now) {
+      const interval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval);
+      if (now - lastSpawn < interval) return;
+      lastSpawn = now;
+
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const x = rand(BUBBLE_RADIUS + 10, w - BUBBLE_RADIUS - 10);
+      const y = h + BUBBLE_RADIUS;
+
+      /* 40% Chance Spielerfarbe, 60% zufaellige Farbe */
+      let colorIdx;
+      if (Math.random() < 0.4) {
+        colorIdx = COLORS.indexOf(state.playerColor);
+      } else {
+        colorIdx = rand(0, COLORS.length - 1);
+      }
+      const bubble = L.spawnBubble(state, x, y, colorIdx);
+      bubble.radius = BUBBLE_RADIUS;
+      bubble.speed = Math.min(SPEED_MAX, SPEED_START * speedMul);
+      renderBubble(bubble);
+    }
+
+    /* Spielerfarbe periodisch wechseln */
+    function tryColorChange(now) {
+      if (now - lastColorChange < COLOR_CHANGE_INTERVAL) return;
+      lastColorChange = now;
+      let newIdx;
+      do {
+        newIdx = rand(0, COLORS.length - 1);
+      } while (COLORS[newIdx] === state.playerColor && COLORS.length > 1);
+      L.setPlayerColor(state, newIdx);
+      updateTargetUI();
+      targetDot.classList.remove('flash');
+      void targetDot.offsetWidth;
+      targetDot.classList.add('flash');
+      FX.Sound.tap();
+    }
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = Math.min(50, now - lastFrame);
+      lastFrame = now;
+
+      if (now >= endAt) {
+        finished = true;
+        api.finish(state.score);
+        return false;
+      }
+
+      if (finished) return false;
+
+      /* Schwierigkeit erhoehen */
+      const elapsed = (endAt - now);
+      const progress = 1 - (elapsed / TIME_MS);
+      speedMul = 1 + progress * 1.2;
+      spawnInterval = SPAWN_INTERVAL_START - progress * (SPAWN_INTERVAL_START - SPAWN_INTERVAL_MIN);
+
+      /* Spawn + Color-Change */
+      trySpawn(now);
+      tryColorChange(now);
+
+      /* Blasen bewegen (Logik) */
+      const events = L.tickBubbles(state, dt, canvas.clientHeight);
+
+      /* Events verarbeiten (entkommene Spielerfarbe) */
+      if (events.length > 0) {
+        for (const ev of events) {
+          if (ev.type === 'escaped' && ev.bubble.color === state.playerColor) {
+            updateMissesUI();
+            showCombo('Verpasst!', '#ff4d6d');
+            FX.Sound.bad();
+          }
+        }
+        if (state.gameOver) {
+          finished = true;
+          FX.Sound.explode();
+          api.timeout(() => api.finish(state.score), 800);
+          return false;
+        }
+      }
+
+      /* Visuelle Position aktualisieren */
+      const bubbleEls = canvas.querySelectorAll('.bubble:not(.popped)');
+      for (const divEl of bubbleEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        const b = state.bubbles.find(x => x.id === id);
+        if (b) {
+          const wobbleX = Math.sin(b.wobble) * 8;
+          divEl.style.left = (b.x - b.radius + wobbleX) + 'px';
+          divEl.style.top = (b.y - b.radius) + 'px';
+        }
+      }
+
+      /* Entfernte Blasen aus DOM loeschen */
+      for (const divEl of bubbleEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        if (!state.bubbles.find(x => x.id === id)) {
+          divEl.remove();
+        }
+      }
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Tippe nur deine Farbe! Falsche = Missed!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, 2500);
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -1792,7 +2044,9 @@ const Games = (() => {
     { id: 'numbermemory', name: 'Zahlen-Memory', icon: '🔐', desc: 'Merke dir kurz eine Zahl und finde sie wieder.',
       rules: 'Eine Zahl wird kurz eingeblendet und verschwindet wieder. Wähle die richtige Zahl.', play: gameNumberMemory },
     { id: 'towerstack', name: 'Tower Stack', icon: '🧱', desc: 'Stapele Bloecke — je praeziser, desto besser.',
-      rules: 'Ein Block bewegt sich ueber dem Turm. <strong>Tippe zum Platzieren!</strong> Je genauer du triffst, desto mehr Punkte. Perfekte Platzierung gibt <strong>100 Bonus-Punkte</strong> und der Block schrumpft nicht. Ein Fehlversuch beendet das Spiel!', play: gameTowerStack }
+      rules: 'Ein Block bewegt sich ueber dem Turm. <strong>Tippe zum Platzieren!</strong> Je genauer du triffst, desto mehr Punkte. Perfekte Platzierung gibt <strong>100 Bonus-Punkte</strong> und der Block schrumpft nicht. Ein Fehlversuch beendet das Spiel!', play: gameTowerStack },
+    { id: 'bubblepop', name: 'Bubble Pop', icon: '🫧', desc: 'Ploppe nur deine Farbe — wechselt periodisch!',
+      rules: 'Bunte Blasen steigen auf. Du hast eine <strong>Zielfarbe</strong>, die alle paar Sekunden wechselt. Tippe <strong>nur deine Farbe</strong>! Falsche Farbe oder entkommene Spielerfarbe = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameBubblePop }
   ];
 
   return { list };

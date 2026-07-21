@@ -2505,3 +2505,152 @@ body.board-compact .board-layout {
   pointer-events: none;
   z-index: 10;
 }
+
+/* ============================================================
+   BUBBLE POP — Minispiel Styles
+   ============================================================ */
+.bubble-wrap {
+  position: absolute; inset: 0;
+  overflow: hidden;
+}
+
+.bubble-hud {
+  position: absolute; top: 12px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+  gap: 12px;
+}
+
+.bubble-score {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(22px, 5vw, 32px);
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
+  flex-shrink: 0;
+}
+
+.bubble-target {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px 14px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+
+.bubble-target-label {
+  font-size: clamp(12px, 3vw, 15px);
+  color: var(--txt-dim);
+  font-weight: 600;
+}
+
+.bubble-target-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.bubble-target-dot.flash {
+  animation: bp-target-flash 0.6s ease;
+}
+
+@keyframes bp-target-flash {
+  0%   { transform: scale(0.5); opacity: 0.3; }
+  50%  { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.bubble-target-name {
+  font-size: clamp(12px, 3vw, 15px);
+  font-weight: 700;
+  color: var(--txt);
+}
+
+.bubble-misses {
+  display: flex; gap: 4px;
+  flex-shrink: 0;
+}
+
+.miss-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(43, 255, 185, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s;
+}
+
+.miss-dot.used {
+  background: #ff4d6d;
+  box-shadow: 0 0 6px rgba(255, 77, 109, 0.6);
+  transform: scale(0.85);
+}
+
+.bubble-canvas {
+  position: absolute; inset: 0;
+  overflow: hidden;
+}
+
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s;
+  will-change: transform, left, top;
+  animation: bp-bubble-spawn 0.3s ease-out;
+}
+
+@keyframes bp-bubble-spawn {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.bubble:active {
+  transform: scale(0.92);
+}
+
+.bubble.popped {
+  animation: bp-bubble-pop 0.3s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes bp-bubble-pop {
+  0%   { transform: scale(1); opacity: 1; }
+  50%  { transform: scale(1.6); opacity: 0.5; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+.bubble-combo {
+  position: absolute; top: 38%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(28px, 7vw, 48px);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+.bubble-combo.show {
+  animation: bp-combo-pop 1.2s ease-out forwards;
+}
+
+@keyframes bp-combo-pop {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
+}
+
+.bubble-instruction {
+  position: absolute; bottom: 24px; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(16px, 4vw, 22px);
+  color: var(--txt-dim);
+  transition: opacity 0.5s;
+  pointer-events: none;
+  z-index: 10;
+}
