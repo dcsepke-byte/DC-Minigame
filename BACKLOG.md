@@ -14,7 +14,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden (2026-07-21)
   - [x] **Color Catch** — Schiebender Korb, nur richtige Farben auffangen, falsche meiden (2026-07-21)
   - [x] **Dodgeball** — Ausweichen vor heranfliegenden Baellen, immer schneller werdend (2026-07-21)
-  - [ ] **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt
+  - [x] **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt (2026-07-22)
   - [ ] **Quick Draw Duel** — Western-Duell: waechst bis Signal, dann schnellstes Tippen
   - [ ] **Rhythm Tap** — Im Takt tippen, musik-basiert, Combo-Multiplikator
   - [ ] **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen

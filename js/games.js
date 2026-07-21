@@ -2684,6 +2684,239 @@ const Games = (() => {
     }, 2500);
   }
 
+  /* =========================================================
+     BOUNCE SURVIVAL — Ball am Leben halten mit Paddle
+     Geschwindigkeit steigt. 3 Misses = Game Over. 45 Sekunden.
+     ========================================================= */
+  function gameBounceSurvival(stage, api) {
+    const L = window.BounceSurvivalLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 45000;
+    const endAt = performance.now() + TIME_MS;
+    const SPEED_INCREASE_INTERVAL = 5000; // alle 5s schneller
+    const SPEED_FACTOR = 1.08; // 8% schneller pro Intervall
+    const PADDLE_WIDTH = 90;
+    const BALL_RADIUS = 12;
+    const INITIAL_SPEED = 0.22;
+
+    /* Spielzustand */
+    const state = L.createBounceSurvivalState({
+      maxMisses: 3,
+      stageWidth: stage.clientWidth,
+      stageHeight: stage.clientHeight,
+      paddleWidth: PADDLE_WIDTH,
+      ballRadius: BALL_RADIUS,
+      ballSpeed: INITIAL_SPEED,
+    });
+
+    let finished = false;
+    let lastFrame = performance.now();
+    let lastSpeedIncrease = performance.now();
+    let survivalScore = 0;
+    let bounceScore = 0;
+
+    /* DOM */
+    const wrap = el('div', 'bs-wrap');
+    wrap.innerHTML = `
+      <div class="bs-hud">
+        <span class="bs-score" id="bs-score">0</span>
+        <span class="bs-lives" id="bs-lives"></span>
+        <span class="bs-timer" id="bs-timer">45s</span>
+      </div>
+      <div class="bs-canvas" id="bs-canvas"></div>
+      <div class="bs-ball" id="bs-ball"></div>
+      <div class="bs-paddle" id="bs-paddle"></div>
+      <div class="bs-combo" id="bs-combo"></div>
+      <div class="bs-instruction" id="bs-instruct">Ziehe um das Paddle zu bewegen!</div>`;
+    stage.appendChild(wrap);
+
+    const canvas = wrap.querySelector('#bs-canvas');
+    const ballEl = wrap.querySelector('#bs-ball');
+    const paddleEl = wrap.querySelector('#bs-paddle');
+    const scoreEl = wrap.querySelector('#bs-score');
+    const livesEl = wrap.querySelector('#bs-lives');
+    const timerEl = wrap.querySelector('#bs-timer');
+    const comboEl = wrap.querySelector('#bs-combo');
+    const instructEl = wrap.querySelector('#bs-instruct');
+
+    /* Ball visuell positionieren */
+    function updateBallVisual() {
+      const b = L.getBall(state);
+      ballEl.style.width = (b.radius * 2) + 'px';
+      ballEl.style.height = (b.radius * 2) + 'px';
+      ballEl.style.left = (b.x - b.radius) + 'px';
+      ballEl.style.top = (b.y - b.radius) + 'px';
+    }
+
+    /* Paddle visuell positionieren */
+    function updatePaddleVisual() {
+      const p = L.getPaddle(state);
+      paddleEl.style.width = p.width + 'px';
+      paddleEl.style.height = p.height + 'px';
+      paddleEl.style.left = (p.x - p.width / 2) + 'px';
+      paddleEl.style.top = p.y + 'px';
+    }
+
+    /* Lives anzeigen */
+    function updateLivesUI() {
+      const maxM = state.maxMisses;
+      const lost = state.misses;
+      let html = '';
+      for (let i = 0; i < maxM; i++) {
+        html += i < (maxM - lost)
+          ? '<span class="bs-life">❤️</span>'
+          : '<span class="bs-life lost">🖤</span>';
+      }
+      livesEl.innerHTML = html;
+    }
+
+    /* Combo/Info-Anzeige */
+    function showCombo(text, color) {
+      comboEl.textContent = text;
+      comboEl.style.color = color;
+      comboEl.classList.remove('show');
+      void comboEl.offsetWidth;
+      comboEl.classList.add('show');
+    }
+
+    /* Trail-Effekt */
+    function spawnTrail() {
+      const b = L.getBall(state);
+      const trail = el('div', 'bs-trail');
+      trail.style.width = (b.radius * 2) + 'px';
+      trail.style.height = (b.radius * 2) + 'px';
+      trail.style.left = (b.x - b.radius) + 'px';
+      trail.style.top = (b.y - b.radius) + 'px';
+      canvas.appendChild(trail);
+      api.timeout(() => { if (trail.parentNode) trail.remove(); }, 400);
+    }
+
+    /* Init UI */
+    updateBallVisual();
+    updatePaddleVisual();
+    updateLivesUI();
+
+    /* Steuerung: Tippen/Ziehen */
+    let dragging = false;
+    function moveToPointer(clientX) {
+      const rect = stage.getBoundingClientRect();
+      const x = clientX - rect.left;
+      L.movePaddle(state, x);
+      updatePaddleVisual();
+    }
+    canvas.addEventListener('pointerdown', (ev) => {
+      dragging = true;
+      moveToPointer(ev.clientX);
+      canvas.setPointerCapture(ev.pointerId);
+    });
+    canvas.addEventListener('pointermove', (ev) => {
+      if (dragging) moveToPointer(ev.clientX);
+    });
+    canvas.addEventListener('pointerup', (ev) => {
+      dragging = false;
+      try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    });
+    canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+    let trailCounter = 0;
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = Math.min(50, now - lastFrame);
+      lastFrame = now;
+
+      if (now >= endAt) {
+        finished = true;
+        const totalScore = survivalScore + bounceScore;
+        scoreEl.textContent = totalScore;
+        api.setScore(totalScore);
+        api.finish(totalScore);
+        return false;
+      }
+
+      if (finished) return false;
+
+      /* Geschwindigkeit erhoehen */
+      if (now - lastSpeedIncrease >= SPEED_INCREASE_INTERVAL) {
+        L.increaseSpeed(state, SPEED_FACTOR);
+        lastSpeedIncrease = now;
+        showCombo('SCHNELLER!', '#ff6a00');
+        FX.Sound.star();
+      }
+
+      /* Survival Score */
+      survivalScore = L.computeSurvivalScore(now - (endAt - TIME_MS));
+
+      /* Ball bewegen (Logik) */
+      const events = L.tickBall(state, dt);
+
+      /* Events verarbeiten */
+      if (events.length > 0) {
+        for (const ev of events) {
+          if (ev.type === 'paddle') {
+            bounceScore += L.computeBounceBonus(1);
+            paddleEl.classList.add('hit');
+            api.timeout(() => paddleEl.classList.remove('hit'), 200);
+            showCombo('BOUNCE! +' + L.computeBounceBonus(1), '#4fc3f7');
+            FX.Sound.star();
+          } else if (ev.type === 'wall') {
+            FX.Sound.tap();
+          } else if (ev.type === 'miss') {
+            ballEl.classList.add('miss-anim');
+            FX.Sound.explode();
+            FX.shake(stage);
+            showCombo('MISS!', '#ff4d6d');
+            updateLivesUI();
+            api.timeout(() => {
+              ballEl.classList.remove('miss-anim');
+              updateBallVisual();
+            }, 400);
+          }
+        }
+        if (L.isGameOver(state)) {
+          finished = true;
+          const totalScore = survivalScore + bounceScore;
+          scoreEl.textContent = totalScore;
+          api.setScore(totalScore);
+          FX.Sound.explode();
+          api.timeout(() => api.finish(totalScore), 800);
+          return false;
+        }
+      }
+
+      /* Trail alle paar Frames */
+      trailCounter++;
+      if (trailCounter >= 3) {
+        trailCounter = 0;
+        spawnTrail();
+      }
+
+      /* Score aktualisieren */
+      const totalScore = survivalScore + bounceScore;
+      scoreEl.textContent = totalScore;
+      api.setScore(totalScore);
+
+      /* Timer aktualisieren */
+      const rem = Math.max(0, (endAt - now) / 1000);
+      timerEl.textContent = rem.toFixed(1) + 's';
+
+      /* Visuell aktualisieren */
+      updateBallVisual();
+      updatePaddleVisual();
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Halte den Ball am Leben! Ziehe um das Paddle zu bewegen!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, 2500);
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -2814,7 +3047,9 @@ const Games = (() => {
     { id: 'colorcatch', name: 'Color Catch', icon: '🧺', desc: 'Fange nur die richtige Farbe im Korb!',
       rules: 'Farb-Bloecke fallen von oben. Bewege den <strong>Korb</strong> durch Ziehen nach links/rechts. Fange <strong>nur deine Zielfarbe</strong> — die wechselt alle paar Sekunden! Falsche Farbe im Korb oder richtige Farbe verpasst = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameColorCatch },
     { id: 'dodgeball', name: 'Dodgeball', icon: '⚡', desc: 'Weiche heranfliegenden Baellen aus!',
-      rules: 'Baelle kommen von <strong>allen Seiten</strong>. Bewege deine Figur durch <strong>Ziehen</strong> auf dem Bildschirm. <strong>3 Treffer</strong> = Game Over! Je laenger du ueberlebst, desto mehr Punkte. <strong>Close Calls</strong> (knapp vorbeigeschrammt) geben Bonus! 30 Sekunden.', play: gameDodgeball }
+      rules: 'Baelle kommen von <strong>allen Seiten</strong>. Bewege deine Figur durch <strong>Ziehen</strong> auf dem Bildschirm. <strong>3 Treffer</strong> = Game Over! Je laenger du ueberlebst, desto mehr Punkte. <strong>Close Calls</strong> (knapp vorbeigeschrammt) geben Bonus! 30 Sekunden.', play: gameDodgeball },
+    { id: 'bouncesurvival', name: 'Bounce Survival', icon: '🏓', desc: 'Halte den Ball am Leben — mit Paddle!',
+      rules: 'Halte den <strong>Ball am Leben</strong>! Bewege das <strong>Paddle</strong> durch Ziehen nach links/rechts. Der Ball prallt an den Waenden und am Paddle ab — der <strong>Winkel aendert sich</strong> je nachdem, wo du triffst! Die Geschwindigkeit <strong>steigt alle 5 Sekunden</strong>. <strong>3x den Ball verfehlen</strong> = Game Over. 45 Sekunden.', play: gameBounceSurvival }
   ];
 
   return { list };
