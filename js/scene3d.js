@@ -14,13 +14,14 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 /* Global exposure fuer Konsumenten (host.js/player.js/main.js pruefen window.Party3D) */
 window.THREE = THREE;
 
 const API = {};
 window.Party3D = API;
-const palette = ['#ff3cac', '#00f0ff', '#2bffb9', '#ffd34e', '#7b2ff7', '#ff6a00', '#3a86ff', '#ff4d6d'];
+const palette = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3', '#a8e6cf', '#ff8b94', '#c7ceea', '#ffb6b9'];
 const state = {
   mode: 'showcase',
   game: null,
@@ -95,14 +96,14 @@ function clearGroup(group) {
    Pro Biom ein Side-Path (10 Felder) der als Ausbuchtung nach außen ragt.
    BRANCH_STARTS muss mit server.py übereinstimmen (8 Branches). */
 const MAP_REGIONS = [
-  { name: 'Startdorf',  color: '#ffd34e', accent: '#ff6a00', biome: 'village'  },
-  { name: 'Sternwüste', color: '#ff8c42', accent: '#ffd34e', biome: 'desert'   },
-  { name: 'Itemwald',   color: '#2bffb9', accent: '#00f0ff', biome: 'forest'   },
-  { name: 'Eventberg',  color: '#7b2ff7', accent: '#ff3cac', biome: 'mountain' },
-  { name: 'Sumpf',      color: '#7bff7b', accent: '#2bffb9', biome: 'swamp'    },
-  { name: 'Eisland',    color: '#9ad8ff', accent: '#ffffff', biome: 'ice'      },
-  { name: 'Vulkanland', color: '#ff3c3c', accent: '#ffaa00', biome: 'volcano'  },
-  { name: 'Wolkenreich',color: '#c8a8ff', accent: '#ffffff', biome: 'clouds'   },
+  { name: 'Startdorf',  color: '#7cb342', accent: '#aed581', biome: 'village'  },
+  { name: 'Sternwüste', color: '#ffd54f', accent: '#ff8f00', biome: 'desert'   },
+  { name: 'Itemwald',   color: '#2e7d32', accent: '#66bb6a', biome: 'forest'   },
+  { name: 'Eventberg',  color: '#90a4ae', accent: '#546e7a', biome: 'mountain' },
+  { name: 'Sumpf',      color: '#6a8e23', accent: '#8bc34a', biome: 'swamp'    },
+  { name: 'Eisland',    color: '#b3e5fc', accent: '#4fc3f7', biome: 'ice'      },
+  { name: 'Vulkanland', color: '#ff6f00', accent: '#bf360c', biome: 'volcano'  },
+  { name: 'Wolkenreich',color: '#e1bee7', accent: '#ce93d8', biome: 'clouds'   },
 ];
 /* Biome-Farben für jeden Hauptpfad-Abschnitt (idx // 20). */
 const BIOME_BY_INDEX = ['village','desert','forest','mountain','swamp','ice','volcano','clouds'];
@@ -231,14 +232,15 @@ function tilePosition(index, total = 240) {
 
 function tileColor(tile, owner) {
   if (owner && owner.color) return owner.color;
-  if (tile && tile.type === 'start') return '#ffd34e';
-  if (tile && tile.type === 'event') return '#ff4d6d';
-  if (tile && tile.type === 'starshop') return '#ffd34e';
-  if (tile && tile.type === 'itemshop') return '#2bffb9';
-  if (tile && tile.type === 'lucky') return '#7bff7b';
-  if (tile && tile.type === 'bonus') return '#2bffb9';
-  if (tile && tile.type === 'junction') return '#ff9e3c';  /* Etappe 2: Wegweiser-Orange */
-  return '#00f0ff';
+  if (tile && tile.type === 'start') return '#ffd54f';
+  if (tile && tile.type === 'event') return '#ff8a65';
+  if (tile && tile.type === 'starshop') return '#fff176';
+  if (tile && tile.type === 'itemshop') return '#81c784';
+  if (tile && tile.type === 'lucky') return '#ba68c8';
+  if (tile && tile.type === 'bonus') return '#4dd0e1';
+  if (tile && tile.type === 'property') return '#90caf9';
+  if (tile && tile.type === 'junction') return '#f48fb1';
+  return '#90caf9';
 }
 
 /* Etappe 2: Pfad-Band zwischen zwei 3D-Positionen zeichnen (Graph-Edge). */
@@ -251,7 +253,7 @@ function drawPathBand(pos1, pos2) {
   const angle = Math.atan2(dz, dx);
   const path = new THREE.Mesh(
     new THREE.BoxGeometry(len, 0.08, 0.42),
-    new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.85, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.85, metalness: 0.05 })
   );
   path.position.set(midX, 0.3 + midY, midZ);
   path.rotation.y = -angle;
@@ -266,7 +268,7 @@ function pawn(player, index, totalAtTile) {
   const PS = 1.6;
   group.scale.setScalar(PS);
   const baseColor = player.color || palette[index % palette.length];
-  const darkMat = material('#10102f', { metalness: 0.8, emissiveIntensity: 0.06 });
+  const darkMat = material('#3a3a5a', { metalness: 0.5, emissiveIntensity: 0.04 });
 
   /* Pedestal — hexagonal disc with glowing rim */
   const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.16, 12), darkMat);
@@ -285,30 +287,31 @@ function pawn(player, index, totalAtTile) {
   /* Glow ring under pawn */
   addGlow(group, baseColor, 0.85, 0.75);
 
-  /* Haupt-Charakter: 3D-Modell (Body + Head) statt flaches Emoji-Sprite.
-     Das Emoji entspricht der Figur, die am Anfang ausgewählt wurde.
-     Es schwebt als kleine Textur auf dem Kopf — der Körper ist eine echte
-     Capsule + Sphere die Schatten wirft und Volumen hat. */
-  const emoji = String(player.figure || player.char || player.emoji || '★');
+  /* Haupt-Charakter: runder, freundlicher Figur mit Gesicht (Augen) —
+     Mario-Party-Vibe statt abstrakter Kapsel. */
   const pawnMat = new THREE.MeshStandardMaterial({
     color: color(baseColor), roughness: 0.38, metalness: 0.42,
     emissive: color(baseColor), emissiveIntensity: 0.18,
   });
-  /* Body: Capsule in Spielerfarbe */
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.4, 4, 8), pawnMat);
-  body.position.y = 0.5;
+  /* Body: runde Kugel in Spielerfarbe — freundlich und kompakt */
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), pawnMat);
+  body.position.y = 0.48;
   body.castShadow = true;
   group.add(body);
-  /* Head: Sphere in Spielerfarbe */
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), pawnMat);
-  head.position.y = 0.85;
-  head.castShadow = true;
-  group.add(head);
-  /* Emoji als kleine Textur auf dem Kopf (Sprite, depthTest=true damit es
+  /* Augen: zwei kleine schwarze Kugeln vorne auf dem Koerper — Gesicht */
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.1 });
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
+  eyeL.position.set(-0.08, 0.54, 0.19);
+  group.add(eyeL);
+  const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
+  eyeR.position.set(0.08, 0.54, 0.19);
+  group.add(eyeR);
+  /* Emoji als kleine Textur ueber dem Kopf (Sprite, depthTest=true damit es
      nicht durch Modelle scheint). */
+  const emoji = String(player.figure || player.char || player.emoji || '★');
   const charSprite = makeTextSprite(emoji, baseColor);
   charSprite.scale.setScalar(0.3);
-  charSprite.position.y = 1.0;
+  charSprite.position.y = 0.85;
   charSprite.userData.bob = index * 0.5;  /* phasenversetzte Schwebeanimation */
   group.add(charSprite);
   group.userData.charSprite = charSprite;
@@ -466,38 +469,39 @@ function biomeDecor(biome, center, rng) {
   }
 
   if (biome === 'village') {
-    /* Startdorf: kleine Häuser mit Satteldach + ein Dorfbrunnen + Laternen */
+    /* Startdorf: kleine bunte Haeuser mit Satteldach, Baeume mit runder Krone, Bluemen */
     for (let i = 0; i < 4; i++) {
       const p = scatter(0.4, 2.2);
       const house = new THREE.Group();
+      const wallColors = [0xff6b6b, 0x4ecdc4, 0xffe66d, 0xffb6b9];
       const walls = new THREE.Mesh(
         new THREE.BoxGeometry(0.55, 0.5, 0.5),
-        new THREE.MeshStandardMaterial({ color: 0xe8d4a0, roughness: 0.85 })
+        new THREE.MeshStandardMaterial({ color: wallColors[i % wallColors.length], roughness: 0.8 })
       );
       walls.position.y = 0.25;
-      walls.castShadow = false;
+      walls.castShadow = true;
       walls.receiveShadow = true;
       house.add(walls);
-      /* Satteldach — Pyramide */
+      /* Satteldach — Pyramide in freundlichem Rot */
       const roof = new THREE.Mesh(
         new THREE.ConeGeometry(0.45, 0.35, 4),
-        new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.8 })
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.75 })
       );
       roof.position.y = 0.65;
       roof.rotation.y = Math.PI / 4;
-      roof.castShadow = false;
+      roof.castShadow = true;
       house.add(roof);
-      /* Kleine Tür */
+      /* Kleine Tuer */
       const door = new THREE.Mesh(
         new THREE.BoxGeometry(0.14, 0.24, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 0.7 })
+        new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.7 })
       );
       door.position.set(0, 0.12, 0.26);
       house.add(door);
-      /* Fenster-Glow */
+      /* Fenster-Glow — freundlich warm */
       const win = new THREE.Mesh(
         new THREE.BoxGeometry(0.12, 0.12, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0xffd34e, emissive: 0xffd34e, emissiveIntensity: 0.5 })
+        new THREE.MeshStandardMaterial({ color: 0xffe66d, emissive: 0xffe66d, emissiveIntensity: 0.6 })
       );
       win.position.set(-0.18, 0.3, 0.26);
       house.add(win);
@@ -505,17 +509,49 @@ function biomeDecor(biome, center, rng) {
       house.rotation.y = rng() * Math.PI * 2;
       out.push(house);
     }
+    /* Baeume mit runder Krone — freundlich, Mario-Party-Style */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.5, 2.0);
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.08, 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.9 })
+      );
+      trunk.position.y = 0.15;
+      trunk.castShadow = true;
+      tree.add(trunk);
+      const crown = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 12, 8),
+        new THREE.MeshStandardMaterial({ color: 0x66bb6a, roughness: 0.8, emissive: 0x388e3c, emissiveIntensity: 0.1 })
+      );
+      crown.position.y = 0.42;
+      crown.castShadow = true;
+      tree.add(crown);
+      tree.position.set(p.x, 0.3, p.z);
+      out.push(tree);
+    }
+    /* Bluemen — kleine bunte Punkte auf der Wiese */
+    for (let i = 0; i < 6; i++) {
+      const p = scatter(0.3, 2.4);
+      const flowerColors = [0xff6b6b, 0xffe66d, 0xff8b94, 0xba68c8, 0x4dd0e1];
+      const flower = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 8, 6),
+        new THREE.MeshStandardMaterial({ color: flowerColors[i % flowerColors.length], emissive: flowerColors[i % flowerColors.length], emissiveIntensity: 0.3 })
+      );
+      flower.position.set(p.x, 0.35, p.z);
+      out.push(flower);
+    }
     /* Dorfbrunnen in der Mitte */
     const wellBase = new THREE.Mesh(
       new THREE.CylinderGeometry(0.3, 0.34, 0.35, 12),
-      new THREE.MeshStandardMaterial({ color: 0x9a8a78, roughness: 0.9 })
+      new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.85 })
     );
     wellBase.position.set(cx, 0.48, cz);
-    wellBase.castShadow = false;
+    wellBase.castShadow = true;
     out.push(wellBase);
     const wellWater = new THREE.Mesh(
       new THREE.CylinderGeometry(0.24, 0.24, 0.04, 12),
-      new THREE.MeshStandardMaterial({ color: 0x2a4a8a, emissive: 0x1a3a6a, emissiveIntensity: 0.3, roughness: 0.2, metalness: 0.6 })
+      new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x4fc3f7, emissiveIntensity: 0.4, roughness: 0.2, metalness: 0.6 })
     );
     wellWater.position.set(cx, 0.66, cz);
     out.push(wellWater);
@@ -523,46 +559,47 @@ function biomeDecor(biome, center, rng) {
     for (let i = 0; i < 2; i++) {
       const post = new THREE.Mesh(
         new THREE.CylinderGeometry(0.025, 0.025, 0.55, 6),
-        new THREE.MeshStandardMaterial({ color: 0x5a3a2a, roughness: 0.85 })
+        new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.85 })
       );
       post.position.set(cx + (i ? 0.22 : -0.22), 0.95, cz);
-      post.castShadow = false;
+      post.castShadow = true;
       out.push(post);
     }
     const wellRoof = new THREE.Mesh(
       new THREE.ConeGeometry(0.4, 0.22, 4),
-      new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.8 })
+      new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.8 })
     );
     wellRoof.position.set(cx, 1.3, cz);
     wellRoof.rotation.y = Math.PI / 4;
-    wellRoof.castShadow = false;
+    wellRoof.castShadow = true;
     out.push(wellRoof);
   }
 
   else if (biome === 'desert') {
-    /* Sternwüste: Dünen (flache Kuppen), Kakteen, Pyramide, vertrocknete Büsche */
+    /* Sternwueste: Duenen (halbe Kugeln), Kakteen, kleine Pyramiden */
     for (let i = 0; i < 5; i++) {
       const p = scatter(0.5, 2.4);
-      /* Düne — flache Halbkugel in Sandfarbe */
+      /* Duene — flache Halbkugel in warmem Sandgelb */
       const dune = new THREE.Mesh(
         new THREE.SphereGeometry(0.45 + rng() * 0.25, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-        new THREE.MeshStandardMaterial({ color: 0xd9a85a, roughness: 0.95 })
+        new THREE.MeshStandardMaterial({ color: 0xffd54f, roughness: 0.95 })
       );
       dune.scale.set(1.4, 0.5, 1.1);
       dune.position.set(p.x, 0.3, p.z);
       dune.receiveShadow = true;
+      dune.castShadow = true;
       out.push(dune);
     }
-    /* Kakteen — zylindrische Säulen mit Armen */
+    /* Kakteen — gruene Saeulen mit Armen, freundlich */
     for (let i = 0; i < 3; i++) {
       const p = scatter(0.6, 2.0);
       const cactus = new THREE.Group();
       const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.1, 0.12, 0.7 + rng() * 0.3, 8),
-        new THREE.MeshStandardMaterial({ color: 0x3a7a3a, roughness: 0.85, emissive: 0x1a3a1a, emissiveIntensity: 0.1 })
+        new THREE.MeshStandardMaterial({ color: 0x43a047, roughness: 0.85, emissive: 0x2e7d32, emissiveIntensity: 0.12 })
       );
       trunk.position.y = 0.35;
-      trunk.castShadow = false;
+      trunk.castShadow = true;
       cactus.add(trunk);
       /* 1-2 Arme */
       const arms = 1 + Math.floor(rng() * 2);
@@ -573,114 +610,128 @@ function biomeDecor(biome, center, rng) {
         );
         arm.position.set((j ? 0.15 : -0.15), 0.45, 0);
         arm.rotation.z = (j ? -0.5 : 0.5);
-        arm.castShadow = false;
+        arm.castShadow = true;
         cactus.add(arm);
       }
       cactus.position.set(p.x, 0.32, p.z);
       out.push(cactus);
     }
-    /* Pyramide als Landmarke */
+    /* Pyramide als Landmarke — warmes Sandgelb */
     const pyramid = new THREE.Mesh(
       new THREE.ConeGeometry(0.55, 0.8, 4),
-      new THREE.MeshStandardMaterial({ color: 0xc89b5a, roughness: 0.9, emissive: 0x8a6a3a, emissiveIntensity: 0.1 })
+      new THREE.MeshStandardMaterial({ color: 0xff8f00, roughness: 0.9, emissive: 0xff6f00, emissiveIntensity: 0.15 })
     );
     pyramid.position.set(cx, 0.7, cz);
     pyramid.rotation.y = Math.PI / 4;
-    pyramid.castShadow = false;
+    pyramid.castShadow = true;
     out.push(pyramid);
   }
 
   else if (biome === 'forest') {
-    /* Itemwald: Bäume (Stamm + Krone), Pilze, Baumstümpfe, Farnbüschel */
+    /* Itemwald: Baeume (Stamm + runde Krone), Pilze (roter Hut weisse Punkte), Baumstaemme, Buschwerk */
     for (let i = 0; i < 6; i++) {
       const p = scatter(0.5, 2.4);
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.08, 0.11, 0.55, 8),
-        new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 0.9 })
+        new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.9 })
       );
       trunk.position.y = 0.3;
-      trunk.castShadow = false;
+      trunk.castShadow = true;
       tree.add(trunk);
-      /* Baumkrone — 2-3 Kugeln gestapelt für organische Form */
-      const crownMat = new THREE.MeshStandardMaterial({ color: 0x2a6a3a, roughness: 0.85, emissive: 0x1a3a2a, emissiveIntensity: 0.12 });
+      /* Baumkrone — runde Kugeln gestapelt, freundlich gruen */
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.85, emissive: 0x1b5e20, emissiveIntensity: 0.1 });
       const crowns = 2 + Math.floor(rng() * 2);
       for (let j = 0; j < crowns; j++) {
         const crown = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(0.28 + rng() * 0.1, 1),
+          new THREE.SphereGeometry(0.28 + rng() * 0.1, 12, 8),
           crownMat
         );
         crown.position.set((rng() - 0.5) * 0.2, 0.65 + j * 0.18, (rng() - 0.5) * 0.2);
-        crown.castShadow = false;
+        crown.castShadow = true;
         tree.add(crown);
       }
       tree.position.set(p.x, 0.32, p.z);
       tree.rotation.y = rng() * Math.PI * 2;
       out.push(tree);
     }
-    /* Pilze — rote Hüte mit weißen Punkten (Mario-Party-Vibe) */
+    /* Pilze — roter Hut mit weissen Punkten (Mario-Party-Vibe) */
     for (let i = 0; i < 4; i++) {
       const p = scatter(0.4, 2.0);
       const mushroom = new THREE.Group();
       const stem = new THREE.Mesh(
         new THREE.CylinderGeometry(0.05, 0.06, 0.18, 8),
-        new THREE.MeshStandardMaterial({ color: 0xf0e0c0, roughness: 0.8 })
+        new THREE.MeshStandardMaterial({ color: 0xfff8e1, roughness: 0.8 })
       );
       stem.position.y = 0.09;
       mushroom.add(stem);
       const cap = new THREE.Mesh(
         new THREE.SphereGeometry(0.13, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-        new THREE.MeshStandardMaterial({ color: 0xe84a3a, roughness: 0.6, emissive: 0x8a2a1a, emissiveIntensity: 0.2 })
+        new THREE.MeshStandardMaterial({ color: 0xe53935, roughness: 0.6, emissive: 0xc62828, emissiveIntensity: 0.2 })
       );
       cap.position.y = 0.18;
-      cap.castShadow = false;
+      cap.castShadow = true;
       mushroom.add(cap);
-      /* Weißer Punkt auf dem Hut */
-      const dot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.03, 6, 4),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
-      );
-      dot.position.set(0.05, 0.22, 0.04);
-      mushroom.add(dot);
+      /* Weisse Punkte auf dem Hut — Mario-Party-Style */
+      const dotPositions = [[0.05, 0.22, 0.04], [-0.06, 0.21, 0.02], [0.0, 0.23, -0.05]];
+      dotPositions.forEach(([dx, dy, dz]) => {
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(0.03, 6, 4),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
+        );
+        dot.position.set(dx, dy, dz);
+        mushroom.add(dot);
+      });
       mushroom.position.set(p.x, 0.32, p.z);
       out.push(mushroom);
+    }
+    /* Buschwerk — runde gruene Buesche */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.4, 2.2);
+      const bush = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2 + rng() * 0.08, 10, 6),
+        new THREE.MeshStandardMaterial({ color: 0x66bb6a, roughness: 0.85, emissive: 0x388e3c, emissiveIntensity: 0.08 })
+      );
+      bush.position.set(p.x, 0.35, p.z);
+      bush.castShadow = true;
+      out.push(bush);
     }
     /* Baumstumpf */
     const stumpPos = scatter(0.6, 1.8);
     const stump = new THREE.Mesh(
       new THREE.CylinderGeometry(0.16, 0.18, 0.18, 10),
-      new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.95 })
     );
     stump.position.set(stumpPos.x, 0.4, stumpPos.z);
-    stump.castShadow = false;
+    stump.castShadow = true;
     out.push(stump);
   }
 
   else if (biome === 'mountain') {
-    /* Eventberg: Felsbrocken, spitzer Gipfel, Schneeflecken, Kristalle */
+    /* Eventberg: helles Gestein, schneebedeckte Spitzen, Kristalle */
     for (let i = 0; i < 5; i++) {
       const p = scatter(0.5, 2.4);
       const rock = new THREE.Mesh(
         new THREE.DodecahedronGeometry(0.18 + rng() * 0.18, 0),
-        new THREE.MeshStandardMaterial({ color: 0x5a5a6a, roughness: 0.95, metalness: 0.05 })
+        new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.9, metalness: 0.05 })
       );
       rock.position.set(p.x, 0.42 + rng() * 0.1, p.z);
       rock.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-      rock.castShadow = false;
+      rock.castShadow = true;
       out.push(rock);
     }
-    /* Berggipfel — markante spitze Form in Regionsmitte */
+    /* Berggipfel — markante spitze Form in Regionsmitte, helles Gestein */
     const peak = new THREE.Mesh(
       new THREE.ConeGeometry(0.55, 1.1, 6),
-      new THREE.MeshStandardMaterial({ color: 0x6a6a7a, roughness: 0.85, metalness: 0.1, emissive: 0x3a3a4a, emissiveIntensity: 0.12 })
+      new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.85, metalness: 0.1, emissive: 0x90a4ae, emissiveIntensity: 0.1 })
     );
     peak.position.set(cx, 0.85, cz);
-    peak.castShadow = false;
+    peak.castShadow = true;
     out.push(peak);
-    /* Schneehaube auf der Spitze — kleine weiße Kugel */
+    /* Schneehaube auf der Spitze — weisse Kappe */
     const snow = new THREE.Mesh(
       new THREE.ConeGeometry(0.3, 0.4, 6),
-      new THREE.MeshStandardMaterial({ color: 0xf0f0ff, roughness: 0.4, metalness: 0.1, emissive: 0xd0d0ff, emissiveIntensity: 0.15 })
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1, emissive: 0xeceff1, emissiveIntensity: 0.15 })
     );
     snow.position.set(cx, 1.35, cz);
     out.push(snow);
@@ -689,7 +740,7 @@ function biomeDecor(biome, center, rng) {
       const p = scatter(0.6, 2.0);
       const crystal = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.12 + rng() * 0.05, 0),
-        new THREE.MeshStandardMaterial({ color: 0x9b5cff, emissive: 0x7b2ff7, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.4 })
+        new THREE.MeshStandardMaterial({ color: 0x4dd0e1, emissive: 0x4dd0e1, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.4 })
       );
       crystal.position.set(p.x, 0.5, p.z);
       crystal.userData.spin = 0.4 + rng() * 0.3;
@@ -699,22 +750,22 @@ function biomeDecor(biome, center, rng) {
   }
 
   else if (biome === 'swamp') {
-    /* Sumpf: trübes Wasser, Schilf, Moosbüschel, Baumleichen, Glühwürmchen */
-    /* Sumpfgrund — flache dunkle Wasserfläche */
+    /* Sumpf: moosig, Schilfgras, Baumleichen, Gluehwuermchen */
+    /* Sumpfgrund — flache moosige Wasserflaeche */
     const swampGround = new THREE.Mesh(
       new THREE.CircleGeometry(1.8, 24),
-      new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 0.3, metalness: 0.5, emissive: 0x1a2a1a, emissiveIntensity: 0.2, transparent: true, opacity: 0.85 })
+      new THREE.MeshStandardMaterial({ color: 0x6a8e23, roughness: 0.3, metalness: 0.5, emissive: 0x558b2f, emissiveIntensity: 0.15, transparent: true, opacity: 0.85 })
     );
     swampGround.rotation.x = -Math.PI / 2;
     swampGround.position.set(cx, 0.06, cz);
     out.push(swampGround);
-    /* Schilfgras — schmale Zylinderbüschel */
+    /* Schilfgras — schmale Zylinderbueschel, moosgruen */
     for (let i = 0; i < 8; i++) {
       const p = scatter(0.4, 2.2);
       for (let j = 0; j < 3; j++) {
         const reed = new THREE.Mesh(
           new THREE.CylinderGeometry(0.02, 0.025, 0.35 + rng() * 0.15, 4),
-          new THREE.MeshStandardMaterial({ color: 0x6a8a3a, roughness: 0.9 })
+          new THREE.MeshStandardMaterial({ color: 0x8bc34a, roughness: 0.9 })
         );
         reed.position.set(p.x + (j - 1) * 0.06, 0.22, p.z + (rng() - 0.5) * 0.08);
         reed.rotation.z = (rng() - 0.5) * 0.2;
@@ -726,14 +777,14 @@ function biomeDecor(biome, center, rng) {
       const p = scatter(0.6, 1.8);
       const deadTree = new THREE.Mesh(
         new THREE.CylinderGeometry(0.06, 0.09, 0.5, 6),
-        new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.98 })
+        new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.98 })
       );
       deadTree.position.set(p.x, 0.35, p.z);
       deadTree.rotation.z = (rng() - 0.5) * 0.4;
-      deadTree.castShadow = false;
+      deadTree.castShadow = true;
       out.push(deadTree);
     }
-    /* Glühwürmchen — kleine gelb-grüne Lichtpunkte */
+    /* Gluehwuermchen — kleine gelb-gruene Lichtpunkte */
     for (let i = 0; i < 5; i++) {
       const p = scatter(0.3, 2.0);
       const firefly = new THREE.Mesh(
@@ -748,43 +799,60 @@ function biomeDecor(biome, center, rng) {
   }
 
   else if (biome === 'ice') {
-    /* Eisland: Eiskristalle, Schneehaufen, gefrorener See, Polarlicht */
-    /* Gefrorener See — flache hellblaue Fläche */
+    /* Eisland: Eiskristalle (Oktaeder), kleine Iglus, Polarlicht (gruenes Licht) */
+    /* Gefrorener See — flache eisig-blaue Flaeche */
     const iceLake = new THREE.Mesh(
       new THREE.CircleGeometry(1.6, 24),
-      new THREE.MeshStandardMaterial({ color: 0xb8d8f8, roughness: 0.1, metalness: 0.8, emissive: 0x9ac8e8, emissiveIntensity: 0.25, transparent: true, opacity: 0.9 })
+      new THREE.MeshStandardMaterial({ color: 0xb3e5fc, roughness: 0.1, metalness: 0.8, emissive: 0xe1f5fe, emissiveIntensity: 0.3, transparent: true, opacity: 0.9 })
     );
     iceLake.rotation.x = -Math.PI / 2;
     iceLake.position.set(cx, 0.08, cz);
     iceLake.receiveShadow = true;
     out.push(iceLake);
-    /* Eiskristalle — spitze weiße Oktaeder */
+    /* Eiskristalle — spitze blaue Oktaeder */
     for (let i = 0; i < 6; i++) {
       const p = scatter(0.5, 2.2);
       const crystal = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.15 + rng() * 0.1, 0),
-        new THREE.MeshStandardMaterial({ color: 0xe8f0ff, roughness: 0.2, metalness: 0.6, emissive: 0xc8e0ff, emissiveIntensity: 0.35, transparent: true, opacity: 0.88 })
+        new THREE.MeshStandardMaterial({ color: 0xe1f5fe, roughness: 0.2, metalness: 0.6, emissive: 0x4fc3f7, emissiveIntensity: 0.4, transparent: true, opacity: 0.88 })
       );
       crystal.position.set(p.x, 0.35 + rng() * 0.15, p.z);
       crystal.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-      crystal.castShadow = false;
+      crystal.castShadow = true;
       out.push(crystal);
     }
-    /* Schneehaufen — weiße Kugeln */
+    /* Kleines Iglu — halbe Kugel mit Eingang */
+    const igloo = new THREE.Group();
+    const iglooBody = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0xe1f5fe, roughness: 0.6, metalness: 0.2 })
+    );
+    iglooBody.position.y = 0.18;
+    iglooBody.castShadow = true;
+    igloo.add(iglooBody);
+    const iglooDoor = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.16, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x4fc3f7, roughness: 0.8 })
+    );
+    iglooDoor.position.set(0, 0.08, 0.33);
+    igloo.add(iglooDoor);
+    igloo.position.set(cx + 0.8, 0.3, cz - 0.5);
+    out.push(igloo);
+    /* Schneehaufen — weisse Kugeln */
     for (let i = 0; i < 4; i++) {
       const p = scatter(0.4, 2.0);
       const snow = new THREE.Mesh(
         new THREE.SphereGeometry(0.18 + rng() * 0.1, 10, 6),
-        new THREE.MeshStandardMaterial({ color: 0xf8f8ff, roughness: 0.85 })
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 })
       );
       snow.position.set(p.x, 0.18, p.z);
-      snow.castShadow = false;
+      snow.castShadow = true;
       out.push(snow);
     }
-    /* Polarlicht — hängender leuchtender Streifen (deko, nicht begehbar) */
+    /* Polarlicht — gruener leuchtender Streifen (deko, nicht begehbar) */
     const aurora = new THREE.Mesh(
       new THREE.PlaneGeometry(3.0, 0.35),
-      new THREE.MeshStandardMaterial({ color: 0x7bff7b, emissive: 0x7bff7b, emissiveIntensity: 0.6, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      new THREE.MeshStandardMaterial({ color: 0x4caf50, emissive: 0x4caf50, emissiveIntensity: 0.6, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
     );
     aurora.position.set(cx, 2.8, cz);
     aurora.userData.spin = 0.1;
@@ -792,73 +860,97 @@ function biomeDecor(biome, center, rng) {
   }
 
   else if (biome === 'volcano') {
-    /* Vulkanland: Lavasee, Lavaspritzer, rauchende Felsen, glühende Risse */
-    /* Lavasee — flache glühend-rote Fläche */
+    /* Vulkanland: Lavafluesse (orangefarbene Streifen), Feuersaeulen, rauchende Felsen */
+    /* Lavasee — flache glühend-orange Flaeche */
     const lavaLake = new THREE.Mesh(
       new THREE.CircleGeometry(1.5, 20),
-      new THREE.MeshStandardMaterial({ color: 0xff4a1a, emissive: 0xff2a00, emissiveIntensity: 1.4, roughness: 0.4, metalness: 0.3 })
+      new THREE.MeshStandardMaterial({ color: 0xff6f00, emissive: 0xff6f00, emissiveIntensity: 1.4, roughness: 0.4, metalness: 0.3 })
     );
     lavaLake.rotation.x = -Math.PI / 2;
     lavaLake.position.set(cx, 0.08, cz);
     out.push(lavaLake);
-    addGlow(lavaLake, '#ff5a2a', 1.5, 1.2);
+    addGlow(lavaLake, '#ff6f00', 1.5, 1.2);
     /* Vulkan-Kegel — kleiner Krater in der Mitte */
     const volcano = new THREE.Mesh(
       new THREE.ConeGeometry(0.7, 0.9, 12, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x3a2a2a, roughness: 0.95, side: THREE.DoubleSide })
+      new THREE.MeshStandardMaterial({ color: 0xbf360c, roughness: 0.95, side: THREE.DoubleSide })
     );
     volcano.position.set(cx, 0.65, cz);
-    volcano.castShadow = false;
+    volcano.castShadow = true;
     out.push(volcano);
     /* Lava im Krater — kleine glühende Kappe */
     const lavaCap = new THREE.Mesh(
       new THREE.CircleGeometry(0.25, 12),
-      new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff6a00, emissiveIntensity: 1.6 })
+      new THREE.MeshStandardMaterial({ color: 0xffab40, emissive: 0xff6f00, emissiveIntensity: 1.6 })
     );
     lavaCap.rotation.x = -Math.PI / 2;
     lavaCap.position.set(cx, 1.05, cz);
     out.push(lavaCap);
-    /* Rauchende Felsen — schwarze Brocken mit kleinem Glühen */
+    /* Lavafluesse — orangefarbene Streifen die vom Krater ausgehen */
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + rng() * 0.3;
+      const len = 1.2 + rng() * 0.5;
+      const flow = new THREE.Mesh(
+        new THREE.BoxGeometry(len, 0.04, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0xff6f00, emissive: 0xff6f00, emissiveIntensity: 1.3, roughness: 0.4 })
+      );
+      flow.position.set(cx + Math.cos(angle) * len * 0.5, 0.1, cz + Math.sin(angle) * len * 0.5);
+      flow.rotation.y = -angle;
+      out.push(flow);
+    }
+    /* Feuersaeulen — aufsteigende orangefarbene Lichtsaeulen */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.6, 2.0);
+      const firePillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.12, 0.8 + rng() * 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: 0xff6f00, emissive: 0xff6f00, emissiveIntensity: 1.5, transparent: true, opacity: 0.85 })
+      );
+      firePillar.position.set(p.x, 0.5 + rng() * 0.2, p.z);
+      firePillar.userData.spin = 0.2;
+      firePillar.userData.orbit = 0.4 + rng() * 0.2;
+      out.push(firePillar);
+    }
+    /* Rauchende Felsen — dunkle Brocken mit kleinem Gluehen */
     for (let i = 0; i < 5; i++) {
       const p = scatter(0.6, 2.2);
       const rock = new THREE.Mesh(
         new THREE.DodecahedronGeometry(0.16 + rng() * 0.16, 0),
-        new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.98, emissive: 0xff3a00, emissiveIntensity: rng() * 0.25 })
+        new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.98, emissive: 0xff6f00, emissiveIntensity: rng() * 0.25 })
       );
       rock.position.set(p.x, 0.32 + rng() * 0.12, p.z);
       rock.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
-      rock.castShadow = false;
+      rock.castShadow = true;
       out.push(rock);
-    }
-    /* Glühende Risse — schmale Streifen */
-    for (let i = 0; i < 3; i++) {
-      const p = scatter(0.5, 1.8);
-      const crack = new THREE.Mesh(
-        new THREE.BoxGeometry(0.35, 0.03, 0.04),
-        new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff4a00, emissiveIntensity: 1.5 })
-      );
-      crack.position.set(p.x, 0.08, p.z);
-      crack.rotation.y = rng() * Math.PI;
-      out.push(crack);
     }
   }
 
   else if (biome === 'clouds') {
-    /* Wolkenreich: schwebende Wolken, Regenbogenbögen, schwebende Insel,
-       leuchtende Sterne. Höher als andere Biome (biomeHeightOffset). */
-    /* Schwebende Wolkeninsel — flache weiß-zyanfläche */
+    /* Wolkenreich: schwebende Inseln, Regenbogen (gebogene Tore), leuchtende Sterne.
+       Hoeher als andere Biome (biomeHeightOffset). */
+    /* Schwebende Insel — pastell-lila Plattform */
     const cloudIsland = new THREE.Mesh(
       new THREE.CylinderGeometry(1.8, 1.5, 0.18, 16),
-      new THREE.MeshStandardMaterial({ color: 0xf0e8ff, roughness: 0.95, emissive: 0xc8b8e8, emissiveIntensity: 0.18 })
+      new THREE.MeshStandardMaterial({ color: 0xe1bee7, roughness: 0.95, emissive: 0xce93d8, emissiveIntensity: 0.2 })
     );
     cloudIsland.position.set(cx, 0.15, cz);
-    cloudIsland.castShadow = false;
+    cloudIsland.castShadow = true;
     out.push(cloudIsland);
-    /* Wolkenbüschel — weiße Kugelgruppen die scheinbar schweben */
-    for (let i = 0; i < 5; i++) {
+    /* Weitere kleine schwebende Inseln verstreut */
+    for (let i = 0; i < 3; i++) {
+      const p = scatter(0.6, 2.4);
+      const island = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.4 + rng() * 0.2, 0.3, 0.12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xf3e5f5, roughness: 0.95, emissive: 0xe1bee7, emissiveIntensity: 0.15 })
+      );
+      island.position.set(p.x, 0.6 + rng() * 0.5, p.z);
+      island.userData.spin = 0.08;
+      out.push(island);
+    }
+    /* Wolkenbuesch — weisse Kugelgruppen die scheinbar schweben */
+    for (let i = 0; i < 4; i++) {
       const p = scatter(0.6, 2.4);
       const cloud = new THREE.Group();
-      const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xe8d8f8, emissiveIntensity: 0.15, transparent: true, opacity: 0.9 });
+      const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, emissive: 0xf3e5f5, emissiveIntensity: 0.15, transparent: true, opacity: 0.9 });
       for (let j = 0; j < 3; j++) {
         const puff = new THREE.Mesh(
           new THREE.SphereGeometry(0.22 + rng() * 0.1, 10, 6),
@@ -871,20 +963,25 @@ function biomeDecor(biome, center, rng) {
       cloud.userData.spin = 0.05;
       out.push(cloud);
     }
-    /* Regenbogenbogen — leuchtender farbiger Ring (halb) */
-    const rainbow = new THREE.Mesh(
-      new THREE.TorusGeometry(1.0, 0.06, 8, 32, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0xff6acb, emissive: 0xff6acb, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.4, transparent: true, opacity: 0.85 })
-    );
-    rainbow.position.set(cx, 0.9, cz);
-    rainbow.userData.spin = 0.15;
-    out.push(rainbow);
+    /* Regenbogen — gebogenes Tor aus mehreren farbigen Halbkreisen */
+    const rainbowGroup = new THREE.Group();
+    const rainbowColors = [0xff6b6b, 0xff8a65, 0xffe66d, 0x66bb6a, 0x4dd0e1, 0xba68c8];
+    rainbowColors.forEach((rc, ri) => {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(1.0 + ri * 0.05, 0.04, 6, 24, Math.PI),
+        new THREE.MeshStandardMaterial({ color: rc, emissive: rc, emissiveIntensity: 0.6, roughness: 0.4, metalness: 0.3, transparent: true, opacity: 0.9 })
+      );
+      rainbowGroup.add(arc);
+    });
+    rainbowGroup.position.set(cx, 0.9, cz);
+    rainbowGroup.userData.spin = 0.1;
+    out.push(rainbowGroup);
     /* Leuchtende Sterne — kleine gelbe Oktaeder */
     for (let i = 0; i < 4; i++) {
       const p = scatter(0.4, 1.8);
       const star = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.08, 0),
-        new THREE.MeshStandardMaterial({ color: 0xffd34e, emissive: 0xffd34e, emissiveIntensity: 1.0 })
+        new THREE.MeshStandardMaterial({ color: 0xffe66d, emissive: 0xffe66d, emissiveIntensity: 1.0 })
       );
       star.position.set(p.x, 1.2 + rng() * 0.6, p.z);
       star.userData.spin = 0.6;
@@ -920,12 +1017,12 @@ function buildBoard() {
     tpos.setY(v, terrainHeight(x, z));
   }
   terrainGeo.computeVertexNormals();
-  /* Terrain-Material: grün-braune Basis, Vertex-Colors nach Höhe für Schnee/Gipfel. */
+  /* Terrain-Material: freundliche helle Farben, Vertex-Colors nach Hoehe. */
   const terrainColors = new Float32Array(tpos.count * 3);
-  const colLow = new THREE.Color('#3a5a3a');    /* Tal — grün */
-  const colMid = new THREE.Color('#6a5a3a');    /* Hang — braun */
-  const colHigh = new THREE.Color('#aab8c0');   /* Gipfel — grau */
-  const colSnow = new THREE.Color('#f0f4f8');   /* Schneegipfel */
+  const colLow = new THREE.Color('#7cb342');    /* Tal — saftig gruen */
+  const colMid = new THREE.Color('#aed581');    /* Hang — hellgruen */
+  const colHigh = new THREE.Color('#cfd8dc');   /* Gipfel — hellgrau */
+  const colSnow = new THREE.Color('#ffffff');   /* Schneegipfel */
   for (let v = 0; v < tpos.count; v++) {
     const y = tpos.getY(v);
     const c = new THREE.Color();
@@ -964,14 +1061,14 @@ function buildBoard() {
       z: midPos.z + (midPos.z / outLen) * outPush,
     };
     const biomeColors = {
-      village:  { ground: '#6b5236', tint: '#a0784a', edge: '#8a6a4a' },
-      desert:   { ground: '#c89b5a', tint: '#e0b070', edge: '#a87a3a' },
-      forest:   { ground: '#1f3a26', tint: '#2d5a3a', edge: '#1a2a1a' },
-      mountain: { ground: '#4a4a5a', tint: '#6a6a7a', edge: '#2a2a3a' },
-      swamp:    { ground: '#2a3a2a', tint: '#4a6a3a', edge: '#1a2a1a' },
-      ice:      { ground: '#a8c8e8', tint: '#d8e8f8', edge: '#88a8c8' },
-      volcano:  { ground: '#3a1a1a', tint: '#6a2a1a', edge: '#2a0a0a' },
-      clouds:   { ground: '#c8b8e8', tint: '#e8d8f8', edge: '#a898c8' },
+      village:  { ground: '#7cb342', tint: '#aed581', edge: '#558b2f' },
+      desert:   { ground: '#ffd54f', tint: '#ffecb3', edge: '#ff8f00' },
+      forest:   { ground: '#2e7d32', tint: '#66bb6a', edge: '#1b5e20' },
+      mountain: { ground: '#90a4ae', tint: '#cfd8dc', edge: '#546e7a' },
+      swamp:    { ground: '#6a8e23', tint: '#8bc34a', edge: '#33691e' },
+      ice:      { ground: '#b3e5fc', tint: '#e1f5fe', edge: '#4fc3f7' },
+      volcano:  { ground: '#ff6f00', tint: '#ffab40', edge: '#bf360c' },
+      clouds:   { ground: '#e1bee7', tint: '#f3e5f5', edge: '#ce93d8' },
     };
     const bc = biomeColors[region.biome] || biomeColors.village;
     /* 6-8 organische Shape-Patches pro Region — entlang des Biom-Segments gestreut. */
@@ -1042,17 +1139,17 @@ function buildBoard() {
     decor.forEach(d => boardGroup.add(d));
   });
 
-  /* Zentrale Landmarke — großer Stern in der Mitte (Etappe 2: größer für größeres Board) */
+  /* Zentrale Landmarke — grosser goldener Stern in der Mitte */
   const centerStar = new THREE.Mesh(
     new THREE.OctahedronGeometry(1.8, 2),
-    material('#ffd34e', { metalness: 0.5, emissive: '#ffd34e', emissiveIntensity: 0.78 })
+    material('#ffd54f', { metalness: 0.5, emissive: '#ffd54f', emissiveIntensity: 0.78 })
   );
   /* Etappe 2.5 Landschaft: Stern auf dem zentralen Berg (terrainHeight(0,0)+4). */
   centerStar.position.y = terrainHeight(0, 0) + 3.2;
   centerStar.userData.spin = 0.5;
   centerStar.castShadow = false;
   boardGroup.add(centerStar);
-  addGlow(centerStar, '#ffd34e', 1.8, 1.5);
+  addGlow(centerStar, '#ffd54f', 1.8, 1.5);
 
   /* Grasbüschel & Streudeko auf der ganzen Karte (nicht nur Regionen) — mehr Leben */
   const globalRng = mulberry32(98765);
@@ -1061,22 +1158,22 @@ function buildBoard() {
     const rad = 3.2 + globalRng() * 4.0;
     const gx = Math.cos(a) * rad;
     const gz = Math.sin(a) * rad * 0.9;
-    /* Kleine Stein- oder Gras-Häufchen verstreut — nicht auf dem Pfad */
+    /* Kleine Stein- oder Gras-Haeufchen verstreut — nicht auf dem Pfad */
     if (globalRng() < 0.5) {
       const pebble = new THREE.Mesh(
         new THREE.DodecahedronGeometry(0.08 + globalRng() * 0.06, 0),
-        new THREE.MeshStandardMaterial({ color: 0x6a6a78, roughness: 0.9 })
+        new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.9 })
       );
       pebble.position.set(gx, 0.32 + globalRng() * 0.05, gz);
-      pebble.castShadow = false;
+      pebble.castShadow = true;
       boardGroup.add(pebble);
     } else {
       const grass = new THREE.Mesh(
         new THREE.ConeGeometry(0.07, 0.22 + globalRng() * 0.1, 5),
-        new THREE.MeshStandardMaterial({ color: 0x3a6a3a, roughness: 0.95, emissive: 0x1a3a1a, emissiveIntensity: 0.08 })
+        new THREE.MeshStandardMaterial({ color: 0x66bb6a, roughness: 0.95, emissive: 0x43a047, emissiveIntensity: 0.08 })
       );
       grass.position.set(gx, 0.36, gz);
-      grass.castShadow = false;
+      grass.castShadow = true;
       boardGroup.add(grass);
     }
   }
@@ -1091,7 +1188,7 @@ function buildBoard() {
   });
 
   /* Pfad-Stücke zwischen aufeinanderfolgenden Feldern */
-  const pathMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.85, metalness: 0.05 });
+  const pathMat = new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.85, metalness: 0.05 });
   /* Pfad-Bänder entlang der Graph-Verbindungen (tile.next).
      Etappe 2: statt (i+1)%length nutzen wir das next-Array aus dem Tile. */
   const drawnEdges = new Set();  /* "a-b" Key um Doppelkanten zu vermeiden */
@@ -1134,20 +1231,20 @@ function buildBoard() {
     const noiseMap = makeNoiseTexture(baseTileColor, accentHex, 64);
     const tileMat = material(baseTileColor, { metalness: 0.5, emissiveIntensity: owner ? 0.44 : (isJunction ? 0.5 : 0.24) });
     tileMat.map = noiseMap;   /* Base-Color-Textur ueberlagert Solid-Farbe mit Noise */
-    /* Feld — abgerundete Box, flach auf dem Pfad. Etappe 2.5 Perf: Segmente 1,1,1
-       (vorher 4,2,4) → bei 240 Feldern massig weniger Polygone. */
-    const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.36, 1, 1, 1), tileMat);
+    /* Feld — abgerundete Box (RoundedBoxGeometry), flach auf dem Pfad.
+       Mario-Party-Spielbrett-Look: weiche Kanten, freundliche Form. */
+    const tileMesh = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.22, 0.36, 4, 0.08), tileMat);
     tileMesh.position.set(pos.x, tileY, pos.z);
     tileMesh.rotation.y = -pos.angle;
     tileMesh.userData.index = tile.idx == null ? index : tile.idx;
-    tileMesh.castShadow = true;   /* Etappe 2.5 Perf: Tiles werfen Schatten (wichtig für Tiefe) */
+    tileMesh.castShadow = true;
     tileMesh.receiveShadow = true;
     boardGroup.add(tileMesh);
 
-    /* Cap — farbige Oberfläche zeigt Feld-Typ */
+    /* Cap — farbige Oberflaeche zeigt Feld-Typ, heller und klare Farben */
     const cap = new THREE.Mesh(
-      new THREE.BoxGeometry(0.4, 0.03, 0.28),
-      new THREE.MeshStandardMaterial({ color: color(tileColor(tile, owner)), transparent: true, opacity: 0.82, roughness: 0.5, emissive: color(tileColor(tile, owner)), emissiveIntensity: 0.12 })
+      new RoundedBoxGeometry(0.4, 0.05, 0.28, 3, 0.04),
+      new THREE.MeshStandardMaterial({ color: color(tileColor(tile, owner)), transparent: true, opacity: 0.95, roughness: 0.5, emissive: color(tileColor(tile, owner)), emissiveIntensity: 0.22 })
     );
     cap.position.set(pos.x, tileY + 0.18, pos.z);
     cap.rotation.y = -pos.angle;
@@ -1169,18 +1266,18 @@ function buildBoard() {
 
     /* Dekoration nach Typ */
     if (tile.type === 'event') {
-      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), material('#ff4d6d', { emissiveIntensity: 0.75 }));
+      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), material('#ff8a65', { emissiveIntensity: 0.75 }));
       orb.position.set(pos.x, tileY + 0.7, pos.z);
       orb.userData.orbit = 0.8 + index * 0.05;
       boardGroup.add(orb);
     }
     if (tile.type === 'starshop') {
-      const shopStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 1), material('#ffd34e', { emissiveIntensity: 0.85 }));
+      const shopStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 1), material('#fff176', { emissiveIntensity: 0.85 }));
       shopStar.position.set(pos.x, tileY + 0.7, pos.z);
       shopStar.userData.spin = 0.6;
       shopStar.userData.orbit = 0.6 + index * 0.05;
       boardGroup.add(shopStar);
-      addGlow(shopStar, '#ffd34e', 0.9, 0.6);
+      addGlow(shopStar, '#fff176', 0.9, 0.6);
     }
     if (tile.type === 'itemshop') {
       /* Etappe 2.5: Item-Shop als 3D-Gebäude (Laden/Hütte) statt Popup-Box.
@@ -1206,24 +1303,24 @@ function buildBoard() {
       walls.castShadow = false;
       walls.receiveShadow = true;
       shop.add(walls);
-      /* Markantes grünes Satteldach — Pyramidkegel, passend zur Item-Shop-Farbe */
+      /* Markantes gruenes Satteldach — Pyramidkegel, passend zur Item-Shop-Farbe */
       const roof = new THREE.Mesh(
         new THREE.ConeGeometry(0.34, 0.24, 4),
-        new THREE.MeshStandardMaterial({ color: 0x2bffb9, roughness: 0.5, emissive: 0x0a8a6a, emissiveIntensity: 0.3, metalness: 0.3 })
+        new THREE.MeshStandardMaterial({ color: 0x81c784, roughness: 0.5, emissive: 0x4caf50, emissiveIntensity: 0.3, metalness: 0.3 })
       );
       roof.position.y = 0.47;
       roof.rotation.y = Math.PI / 4;
-      roof.castShadow = false;
+      roof.castShadow = true;
       shop.add(roof);
       /* Dachhaube — kleine goldene Kugel auf der Spitze */
       const roofKnob = new THREE.Mesh(
         new THREE.SphereGeometry(0.04, 8, 6),
-        new THREE.MeshStandardMaterial({ color: 0xffd34e, emissive: 0xffd34e, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.2 })
+        new THREE.MeshStandardMaterial({ color: 0xffd54f, emissive: 0xffd54f, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.2 })
       );
       roofKnob.position.y = 0.62;
       shop.add(roofKnob);
       /* Eingangsvorhang — leuchtender Vorhang aus kleinen Boxen */
-      const curtainMat = new THREE.MeshStandardMaterial({ color: 0xff3cac, emissive: 0xff3cac, emissiveIntensity: 0.4, roughness: 0.6 });
+      const curtainMat = new THREE.MeshStandardMaterial({ color: 0xff6b6b, emissive: 0xff6b6b, emissiveIntensity: 0.4, roughness: 0.6 });
       for (let ci = 0; ci < 3; ci++) {
         const curtain = new THREE.Mesh(
           new THREE.BoxGeometry(0.06, 0.19, 0.015),
@@ -1242,7 +1339,7 @@ function buildBoard() {
         crate.castShadow = false;
         shop.add(crate);
         /* Kleines leuchtendes Item auf der Kiste — als Ware angedeutet */
-        const wareColor = ti === 0 ? 0xff3cac : 0xffd34e;
+        const wareColor = ti === 0 ? 0xff6b6b : 0xffd54f;
         const ware = new THREE.Mesh(
           new THREE.OctahedronGeometry(0.04, 0),
           new THREE.MeshStandardMaterial({ color: wareColor, emissive: wareColor, emissiveIntensity: 0.9 })
@@ -1257,18 +1354,18 @@ function buildBoard() {
       shop.rotation.y = -pos.angle + Math.PI / 2;
       shop.userData.isShop = true;
       boardGroup.add(shop);
-      /* Schwebendes Gift-Icon über dem Dach — als Werbeschild / Blickfang.
-         Dreht und hüpft leicht → signalisiert Item-Shop von weitem. */
-      const gift = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), material('#2bffb9', { emissiveIntensity: 0.85 }));
+      /* Schwebendes Gift-Icon ueber dem Dach — als Werbeschild / Blickfang.
+         Dreht und huepft leicht → signalisiert Item-Shop von weitem. */
+      const gift = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), material('#81c784', { emissiveIntensity: 0.85 }));
       gift.position.set(pos.x, tileY + 1.15, pos.z);
       gift.userData.spin = 0.5;
       gift.userData.orbit = 0.5 + index * 0.05;
       boardGroup.add(gift);
-      addGlow(gift, '#2bffb9', 0.6, 0.5);
+      addGlow(gift, '#81c784', 0.6, 0.5);
       /* Schleife auf dem Icon */
       const ribbon = new THREE.Mesh(
         new THREE.BoxGeometry(0.24, 0.04, 0.06),
-        new THREE.MeshStandardMaterial({ color: 0xff3cac, emissive: 0xff3cac, emissiveIntensity: 0.7 })
+        new THREE.MeshStandardMaterial({ color: 0xff6b6b, emissive: 0xff6b6b, emissiveIntensity: 0.7 })
       );
       ribbon.position.set(pos.x, tileY + 1.3, pos.z);
       ribbon.userData.orbit = 0.5 + index * 0.05;
@@ -1276,7 +1373,7 @@ function buildBoard() {
     }
     if (tile.type === 'lucky') {
       const cloverGroup = new THREE.Group();
-      const cloverMat = material('#7bff7b', { emissiveIntensity: 0.65 });
+      const cloverMat = material('#ba68c8', { emissiveIntensity: 0.65 });
       [[0.09, 0.09], [-0.09, 0.09], [0.09, -0.09], [-0.09, -0.09]].forEach(([cx, cz]) => {
         const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), cloverMat);
         leaf.scale.set(1.3, 0.6, 1.3);
@@ -1290,36 +1387,36 @@ function buildBoard() {
     if (tile.type === 'start') {
       const pole = new THREE.Mesh(
         new THREE.CylinderGeometry(0.025, 0.025, 0.45, 8),
-        new THREE.MeshStandardMaterial({ color: 0x888899, metalness: 0.8 })
+        new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.8 })
       );
       pole.position.set(pos.x, tileY + 0.75, pos.z);
       boardGroup.add(pole);
       const flag = new THREE.Mesh(
         new THREE.BoxGeometry(0.22, 0.13, 0.02),
-        material('#ffd34e', { emissiveIntensity: 0.6 })
+        material('#ffd54f', { emissiveIntensity: 0.6 })
       );
       flag.position.set(pos.x + 0.12, tileY + 0.9, pos.z);
       flag.userData.orbit = 0.5;
       boardGroup.add(flag);
     }
     if (isJunction) {
-      /* Etappe 2: Wegweiser-Pfahl mit Pfeil-Schild an Junctions. */
+      /* Wegweiser-Pfahl mit Pfeil-Schild an Junctions — pink */
       const signPole = new THREE.Mesh(
         new THREE.CylinderGeometry(0.04, 0.04, 0.85, 8),
-        new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.85 })
+        new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.85 })
       );
       signPole.position.set(pos.x, tileY + 0.45, pos.z);
-      signPole.castShadow = false;
+      signPole.castShadow = true;
       boardGroup.add(signPole);
       const arrow = new THREE.Mesh(
         new THREE.ConeGeometry(0.22, 0.4, 4),
-        material('#ff9e3c', { emissiveIntensity: 0.55, metalness: 0.3 })
+        material('#f48fb1', { emissiveIntensity: 0.55, metalness: 0.3 })
       );
       arrow.position.set(pos.x, tileY + 1.05, pos.z);
       arrow.userData.spin = 0.8;
       arrow.userData.orbit = 0.5 + index * 0.05;
       boardGroup.add(arrow);
-      const jlabel = makeLabelSprite('⇄', '#ff9e3c', 24);
+      const jlabel = makeLabelSprite('⇄', '#f48fb1', 24);
       jlabel.position.set(pos.x, tileY + 1.45, pos.z);
       jlabel.scale.setScalar(0.5);
       jlabel.userData.isLabel = true;
@@ -1357,7 +1454,7 @@ function buildBoard() {
     }
   });
 
-  addGlow(boardGroup, '#7b2ff7', 4, 1.0);
+  addGlow(boardGroup, '#ffe66d', 4, 0.8);  /* dezenter Gold-Glow fuer Party-Feeling */
 }
 
 /* Pawn-Hop-Animation: Pawns hüpfen Feld-für-Feld statt zu teleportieren.
@@ -1455,12 +1552,12 @@ function updatePawnHops(delta) {
 
 function themeForGame(id) {
   const key = String(id || '').toLowerCase();
-  if (key.includes('bomb')) return { a: '#ff4d6d', b: '#ff6a00', shape: 'danger' };
-  if (key.includes('math') || key.includes('number') || key.includes('prime') || key.includes('fraction')) return { a: '#00f0ff', b: '#3a86ff', shape: 'data' };
-  if (key.includes('memory') || key.includes('simon') || key.includes('sequence') || key.includes('quiz')) return { a: '#7b2ff7', b: '#ff3cac', shape: 'memory' };
-  if (key.includes('target') || key.includes('reflex') || key.includes('reaction') || key.includes('tap')) return { a: '#2bffb9', b: '#00f0ff', shape: 'reflex' };
-  if (key.includes('color') || key.includes('stroop') || key.includes('odd')) return { a: '#ff3cac', b: '#ffd34e', shape: 'color' };
-  return { a: '#7b2ff7', b: '#00f0ff', shape: 'arena' };
+  if (key.includes('bomb')) return { a: '#ff6b6b', b: '#ff8a65', shape: 'danger' };
+  if (key.includes('math') || key.includes('number') || key.includes('prime') || key.includes('fraction')) return { a: '#4ecdc4', b: '#4a90d9', shape: 'data' };
+  if (key.includes('memory') || key.includes('simon') || key.includes('sequence') || key.includes('quiz')) return { a: '#ba68c8', b: '#ff8b94', shape: 'memory' };
+  if (key.includes('target') || key.includes('reflex') || key.includes('reaction') || key.includes('tap')) return { a: '#4dd0e1', b: '#4ecdc4', shape: 'reflex' };
+  if (key.includes('color') || key.includes('stroop') || key.includes('odd')) return { a: '#ff6b6b', b: '#ffe66d', shape: 'color' };
+  return { a: '#ba68c8', b: '#4ecdc4', shape: 'arena' };
 }
 
 function arenaShape(group, theme, index) {
@@ -1501,7 +1598,7 @@ function buildArena(gameId) {
   const theme = themeForGame(gameId);
   const floor = new THREE.Mesh(
     new THREE.CylinderGeometry(6.65, 7.1, 0.42, 96),
-    material('#11163d', { metalness: 0.82, roughness: 0.24, emissive: theme.b, emissiveIntensity: 0.24 })
+    material('#4a90d9', { metalness: 0.82, roughness: 0.24, emissive: theme.b, emissiveIntensity: 0.24 })
   );
   floor.receiveShadow = true;
   arenaGroup.add(floor);
@@ -1515,7 +1612,7 @@ function buildArena(gameId) {
 
   const inner = new THREE.Mesh(
     new THREE.CylinderGeometry(3.2, 3.55, 0.28, 64),
-    material('#181456', { metalness: 0.7, emissive: theme.a, emissiveIntensity: 0.36 })
+    material('#87ceeb', { metalness: 0.7, emissive: theme.a, emissiveIntensity: 0.36 })
   );
   inner.position.y = 0.34;
   inner.receiveShadow = true;
@@ -1537,14 +1634,14 @@ function buildArena(gameId) {
 }
 
 function buildWorld() {
-  /* Sky dome — gradient from deep purple to warm horizon */
+  /* Sky dome — blauer Himmel mit Gradient (Mario-Party-Style) */
   const skyGeo = new THREE.SphereGeometry(48, 32, 24);
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     uniforms: {
-      top: { value: new THREE.Color(0x0a0a2f) },
-      mid: { value: new THREE.Color(0x2b1a5e) },
-      bot: { value: new THREE.Color(0x6b2a8e) },
+      top: { value: new THREE.Color(0x4a90d9) },
+      mid: { value: new THREE.Color(0x87ceeb) },
+      bot: { value: new THREE.Color(0xb0d8f0) },
     },
     vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 mid; uniform vec3 bot; void main(){ float h = normalize(vP).y; vec3 c = mix(bot, mid, smoothstep(-0.1, 0.3, h)); c = mix(c, top, smoothstep(0.3, 0.8, h)); gl_FragColor = vec4(c, 1.0); }',
@@ -1552,18 +1649,18 @@ function buildWorld() {
   const sky = new THREE.Mesh(skyGeo, skyMat);
   scene.add(sky);
 
-  /* Ground — large grassy disc */
+  /* Ground — saftig gruenne Wiese */
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(40, 96),
-    new THREE.MeshStandardMaterial({ color: 0x1a4d2e, roughness: 0.9, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ color: 0x66bb6a, roughness: 0.9, metalness: 0.05 })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -1.4;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  /* Rolling hills — low-poly cones around the board */
-  const hillColors = [0x2d6e3e, 0x3a8a4a, 0x2560b0, 0x4a2a6e];
+  /* Rolling hills — freundliche bunte Huegel rund um das Board */
+  const hillColors = [0x66bb6a, 0x81c784, 0x4fc3f7, 0xaed581];
   for (let i = 0; i < 14; i += 1) {
     const ang = (i / 14) * Math.PI * 2 + (i % 2) * 0.3;
     const dist = 16 + (i % 4) * 3;
@@ -1574,40 +1671,40 @@ function buildWorld() {
     );
     hill.position.set(Math.cos(ang) * dist, h / 2 - 1.4, Math.sin(ang) * dist);
     hill.rotation.y = i * 0.7;
-    hill.castShadow = true;   /* Etappe 2.5 Perf: Berge werfen Schatten (große Form, sichtbar) */
+    hill.castShadow = true;
     hill.receiveShadow = true;
     scene.add(hill);
   }
 
-  /* Trees — simple cone + trunk, scattered around */
+  /* Trees — simpler Kegel + Stamm, verstreut, freundlich gruen */
   for (let i = 0; i < 22; i += 1) {
     const ang = (i / 22) * Math.PI * 2 + Math.random() * 0.4;
     const dist = 11 + Math.random() * 18;
     const tree = new THREE.Group();
     const trunk = new THREE.Mesh(
       new THREE.CylinderGeometry(0.12, 0.18, 0.8, 8),
-      new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 })
+      new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.9 })
     );
     trunk.position.y = -0.9;
-    trunk.castShadow = false;
+    trunk.castShadow = true;
     tree.add(trunk);
-    const leafColor = [0x2d8a3e, 0x3aa050, 0x226e30][i % 3];
+    const leafColor = [0x66bb6a, 0x81c784, 0x43a047][i % 3];
     const leaves = new THREE.Mesh(
       new THREE.ConeGeometry(0.85, 1.6, 8),
       new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.82, flatShading: true })
     );
     leaves.position.y = -0.1;
-    leaves.castShadow = false;
+    leaves.castShadow = true;
     tree.add(leaves);
     tree.position.set(Math.cos(ang) * dist, -1.3, Math.sin(ang) * dist);
     tree.scale.setScalar(0.8 + Math.random() * 0.6);
     scene.add(tree);
   }
 
-  /* Floating clouds — soft spheres drifting above */
+  /* Floating clouds — weiche weisse Wolken die ueber dem Board schweben */
   for (let i = 0; i < 10; i += 1) {
     const cloud = new THREE.Group();
-    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xe8e0ff, roughness: 0.95, transparent: true, opacity: 0.78, emissive: 0x4a3a6e, emissiveIntensity: 0.08 });
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, transparent: true, opacity: 0.85, emissive: 0xb0d8f0, emissiveIntensity: 0.1 });
     for (let j = 0; j < 4; j += 1) {
       const puff = new THREE.Mesh(new THREE.SphereGeometry(0.7 + Math.random() * 0.4, 10, 8), cloudMat);
       puff.position.set(j * 0.7 - 1, Math.random() * 0.3, Math.random() * 0.4);
@@ -1621,7 +1718,7 @@ function buildWorld() {
     state.clouds.push(cloud);
   }
 
-  /* Stars — twinkling points high in the sky */
+  /* Sterne im Himmel — kleine weisse Punkte hoch oben (am Tag dezent) */
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(300 * 3);
   for (let i = 0; i < 300; i += 1) {
@@ -1633,12 +1730,12 @@ function buildWorld() {
     starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-  const starMat = new THREE.PointsMaterial({ color: 0xffeecc, size: 0.12, transparent: true, opacity: 0.85, sizeAttenuation: true });
+  const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.5, sizeAttenuation: true });
   state.stars = new THREE.Points(starGeo, starMat);
   scene.add(state.stars);
 
-  /* Central glow light under the board */
-  const worldLight = new THREE.PointLight(0x7b2ff7, 1.8, 30, 2);
+  /* Warmes Sonnenlicht unter dem Board — dezenter Gruen-Akzent */
+  const worldLight = new THREE.PointLight(0xffe66d, 1.2, 30, 2);
   worldLight.position.set(0, -1, 0);
   scene.add(worldLight);
 }
@@ -1650,7 +1747,7 @@ let diceState = { rolling: false, value: 1, t: 0 };
 function buildDice() {
   if (!scene || diceMesh) return;
   const diceMat = material('#ffffff', { metalness: 0.2, roughness: 0.35, emissive: 0x111111, emissiveIntensity: 0.1 });
-  const pipMat = new THREE.MeshStandardMaterial({ color: 0xff3cac, emissive: 0xff3cac, emissiveIntensity: 0.6 });
+  const pipMat = new THREE.MeshStandardMaterial({ color: 0xff6b6b, emissive: 0xff6b6b, emissiveIntensity: 0.6 });
   const size = 0.6;
   const dice = new THREE.Group();
   const cube = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), diceMat);
@@ -1771,24 +1868,24 @@ function buildShowcase() {
 
   const platform = new THREE.Mesh(
     new THREE.CylinderGeometry(5.2, 6.2, 0.5, 96),
-    material('#11163d', { metalness: 0.8, emissive: '#7b2ff7', emissiveIntensity: 0.28 })
+    material('#4a90d9', { metalness: 0.8, emissive: '#87ceeb', emissiveIntensity: 0.28 })
   );
   platform.receiveShadow = true;
   showcaseGroup.add(platform);
 
   const portal = new THREE.Mesh(
     new THREE.TorusGeometry(2.5, 0.18, 20, 100),
-    new THREE.MeshStandardMaterial({ color: 0xff3cac, transparent: true, opacity: 0.9, emissive: 0xff3cac, emissiveIntensity: 0.4 })
+    new THREE.MeshStandardMaterial({ color: 0xff6b6b, transparent: true, opacity: 0.9, emissive: 0xff6b6b, emissiveIntensity: 0.4 })
   );
   portal.position.y = 2.2;
   showcaseGroup.add(portal);
 
-  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 2), material('#00f0ff', { emissiveIntensity: 0.75 }));
+  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 2), material('#4ecdc4', { emissiveIntensity: 0.75 }));
   crystal.position.y = 2.25;
   crystal.userData.spin = 0.5;
   crystal.castShadow = false;
   showcaseGroup.add(crystal);
-  addGlow(crystal, '#00f0ff', 2.6, 1.5);
+  addGlow(crystal, '#4ecdc4', 2.6, 1.5);
 
   for (let i = 0; i < 8; i += 1) {
     const angle = (i / 8) * Math.PI * 2;
@@ -1812,7 +1909,7 @@ function buildParticles() {
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const pointsMaterial = new THREE.PointsMaterial({ color: 0x9da7ff, size: 0.045, transparent: true, opacity: 0.7, depthWrite: false });
+  const pointsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.045, transparent: true, opacity: 0.5, depthWrite: false });
   particles = new THREE.Points(geometry, pointsMaterial);
   scene.add(particles);
 }
@@ -1888,8 +1985,8 @@ function animate() {
   const delta = Math.min(0.04, clock.getDelta());
   updateCamera();
   updatePawnHops(delta);
-  /* Etappe 2.5 Perf: Bloom nur im Showcase/Mini-Game — im Board-Modus abgestellt. */
-  if (bloomPass) bloomPass.enabled = state.mode !== 'board';
+  /* Etappe 2.5 Perf: Bloom im Board-Modus aktiviert fuer Party-Feeling (sehr dezent, strength 0.2). */
+  if (bloomPass) bloomPass.enabled = true;
 
   if (particles) particles.rotation.y += delta * 0.008;
   animateDice(delta, elapsed);
@@ -1905,14 +2002,15 @@ function animate() {
     state.stars.material.opacity = 0.6 + Math.sin(elapsed * 1.5) * 0.25;
   }
   if (boardGroup && boardGroup.visible) {
-    boardGroup.rotation.y += delta * (state.reducedMotion ? 0.006 : 0.018);
+    boardGroup.rotation.y += delta * (state.reducedMotion ? 0.004 : 0.008);  /* sanfter, Mario-Party-Style */
     boardGroup.traverse(node => {
       if (node.userData && node.userData.spin) node.rotation.y += delta * node.userData.spin;
       if (node.userData && node.userData.orbit) node.position.y = 0.95 + Math.sin(elapsed * node.userData.orbit) * 0.12;
       if (node.userData && node.userData.playerId) {
-        node.position.y = 0.18 + Math.abs(Math.sin(elapsed * 2.4 + node.userData.phase)) * 0.08;
-        /* Etappe 2.5: Wobble-Rotation — leichte Z-Rotation fuer lebendige Idle-Anim. */
-        node.rotation.z = Math.sin(elapsed * 2.4 + node.userData.phase) * 0.08;
+        /* Sanftes Wackeln + leichte Rotation — freundliche Idle-Anim, kein dramatic bob */
+        node.position.y = 0.18 + Math.sin(elapsed * 1.8 + node.userData.phase) * 0.04;
+        node.rotation.z = Math.sin(elapsed * 1.8 + node.userData.phase) * 0.06;
+        node.rotation.y += delta * 0.15;  /* langsame leichte Rotation */
       }
       /* Etappe 2.5: Sprite-LOD — Labels nur sichtbar wenn Kamera nahe genug.
          Reduziert Sprite-Overdraw bei vielen Feldern aus der Distanz. */
@@ -2016,7 +2114,7 @@ function init() {
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
     else if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.85;  /* vorher 1.18 → Spielfeld war zu hell */
+    renderer.toneMappingExposure = 1.2;  /* hell, freundlich — Mario-Party-Style */
     // Echte Schatten fuer Tiefe und Professionnalitaet — VSM = filmische weiche Schatten
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap;
@@ -2027,7 +2125,7 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x08091f, 0.032);
+    scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);  /* leichter blauer Himmel-Nebel */
     camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(0, 22, 22);
     clock = new THREE.Clock();
@@ -2037,19 +2135,18 @@ function init() {
     try {
       pmremEnv = new THREE.PMREMGenerator(renderer);
       const envScene = new THREE.Scene();
-      // Sanfter Gradient: kuehles Blau von oben, warmer Pink von der Seite
-      // Intensitaet 0.45 (vorher 1.0) — EnvMap war Haupttreiber fuer „zu hell"
-      const topLight = new THREE.HemisphereLight(0x88aaff, 0xff66bb, 0.45);
+      /* Heller Himmel-Gradient: Blau von oben, warmes Gelb von der Seite */
+      const topLight = new THREE.HemisphereLight(0x87ceeb, 0xffe66d, 0.6);
       envScene.add(topLight);
       const envRT = pmremEnv.fromScene(envScene, 0.04);
       scene.environment = envRT.texture;
     } catch (_) { /* silent — Environment ist kosmetisch */ }
 
-    scene.add(new THREE.HemisphereLight(0x9ba6ff, 0x110c32, 0.9));  /* vorher 1.4 → zu hell */
-    const key = new THREE.DirectionalLight(0xffffff, 1.5);  /* vorher 2.4 → mit physicallyCorrectLights zu hell */
-    key.position.set(4, 10, 7);
-    // Schattenwerfendes Hauptlicht — Etappe 2.5 Perf: 4096→2048 mapSize (halbiert VRAM+FPS)
-    key.castShadow = true;   /* BUGFIX: Schatten-Infrastruktur war da aber nie aktiviert */
+    /* Tag-Beleuchtung — hell, freundlich, Sonne von oben */
+    scene.add(new THREE.HemisphereLight(0x87ceeb, 0x3a5f3a, 1.3));  /* Himmel/Gras */
+    const key = new THREE.DirectionalLight(0xffffff, 2.0);  /* Sonne */
+    key.position.set(8, 15, 10);
+    key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.near = 0.5;
     key.shadow.camera.far = 45;
@@ -2057,15 +2154,13 @@ function init() {
     key.shadow.camera.right = 20;
     key.shadow.camera.top = 20;
     key.shadow.camera.bottom = -20;
-    key.shadow.bias = -0.0004;
-    key.shadow.radius = 6;
+    key.shadow.bias = -0.0002;
+    key.shadow.radius = 8;  /* weiche Schatten */
     scene.add(key);
-    const fill = new THREE.PointLight(0xff3cac, 1.4, 20, 2);  /* vorher 2.4 */
-    fill.position.set(-7, 4, 4);
+    /* Eine einzige warme Sonne-Beleuchtung statt pink/cyan neon lights */
+    const fill = new THREE.PointLight(0xffe66d, 1.0, 25, 2);  /* warmes Sonnenlicht */
+    fill.position.set(-5, 8, 5);
     scene.add(fill);
-    const rim = new THREE.PointLight(0x00f0ff, 1.6, 20, 2);  /* vorher 2.8 */
-    rim.position.set(7, 3, -5);
-    scene.add(rim);
 
     /* Postprocessing-Pipeline: RenderPass + UnrealBloomPass
        Etappe 2.5 Perf: Bloom nur im Showcase/Mini-Game (kosmetisch), im Board-Modus abgestellt
@@ -2076,9 +2171,9 @@ function init() {
       composer.addPass(renderPass);
       bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.32,  /* strength: vorher 0.45 → dezentes Glow, Etappe 2.5 reduziert */
+        0.2,   /* strength: sehr dezent — leichtes Gluehen fuer Party-Feeling */
         0.35,  /* radius: enger */
-        0.85   /* threshold: vorher 0.7 → nur ganz helle Highlights glühen */
+        0.85   /* threshold: nur ganz helle Highlights glühen */
       );
       composer.addPass(bloomPass);
       /* FXAA-Pass nach Bloom — kantenglaettung als letzter Pass vor Output.

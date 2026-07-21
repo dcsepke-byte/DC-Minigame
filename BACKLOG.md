@@ -37,7 +37,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 ## Phase 2: Visual & Audio Polish (Woche 3-4)
 
-- [ ] **ART DIRECTION** — Konsistenter visueller Stil:
+- [~] **ART DIRECTION** — Konsistenter visueller Stil:
   - Einheitliche Farbpalette und Design-Sprache
   - UI-Redesign: moderne, runde Karten statt flacher Boxen
   - Animationen: Uebergange zwischen Screens, Popup-Effekte
