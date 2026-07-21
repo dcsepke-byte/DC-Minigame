@@ -2654,3 +2654,121 @@ body.board-compact .board-layout {
   pointer-events: none;
   z-index: 10;
 }
+
+/* ============================================================
+   NINJA SLASH — Minispiel Styles
+   ============================================================ */
+.ninja-wrap {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, rgba(59, 30, 11, 0.4), rgba(20, 10, 30, 0.8));
+}
+
+.ninja-hud {
+  position: absolute; top: 12px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+  gap: 12px;
+}
+
+.ninja-score {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(22px, 5vw, 32px);
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
+  flex-shrink: 0;
+}
+
+.ninja-misses {
+  display: flex; gap: 4px;
+  flex-shrink: 0;
+}
+
+.ninja-canvas {
+  position: absolute; inset: 0;
+  overflow: hidden;
+}
+
+.ninja-fruit {
+  position: absolute;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform, left, top;
+  animation: ns-fruit-spawn 0.25s ease-out;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  touch-action: none;
+}
+
+.ninja-fruit.bomb {
+  filter: drop-shadow(0 0 10px rgba(255, 77, 109, 0.6));
+  animation: ns-bomb-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes ns-bomb-pulse {
+  0%   { filter: drop-shadow(0 0 8px rgba(255, 77, 109, 0.5)); }
+  100% { filter: drop-shadow(0 0 18px rgba(255, 77, 109, 0.9)); }
+}
+
+@keyframes ns-fruit-spawn {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ninja-fruit.slashed {
+  animation: ns-fruit-slash 0.4s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ns-fruit-slash {
+  0%   { transform: rotate(0deg) scale(1); opacity: 1; }
+  50%  { transform: rotate(180deg) scale(1.4); opacity: 0.7; }
+  100% { transform: rotate(360deg) scale(0.2); opacity: 0; }
+}
+
+.ninja-fruit.exploded {
+  animation: ns-bomb-explode 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ns-bomb-explode {
+  0%   { transform: scale(1); opacity: 1; }
+  40%  { transform: scale(2.5); opacity: 0.8; filter: brightness(2) drop-shadow(0 0 30px rgba(255, 77, 109, 1)); }
+  100% { transform: scale(0.3); opacity: 0; }
+}
+
+.ninja-combo {
+  position: absolute; top: 38%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(28px, 7vw, 48px);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+.ninja-combo.show {
+  animation: ns-combo-pop 1.2s ease-out forwards;
+}
+
+@keyframes ns-combo-pop {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
+}
+
+.ninja-instruction {
+  position: absolute; bottom: 24px; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(16px, 4vw, 22px);
+  color: var(--txt-dim);
+  transition: opacity 0.5s;
+  pointer-events: none;
+  z-index: 10;
+}

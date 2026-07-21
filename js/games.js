@@ -1922,6 +1922,234 @@ const Games = (() => {
     }, 2500);
   }
 
+  /* =========================================================
+     NINJA SLASH — Fruechte schlitzern, Bomben meiden (Fruit-Ninja-Style)
+     Objekte fliegen von unten nach oben (parabolische Bahn).
+     Tippen = schlitzern → Punkte + Combo.
+     Bombe tippen → Game Over.
+     Frucht entkommen → missed +1.
+     5x verfehlt → Game Over.
+     Zeitlimit: 30 Sekunden.
+     ========================================================= */
+  function gameNinjaSlash(stage, api) {
+    const L = window.NinjaSlashLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 30000;
+    const endAt = performance.now() + TIME_MS;
+    const TYPES = L.FRUIT_TYPES;
+    const FRUIT_ONLY = TYPES.filter(t => !t.isBomb);
+    const BOMB_CHANCE_START = 0.10;  /* 10% Bomben zu Beginn */
+    const BOMB_CHANCE_END = 0.22;    /* 22% Bomben spaeter */
+    const SPAWN_INTERVAL_START = 900; /* ms zwischen Spawns */
+    const SPAWN_INTERVAL_MIN = 450;  /* beschleunigt mit der Zeit */
+    const VY_MIN = -0.65;            /* Aufwaertsgeschwindigkeit Bereich */
+    const VY_MAX = -0.45;
+    const VX_MAG = 0.08;             /* Horizontale Geschwindigkeit */
+
+    /* Spielzustand */
+    const state = L.createNinjaState({ maxMissed: 5 });
+
+    let finished = false;
+    let lastSpawn = 0;
+    let spawnInterval = SPAWN_INTERVAL_START;
+    let lastFrame = performance.now();
+
+    /* DOM */
+    const wrap = el('div', 'ninja-wrap');
+    wrap.innerHTML = `
+      <div class="ninja-hud">
+        <span class="ninja-score" id="ns-score">0</span>
+        <div class="ninja-misses" id="ns-misses"></div>
+      </div>
+      <div class="ninja-canvas" id="ns-canvas"></div>
+      <div class="ninja-combo" id="ns-combo"></div>
+      <div class="ninja-instruction" id="ns-instruct">Schlitze die Fruechte — meide Bomben!</div>`;
+    stage.appendChild(wrap);
+
+    const canvas = wrap.querySelector('#ns-canvas');
+    const scoreEl = wrap.querySelector('#ns-score');
+    const missesEl = wrap.querySelector('#ns-misses');
+    const comboEl = wrap.querySelector('#ns-combo');
+    const instructEl = wrap.querySelector('#ns-instruct');
+
+    /* Missed-Dots anzeigen */
+    function updateMissesUI() {
+      let dots = '';
+      for (let i = 0; i < state.maxMissed; i++) {
+        dots += i < state.missed
+          ? '<span class="miss-dot used"></span>'
+          : '<span class="miss-dot"></span>';
+      }
+      missesEl.innerHTML = dots;
+    }
+
+    /* Combo-Anzeige */
+    function showCombo(text, color) {
+      comboEl.textContent = text;
+      comboEl.style.color = color;
+      comboEl.classList.remove('show');
+      void comboEl.offsetWidth;
+      comboEl.classList.add('show');
+    }
+
+    updateMissesUI();
+
+    /* Objekt visuell erzeugen */
+    function renderObject(obj) {
+      const div = el('div', 'ninja-fruit' + (obj.isBomb ? ' bomb' : ''));
+      div.dataset.id = obj.id;
+      div.style.width = obj.radius * 2 + 'px';
+      div.style.height = obj.radius * 2 + 'px';
+      div.style.fontSize = obj.radius * 1.3 + 'px';
+      div.textContent = obj.icon;
+      div.style.left = (obj.x - obj.radius) + 'px';
+      div.style.top = (obj.y - obj.radius) + 'px';
+      div.style.transform = 'rotate(' + obj.rotation + 'rad)';
+      div.addEventListener('pointerdown', (ev) => {
+        ev.stopPropagation();
+        onSlash(obj.id, div);
+      });
+      canvas.appendChild(div);
+      return div;
+    }
+
+    /* Objekt schlitzern */
+    function onSlash(objId, div) {
+      if (finished) return;
+      const result = L.slashObject(state, objId);
+
+      if (result.hit) {
+        if (result.bomb) {
+          /* Bombe → Explosion + Game Over */
+          FX.Sound.explode();
+          FX.shake(stage);
+          div.classList.add('exploded');
+          showCombo('BOOM!', '#ff4d6d');
+          updateMissesUI();
+          finished = true;
+          api.timeout(() => { api.finish(L.getScore(state)); }, 1000);
+        } else {
+          /* Frucht → Splash + Punkte */
+          div.classList.add('slashed');
+          FX.Sound.good();
+          FX.toast(stage, '+' + result.points, '#2bffb9');
+          scoreEl.textContent = L.getScore(state);
+          api.setScore(L.getScore(state));
+          if (result.combo >= 3) {
+            showCombo('COMBO x' + result.combo + '!', '#ffd34e');
+            FX.Sound.star();
+            FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 20, 8);
+          }
+        }
+        api.timeout(() => { if (div.parentNode) div.remove(); }, 400);
+      }
+    }
+
+    /* Neues Objekt spawnen */
+    function trySpawn(now) {
+      const interval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval);
+      if (now - lastSpawn < interval) return;
+      lastSpawn = now;
+
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const x = rand(60, w - 60);
+      const y = h + 40; /* unten starten */
+
+      /* Bomben-Chance steigt mit der Zeit */
+      const progress = 1 - (endAt - now) / TIME_MS;
+      const bombChance = BOMB_CHANCE_START + progress * (BOMB_CHANCE_END - BOMB_CHANCE_START);
+      const isBomb = Math.random() < bombChance;
+
+      let typeId;
+      if (isBomb) {
+        typeId = 'bomb';
+      } else {
+        typeId = FRUIT_ONLY[rand(0, FRUIT_ONLY.length - 1)].id;
+      }
+
+      /* Geschwindigkeit: nach oben (negatives vy), leicht seitwaerts */
+      const vy = -(VY_MIN + Math.random() * (VY_MAX - VY_MIN));
+      const dirSign = x < w / 2 ? 1 : -1;
+      const vx = dirSign * Math.random() * VX_MAG;
+
+      const obj = L.spawnObject(state, x, y, typeId, { vx, vy });
+      renderObject(obj);
+    }
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = Math.min(50, now - lastFrame);
+      lastFrame = now;
+
+      if (now >= endAt) {
+        finished = true;
+        api.finish(L.getScore(state));
+        return false;
+      }
+
+      if (finished) return false;
+
+      /* Spawn-Interval anpassen (schneller mit der Zeit) */
+      const progress = 1 - (endAt - now) / TIME_MS;
+      spawnInterval = SPAWN_INTERVAL_START - progress * (SPAWN_INTERVAL_START - SPAWN_INTERVAL_MIN);
+
+      /* Spawn */
+      trySpawn(now);
+
+      /* Objekte bewegen (Logik) */
+      const events = L.tickObjects(state, dt, canvas.clientHeight);
+
+      /* Events: entkommene Frucht */
+      if (events.length > 0) {
+        for (const ev of events) {
+          if (ev.type === 'escaped' && !ev.object.isBomb) {
+            updateMissesUI();
+            showCombo('Verpasst!', '#ff4d6d');
+            FX.Sound.bad();
+          }
+        }
+        if (L.isGameOver(state)) {
+          finished = true;
+          FX.Sound.explode();
+          api.timeout(() => api.finish(L.getScore(state)), 800);
+          return false;
+        }
+      }
+
+      /* Visuelle Position aktualisieren */
+      const fruitEls = canvas.querySelectorAll('.ninja-fruit:not(.slashed):not(.exploded)');
+      for (const divEl of fruitEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        const o = state.objects.find(x => x.id === id);
+        if (o) {
+          divEl.style.left = (o.x - o.radius) + 'px';
+          divEl.style.top = (o.y - o.radius) + 'px';
+          divEl.style.transform = 'rotate(' + o.rotation + 'rad)';
+        }
+      }
+
+      /* Entfernte Objekte aus DOM loeschen */
+      for (const divEl of fruitEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        if (!state.objects.find(x => x.id === id)) {
+          divEl.remove();
+        }
+      }
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Schlitze die Fruechte — meide Bomben!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, 2500);
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -2046,7 +2274,9 @@ const Games = (() => {
     { id: 'towerstack', name: 'Tower Stack', icon: '🧱', desc: 'Stapele Bloecke — je praeziser, desto besser.',
       rules: 'Ein Block bewegt sich ueber dem Turm. <strong>Tippe zum Platzieren!</strong> Je genauer du triffst, desto mehr Punkte. Perfekte Platzierung gibt <strong>100 Bonus-Punkte</strong> und der Block schrumpft nicht. Ein Fehlversuch beendet das Spiel!', play: gameTowerStack },
     { id: 'bubblepop', name: 'Bubble Pop', icon: '🫧', desc: 'Ploppe nur deine Farbe — wechselt periodisch!',
-      rules: 'Bunte Blasen steigen auf. Du hast eine <strong>Zielfarbe</strong>, die alle paar Sekunden wechselt. Tippe <strong>nur deine Farbe</strong>! Falsche Farbe oder entkommene Spielerfarbe = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameBubblePop }
+      rules: 'Bunte Blasen steigen auf. Du hast eine <strong>Zielfarbe</strong>, die alle paar Sekunden wechselt. Tippe <strong>nur deine Farbe</strong>! Falsche Farbe oder entkommene Spielerfarbe = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameBubblePop },
+    { id: 'ninjaslash', name: 'Ninja Slash', icon: '🗡️', desc: 'Schlitze Fruechte — meide Bomben!',
+      rules: 'Fruechte fliegen durch die Luft. <strong>Tippe um zu schlitzern!</strong> Jede Frucht gibt Punkte, Combos geben Bonus. <strong>Bomben meiden</strong> — eine beruehrte Bombe beendet sofort das Spiel! 5 Fruechte entkommen lassen = Game Over. 30 Sekunden.', play: gameNinjaSlash }
   ];
 
   return { list };

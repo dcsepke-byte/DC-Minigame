@@ -11,7 +11,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 - [~] **NEUE MINISPIELE** — Aktuelle Spiele sind zu simpel (nur Reaktion/Memory/Tap), werden schnell langweilig. Neue Spiele mit Tiefe, Strategie, Skill-Ceiling und "One More Try"-Suchtpotenzial entwickeln. Ideen:
   - [x] **Tower Stack** — Bausteine stapeln, Timing-basiert, immer schmaler werdend (wie Stack/Ketchapp) (2026-07-21)
   - [x] **Bubble Pop** — Bunte Blasen steigen auf, nur eigene Farbe poppen, Kettenreaktion-Bonus (2026-07-21)
-  - [ ] **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden
+  - [x] **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden (2026-07-21)
   - [ ] **Color Catch** — Schiebender Korb, nur richtige Farben auffangen, falsche meiden
   - [ ] **Dodgeball** — Ausweichen vor heranfliegenden Objekten, immer schneller werdend
   - [ ] **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt
@@ -99,6 +99,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 ## Done
 
+- [x] **Ninja Slash Minispiel** — Komplettes Fruit-Ninja-Style-Spiel mit TDD entwickelt: getestete Spiellogik (34 Unit-Tests + 18 Paritaetstests), parabolische Physik, Fruechte schlitzern, Bomben meiden, Combo-System, Missed-Anzeige, Game-Over, Sound, Animationen (2026-07-21)
 - [x] **Bubble Pop Minispiel** — Komplettes Farb-Tapping-Spiel mit TDD entwickelt: getestete Spiellogik (25 Unit-Tests + 7 Paritaetstests), wechselnde Zielfarbe, Combo-System, Misses-Anzeige, Game-Over, Sound, Animationen (2026-07-21)
 - [x] **Tower Stack Minispiel** — Komplettes Timing-Stack-Spiel mit TDD entwickelt: getestete Spiellogik (23 Unit-Tests + Paritaetstest), UI mit Animation, Sound, Scoring, Game-Over (2026-07-21)
 - [x] **3D-Modelle verbessern** — Schatten, 3D-Pawns, prozedurale Texturen, FXAA, Sprite-LOD (2026-07-20)
