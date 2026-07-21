@@ -1,48 +1,108 @@
-# Party Arena – Development Backlog
+# Party Arena – Commercial Development Backlog
 
-## Priority: High
+## Ziel: App Store Ready (iOS + Android)
+
+Party Arena soll soweit ausgereift werden, dass es als native App im Apple App Store und Google Play Store veroeffentlicht werden kann. Qualitaetsstandard: kommerziell, nicht Hobby.
+
+---
+
+## Phase 1: Gameplay Foundation (Woche 1-2)
 
 - [ ] **NEUE MINISPIELE** — Aktuelle Spiele sind zu simpel (nur Reaktion/Memory/Tap), werden schnell langweilig. Neue Spiele mit Tiefe, Strategie, Skill-Ceiling und "One More Try"-Suchtpotenzial entwickeln. Ideen:
   - **Tower Stack** — Bausteine stapeln, Timing-basiert, immer schmaler werdend (wie Stack/Ketchapp)
   - **Bubble Pop** — Bunte Blasen steigen auf, nur eigene Farbe poppen, Kettenreaktion-Bonus
-  - **Draw Path** — Linie zeichnen um fallende Objekte zu fangen, ohne Barrieren zu beruehren
-  - **Color Catch** — Schiebender Korb, nur richtige Farben auffangen, falsche meiden
   - **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden
-  - **Tile Flip Puzzle** — Memory-Grid aufdecken, Paare finden gegen die Zeit, mit Boostern
+  - **Color Catch** — Schiebender Korb, nur richtige Farben auffangen, falsche meiden
   - **Dodgeball** — Ausweichen vor heranfliegenden Objekten, immer schneller werdend
-  - **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen
-  - **Rhythm Tap** — Im Takt tippen, musik-basiert, Combo-Multiplikator
-  - **Shape Match** — Formen rotieren/skalieren bis sie passen, Puzzle-Style
   - **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt
   - **Quick Draw Duel** — Western-Duell: waechst bis Signal, dann schnellstes Tippen
-  Alte simple Spiele behalten als "Classic Mix", neue Spiele als "Action Mix" Kategorie
-- [x] **3D-Modelle verbessern** — Pawns: bessere Geometrie (z.B. abgerundet, Glow), Tiles: Biom-spezifische Texturen/Deko,Animations-Polish
-- [ ] **Code-Duplikate auslagern** — host.js/player.js shared Funktionen (el, escapeHtml, initials, renderBoardPills, etc.) in js/shared.js
-- [ ] **Memory Leaks fixen** — Quiz-Bank-Cache begrenzen, Konfetti-Array cappen
-- [ ] **Diff-basierte Board-Updates** — board_payload nur geänderte Tiles senden statt Full-State (240 Tiles)
+  - **Rhythm Tap** — Im Takt tippen, musik-basiert, Combo-Multiplikator
+  - **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen
+  - **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit
+  Alte simple Spiele behalten als "Classic Mix", neue als "Action Mix"
 
-## Priority: Medium
+- [ ] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
+  - Spieler-Level (XP aus Spielen)
+  - Unlockable Charaktere/Figuren (nicht nur Emojis — echte 3D-Figuren)
+  - Cosmetics: Farben, Trails, Pawn-Skins
+  - Daily Challenge: taegliches Minispiel mit Bonus
+  - Sternen-Sammlung als Waehrung fuer Unlocks
+  - Achievement-System (erste 10 Achievements)
 
-- [ ] **Rate-Limiting WebSocket** — max 10 Msg/s pro Client
-- [ ] **5-stelligen Raum-Code** — oder Brute-Force-Sperre nach 5 Fehlversuchen
-- [ ] **2D-Fallback für 3D-Board** — Performance-Detection → einfaches 2D-Grid auf schwachen Geräten
-- [ ] **PNG-PWA-Icons** — 192px, 512px, maskable für iOS < 16 und ältere Android
-- [ ] **Bot-KI im Solo-Modus** — skill-basierter Score statt rein random
-- [ ] **Accessibility** — Tastatur-Shortcuts für Minispiele, ARIA-Labels
+- [ ] **ONBOARDING / TUTORIAL** — Erste-Session-Erlebnis:
+  - Willkommen-Screen mit Animation
+  - Interaktives Tutorial fuer ersten Spiel-Modus
+  - Hinweis-Pfeile und Tooltips
+  - "Dein erstes Spiel" gefuehrt
 
-## Priority: Low
+## Phase 2: Visual & Audio Polish (Woche 3-4)
 
-- [ ] **Server.py modularisieren** — aufteilen in ws_protocol.py, http_server.py, room.py, board_engine.py
-- [ ] **i18n / Sprachauswahl** — mindestens DE/EN
-- [ ] **Observer/Spectator-Modus** — nicht-teilnehmende Zuschauer
-- [ ] **Host-Token in sessionStorage** — statt localStorage (XSS-Reduktion)
-- [ ] **Cache-Control no-store auf HTML** — aktuell nur JS/CSS
+- [ ] **ART DIRECTION** — Konsistenter visueller Stil:
+  - Einheitliche Farbpalette und Design-Sprache
+  - UI-Redesign: moderne, runde Karten statt flacher Boxen
+  - Animationen: Uebergange zwischen Screens, Popup-Effekte
+  - Loading Screen mit Animation
+  - Lobby-Redesign
+
+- [ ] **SOUND DESIGN** — Professionelle Audio:
+  - Hintergrundmusik pro Modus (Lobby, Board, Minispiel)
+  - Sound-Effekte: UI-Taps, Erfolge, Fehler, Level-Up
+  - Jingle fuer Sieg/Niederlage
+  - Audio-Settings (Musik/SFX getrennt, Lautstaerkeregler)
+
+- [ ] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
+  - Pawns als erkennbare Charakter-Modelle (nicht Kapseln)
+  - Tile-Texturen mit Normal Maps fuer Tiefe
+  - Bessere Biom-Deko (mehr Variation, weniger Primitive)
+  - Partikel-Effekte bei Events (Muenzen, Sterne, Duell)
+  - Kamera-Fuehrung bei Board-Zuegen (cinematic)
+
+## Phase 3: App Store Preparation (Woche 5-6)
+
+- [ ] **APP WRAPPER (Capacitor)** — PWA → native App:
+  - Capacitor installieren und konfigurieren
+  - iOS und Android Build-Pipeline
+  - Native APIs: Haptik (Vibration), Push-Notifications
+  - App-Icon und Splash-Screen Assets
+  - Screen-Orientation Lock (landscape fuer Host, portrait fuer Player)
+
+- [ ] **MONETARISIERUNG** — Strategie festlegen und implementieren:
+  - Freemium: Basis kostenlos, Premium-Charaktere/Figuren kosten
+  - In-App-Kaeufe: Cosmetic Packs, Charakter-Freischaltungen
+  - Belohnungs-Werbung: schaue Werbung fuer Bonus-Sterne
+  - Premium-Modus: einmalige Zahlung fuer alle Inhalte
+
+- [ ] **APP STORE ASSETS** — Fuer Store-Listing:
+  - App-Icon (1024x1024, iOS + Android)
+  - Screenshots (6+ pro Geraet)
+  - App-Beschreibung (DE + EN)
+  - Privacy Policy + Terms of Service
+  - Altersfreigabe (USK/PEGI)
+
+## Phase 4: Quality & Launch (Woche 7-8)
+
+- [ ] **QUALITY ASSURANCE** — Bug-free:
+  - Alle bekannten Bugs fixen
+  - Edge-Case-Testing (2-8 Spieler, Reconnect, Disconnect)
+  - Performance auf Low-End-Geraeten (2D-Fallback)
+  - Memory-Leak-Test (laengere Sessions)
+  - Cross-Browser-Test (Safari, Chrome, Firefox)
+
+- [ ] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
+- [ ] **DIFF-BASIERTE BOARD-UPDATES** — nur geaenderte Tiles senden
+- [ ] **RATE-LIMITING WEBSOCKET** — max 10 Msg/s pro Client
+- [ ] **5-STELLIGER RAUM-CODE** — oder Brute-Force-Sperre
+- [ ] **I18N** — DE/EN Sprachauswahl
+- [ ] **SETTINGS-MENU** — Sound, Musik, Sprache, Vibration, Account
+
+---
 
 ## Done
 
+- [x] **3D-Modelle verbessern** — Schatten, 3D-Pawns, prozedurale Texturen, FXAA, Sprite-LOD (2026-07-20)
 - [x] **Auto-Reconnect** — net.js mit exponentiellem Backoff + Token-Rejoin (2026-07-20)
-- [x] **pid-Bug in player.js** — p.id === pid → p.id === me.id (2026-07-20)
-- [x] **branchChoice-Disconnect** — Server handled offline Spieler während Wegwahl (2026-07-20)
+- [x] **pid-Bug in player.js** — p.id === pid -> p.id === me.id (2026-07-20)
+- [x] **branchChoice-Disconnect** — Server handled offline Spieler waehrend Wegwahl (2026-07-20)
 - [x] **WebSocket-Ping alle 30s** — verhindert Render-Timeout (2026-07-20)
 - [x] **Doppelter AudioContext** — games.js nutzt FX.ensureCtx() (2026-07-20)
 - [x] **setupBoardSlides doppelte Listener** — slidesBound Guard in host.js (2026-07-20)
