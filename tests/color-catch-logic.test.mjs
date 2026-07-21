@@ -176,7 +176,7 @@ test('tickObjects: richtige Farbe im Korb gefangen -> Score + Combo', () => {
   state.basket.x = 100;
   state.basket.width = 80;
   // Objekt direkt ueber dem Korb, richtige Farbe
-  const obj = spawnObject(state, 120, 0, 0);
+  const obj = spawnObject(state, 120, 570, 0);
   obj.speed = 0.5; // schnell fallen
   // Korb-Y = stageHeight - basketYOffset (z.B. 580)
   // Objekt auf y=570, dt=100 -> y=620, ueber Korb-Y
@@ -190,7 +190,7 @@ test('tickObjects: richtige Farbe gefangen -> bestCombo aktualisiert', () => {
   const state = createColorCatchState({ maxMissed: 5, stageWidth: 300, stageHeight: 600, colors: ['#ff0', '#0ff'] });
   state.basket.x = 100;
   state.basket.width = 80;
-  const obj = spawnObject(state, 120, 0, 0);
+  const obj = spawnObject(state, 120, 570, 0);
   obj.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.equal(state.bestCombo, 1);
@@ -203,7 +203,7 @@ test('tickObjects: falsche Farbe im Korb gefangen -> missed +1, Combo-Reset', ()
   state.playerColor = '#ff0';
   state.basket.x = 100;
   state.basket.width = 80;
-  const obj = spawnObject(state, 120, 0, 1); // falsche Farbe (#0ff)
+  const obj = spawnObject(state, 120, 570, 1); // falsche Farbe (#0ff)
   obj.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.equal(state.missed, 1, 'falsche Farbe im Korb -> missed +1');
@@ -269,7 +269,7 @@ test('tickObjects: gibt Events zurueck (caught/escaped)', () => {
   state.playerColor = '#ff0';
   state.basket.x = 100;
   state.basket.width = 80;
-  const obj = spawnObject(state, 120, 0, 0);
+  const obj = spawnObject(state, 120, 570, 0);
   obj.speed = 0.5;
   const events = tickObjects(state, 100, 600, 580);
   assert.ok(Array.isArray(events), 'sollte Array von Events sein');
@@ -295,12 +295,12 @@ test('tickObjects: Combo reset nach falscher Farbe im Korb', () => {
   state.basket.x = 100;
   state.basket.width = 80;
   // Erst richtig fangen
-  const o1 = spawnObject(state, 120, 0, 0);
+  const o1 = spawnObject(state, 120, 570, 0);
   o1.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.equal(state.combo, 1);
   // Dann falsche Farbe
-  const o2 = spawnObject(state, 120, 0, 1);
+  const o2 = spawnObject(state, 120, 570, 1);
   o2.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.equal(state.combo, 0, 'Combo sollte nach falscher Farbe reset sein');
@@ -337,7 +337,7 @@ test('getScore: gibt aktuellen Score zurueck', () => {
   assert.equal(getScore(state), 0);
   state.basket.x = 100;
   state.basket.width = 80;
-  const obj = spawnObject(state, 120, 0, 0);
+  const obj = spawnObject(state, 120, 570, 0);
   obj.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.ok(getScore(state) > 0);
@@ -353,10 +353,10 @@ test('getBestCombo: gibt besten Combo zurueck', () => {
   assert.equal(getBestCombo(state), 0);
   state.basket.x = 100;
   state.basket.width = 80;
-  const o1 = spawnObject(state, 120, 0, 0);
+  const o1 = spawnObject(state, 120, 570, 0);
   o1.speed = 0.5;
   tickObjects(state, 100, 600, 580);
-  const o2 = spawnObject(state, 120, 0, 0);
+  const o2 = spawnObject(state, 120, 570, 0);
   o2.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.equal(getBestCombo(state), 2);
@@ -370,11 +370,11 @@ test('tickObjects: mehrere Objekte gleichzeitig bewegen und fangen', () => {
   state.basket.x = 150;
   state.basket.width = 100;
   // Zwei richtige im Korb, eine falsche daneben
-  const o1 = spawnObject(state, 160, 0, 0); // richtig, im Korb
+  const o1 = spawnObject(state, 160, 570, 0); // richtig, im Korb
   o1.speed = 0.5;
-  const o2 = spawnObject(state, 200, 0, 0); // richtig, im Korb
+  const o2 = spawnObject(state, 200, 570, 0); // richtig, im Korb
   o2.speed = 0.5;
-  const o3 = spawnObject(state, 10, 0, 1); // falsch, vorbei
+  const o3 = spawnObject(state, 10, 570, 1); // falsch, vorbei
   o3.speed = 0.5;
   tickObjects(state, 100, 600, 580);
   assert.equal(state.combo, 2, 'zwei richtige gefangen -> Combo 2');

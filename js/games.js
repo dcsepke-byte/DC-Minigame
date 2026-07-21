@@ -2150,6 +2150,283 @@ const Games = (() => {
     }, 2500);
   }
 
+  /* =========================================================
+     COLOR CATCH — Korb faengt fallende Farben, nur richtige
+     Spieler bewegt Korb durch Tippen/Ziehen nach links/rechts.
+     Zielfarbe wechselt periodisch. 30 Sekunden.
+     ========================================================= */
+  function gameColorCatch(stage, api) {
+    const L = window.ColorCatchLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 30000;
+    const endAt = performance.now() + TIME_MS;
+    const COLORS = ['#ff4d6d', '#3a86ff', '#2bffb9', '#ffd34e', '#7b2ff7', '#ff6a00'];
+    const COLOR_NAMES = ['Rot', 'Blau', 'Gruen', 'Gelb', 'Lila', 'Orange'];
+    const SPAWN_INTERVAL_START = 800;
+    const SPAWN_INTERVAL_MIN = 380;
+    const SPEED_START = 0.16;   /* px/ms Fallgeschwindigkeit */
+    const SPEED_END = 0.32;     /* beschleunigt mit der Zeit */
+    const COLOR_CHANGE_INTERVAL = 6000; /* Zielfarbe wechselt alle 6s */
+    const BASKET_WIDTH = 90;
+
+    /* Spielzustand */
+    const state = L.createColorCatchState({
+      maxMissed: 5,
+      colors: COLORS,
+      basketWidth: BASKET_WIDTH,
+      stageWidth: stage.clientWidth,
+      stageHeight: stage.clientHeight,
+    });
+
+    let finished = false;
+    let lastSpawn = 0;
+    let spawnInterval = SPAWN_INTERVAL_START;
+    let lastFrame = performance.now();
+    let lastColorChange = performance.now();
+    let currentColorIdx = 0;
+
+    /* DOM */
+    const wrap = el('div', 'cc-wrap');
+    wrap.innerHTML = `
+      <div class="cc-hud">
+        <span class="cc-score" id="cc-score">0</span>
+        <span class="cc-target" id="cc-target">
+          <span class="cc-target-swatch" id="cc-swatch"></span>
+          <span id="cc-target-text">Rot</span>
+        </span>
+        <span class="cc-misses" id="cc-misses"></span>
+      </div>
+      <div class="cc-canvas" id="cc-canvas"></div>
+      <div class="cc-basket" id="cc-basket">
+        <div class="cc-basket-glow" id="cc-glow"></div>
+      </div>
+      <div class="cc-combo" id="cc-combo"></div>
+      <div class="cc-instruction" id="cc-instruct">Ziehe um den Korb zu bewegen!</div>`;
+    stage.appendChild(wrap);
+
+    const canvas = wrap.querySelector('#cc-canvas');
+    const scoreEl = wrap.querySelector('#cc-score');
+    const swatchEl = wrap.querySelector('#cc-swatch');
+    const targetTextEl = wrap.querySelector('#cc-target-text');
+    const missesEl = wrap.querySelector('#cc-misses');
+    const basketEl = wrap.querySelector('#cc-basket');
+    const glowEl = wrap.querySelector('#cc-glow');
+    const comboEl = wrap.querySelector('#cc-combo');
+    const instructEl = wrap.querySelector('#cc-instruct');
+
+    /* Buehnenbreite fuer Korb-Positionierung */
+    const stageH = stage.clientHeight;
+    const basketY = stageH * 0.92 - 56; /* Korb-Oberkante fuer Logik */
+
+    /* Korb visuell positionieren */
+    function updateBasketVisual() {
+      basketEl.style.left = state.basket.x + 'px';
+      basketEl.style.width = state.basket.width + 'px';
+      glowEl.style.background = state.playerColor;
+    }
+
+    /* Zielfarbe aktualisieren */
+    function updateTargetUI() {
+      swatchEl.style.background = state.playerColor;
+      swatchEl.style.color = state.playerColor;
+      const idx = COLORS.indexOf(state.playerColor);
+      targetTextEl.textContent = idx >= 0 ? COLOR_NAMES[idx] : '';
+      updateBasketVisual();
+    }
+
+    /* Missed-Dots anzeigen */
+    function updateMissesUI() {
+      let dots = '';
+      for (let i = 0; i < state.maxMissed; i++) {
+        dots += i < state.missed
+          ? '<span class="miss-dot used"></span>'
+          : '<span class="miss-dot"></span>';
+      }
+      missesEl.innerHTML = dots;
+    }
+
+    /* Combo-Anzeige */
+    function showCombo(text, color) {
+      comboEl.textContent = text;
+      comboEl.style.color = color;
+      comboEl.classList.remove('show');
+      void comboEl.offsetWidth;
+      comboEl.classList.add('show');
+    }
+
+    /* Zielfarbe wechseln */
+    function changeColor() {
+      let newIdx;
+      do {
+        newIdx = rand(0, COLORS.length - 1);
+      } while (newIdx === currentColorIdx && COLORS.length > 1);
+      currentColorIdx = newIdx;
+      L.setPlayerColor(state, newIdx);
+      updateTargetUI();
+      FX.Sound.powerup();
+    }
+
+    /* Initiale Zielfarbe */
+    L.setPlayerColor(state, 0);
+    updateTargetUI();
+    updateMissesUI();
+    updateBasketVisual();
+
+    /* Korb-Steuerung: Tippen/Ziehen */
+    let dragging = false;
+    function moveToPointer(clientX) {
+      const rect = stage.getBoundingClientRect();
+      const x = clientX - rect.left;
+      L.moveBasket(state, x - state.basket.width / 2);
+      updateBasketVisual();
+    }
+    canvas.addEventListener('pointerdown', (ev) => {
+      dragging = true;
+      moveToPointer(ev.clientX);
+      canvas.setPointerCapture(ev.pointerId);
+    });
+    canvas.addEventListener('pointermove', (ev) => {
+      if (dragging) moveToPointer(ev.clientX);
+    });
+    canvas.addEventListener('pointerup', (ev) => {
+      dragging = false;
+      try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    });
+    canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+    /* Fallendes Objekt visuell erzeugen */
+    function renderFalling(obj) {
+      const div = el('div', 'cc-falling');
+      div.dataset.id = obj.id;
+      div.style.width = obj.radius * 2 + 'px';
+      div.style.height = obj.radius * 2 + 'px';
+      div.style.background = obj.color;
+      div.style.left = (obj.x - obj.radius) + 'px';
+      div.style.top = (obj.y - obj.radius) + 'px';
+      canvas.appendChild(div);
+      return div;
+    }
+
+    /* Neues Objekt spawnen */
+    function trySpawn(now) {
+      const interval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval);
+      if (now - lastSpawn < interval) return;
+      lastSpawn = now;
+
+      const w = stage.clientWidth;
+      const x = rand(30, w - 30);
+      const colorIdx = rand(0, COLORS.length - 1);
+
+      const obj = L.spawnObject(state, x, -30, colorIdx);
+      /* Fallgeschwindigkeit steigt mit der Zeit */
+      const progress = 1 - (endAt - now) / TIME_MS;
+      obj.speed = SPEED_START + progress * (SPEED_END - SPEED_START);
+      renderFalling(obj);
+    }
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = Math.min(50, now - lastFrame);
+      lastFrame = now;
+
+      if (now >= endAt) {
+        finished = true;
+        api.finish(L.getScore(state));
+        return false;
+      }
+
+      if (finished) return false;
+
+      /* Spawn-Interval anpassen */
+      const progress = 1 - (endAt - now) / TIME_MS;
+      spawnInterval = SPAWN_INTERVAL_START - progress * (SPAWN_INTERVAL_START - SPAWN_INTERVAL_MIN);
+
+      /* Zielfarbe wechseln */
+      if (now - lastColorChange >= COLOR_CHANGE_INTERVAL) {
+        lastColorChange = now;
+        changeColor();
+      }
+
+      /* Spawn */
+      trySpawn(now);
+
+      /* Objekte bewegen (Logik) */
+      const events = L.tickObjects(state, dt, stageH, basketY);
+
+      /* Events verarbeiten */
+      if (events.length > 0) {
+        for (const ev of events) {
+          if (ev.type === 'caught') {
+            const isCorrect = ev.object.color === state.playerColor;
+            const divEl = canvas.querySelector('[data-id="' + ev.object.id + '"]');
+            if (divEl) {
+              divEl.classList.add(isCorrect ? 'caught-good' : 'caught-bad');
+              api.timeout(() => { if (divEl.parentNode) divEl.remove(); }, 300);
+            }
+            if (isCorrect) {
+              const score = L.getScore(state);
+              scoreEl.textContent = score;
+              api.setScore(score);
+              FX.Sound.good();
+              if (L.getCombo(state) >= 3) {
+                showCombo('COMBO x' + L.getCombo(state) + '!', '#ffd34e');
+                FX.Sound.star();
+                FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 20, 8);
+              }
+            } else {
+              FX.Sound.bad();
+              FX.shake(stage);
+              showCombo('Falsch!', '#ff4d6d');
+              updateMissesUI();
+            }
+          } else if (ev.type === 'escaped') {
+            if (ev.object.color === state.playerColor) {
+              updateMissesUI();
+              showCombo('Verpasst!', '#ff4d6d');
+              FX.Sound.bad();
+            }
+          }
+        }
+        if (L.isGameOver(state)) {
+          finished = true;
+          FX.Sound.explode();
+          api.timeout(() => api.finish(L.getScore(state)), 800);
+          return false;
+        }
+      }
+
+      /* Visuelle Position aktualisieren */
+      const fallingEls = canvas.querySelectorAll('.cc-falling:not(.caught-good):not(.caught-bad)');
+      for (const divEl of fallingEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        const o = state.objects.find(x => x.id === id);
+        if (o) {
+          divEl.style.left = (o.x - o.radius) + 'px';
+          divEl.style.top = (o.y - o.radius) + 'px';
+        }
+      }
+
+      /* Entfernte Objekte aus DOM loeschen */
+      for (const divEl of fallingEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        if (!state.objects.find(x => x.id === id)) {
+          divEl.remove();
+        }
+      }
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Fange nur ' + COLOR_NAMES[0] + '! Ziehe zum Bewegen!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, 2500);
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -2276,7 +2553,9 @@ const Games = (() => {
     { id: 'bubblepop', name: 'Bubble Pop', icon: '🫧', desc: 'Ploppe nur deine Farbe — wechselt periodisch!',
       rules: 'Bunte Blasen steigen auf. Du hast eine <strong>Zielfarbe</strong>, die alle paar Sekunden wechselt. Tippe <strong>nur deine Farbe</strong>! Falsche Farbe oder entkommene Spielerfarbe = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameBubblePop },
     { id: 'ninjaslash', name: 'Ninja Slash', icon: '🗡️', desc: 'Schlitze Fruechte — meide Bomben!',
-      rules: 'Fruechte fliegen durch die Luft. <strong>Tippe um zu schlitzern!</strong> Jede Frucht gibt Punkte, Combos geben Bonus. <strong>Bomben meiden</strong> — eine beruehrte Bombe beendet sofort das Spiel! 5 Fruechte entkommen lassen = Game Over. 30 Sekunden.', play: gameNinjaSlash }
+      rules: 'Fruechte fliegen durch die Luft. <strong>Tippe um zu schlitzern!</strong> Jede Frucht gibt Punkte, Combos geben Bonus. <strong>Bomben meiden</strong> — eine beruehrte Bombe beendet sofort das Spiel! 5 Fruechte entkommen lassen = Game Over. 30 Sekunden.', play: gameNinjaSlash },
+    { id: 'colorcatch', name: 'Color Catch', icon: '🧺', desc: 'Fange nur die richtige Farbe im Korb!',
+      rules: 'Farb-Bloecke fallen von oben. Bewege den <strong>Korb</strong> durch Ziehen nach links/rechts. Fange <strong>nur deine Zielfarbe</strong> — die wechselt alle paar Sekunden! Falsche Farbe im Korb oder richtige Farbe verpasst = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameColorCatch }
   ];
 
   return { list };

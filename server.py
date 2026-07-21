@@ -85,7 +85,7 @@ GAME_CAPS = {
     "stroop": 30, "precision": 45, "bombcode": 80, "sequence": 34,
     "oddone": 30, "arrows": 30, "highlow": 32,
     "countvision": 32, "reflexlanes": 30, "quizduel": 45,
-    "towerstack": 120, "bubblepop": 38, "ninjaslash": 38,
+    "towerstack": 120, "bubblepop": 38, "ninjaslash": 38, "colorcatch": 38,
 }
 DEFAULT_CAP = 60
 HOST_RECONNECT_GRACE = 120
