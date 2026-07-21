@@ -1489,6 +1489,187 @@ const Games = (() => {
     });
   }
 
+  /* =========================================================
+     TOWER STACK — Bausteine stapeln, Timing-basiert (Stack/Ketchapp)
+     Block bewegt sich hin und her, tippen plaziert ihn.
+     Ueberlappung bestimmt Score und neue Breite.
+     Perfekte Platzierung → Breite bleibt, Bonus-Punkte.
+     Keine Ueberlappung → Game Over.
+     Kein Zeitlimit — Spiel dauert bis Game Over.
+     ========================================================= */
+  function gameTowerStack(stage, api) {
+    /* Logik aus tower-stack-logic-browser.js (getestet) */
+    const L = window.TowerStackLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const STAGE_W = () => stage.clientWidth;
+    const BASE_WIDTH_FRAC = 0.55;   /* Basisbreite = 55% der Stage */
+    const MIN_WIDTH_PX = 24;        /* Mindestbreite fuer Spielbarkeit */
+    const BLOCK_HEIGHT = 28;        /* visuelle Hoehe eines Blocks */
+    const TOWER_BOTTOM_FRAC = 0.82; /* Basis bei 82% der Stage-Hoehe */
+    const SPEED_START = 0.55;       /* Bewegungsgeschwindigkeit (px/ms * 1000) */
+    const SPEED_INC = 0.06;         /* Geschwindigkeitszunahme pro Level */
+    const MAX_SPEED = 1.8;
+    const PERFECT_TOL = 3;          /* Toleranz fuer Perfect-Feedback (px) */
+
+    /* Spielzustand */
+    const baseW = Math.round(STAGE_W() * BASE_WIDTH_FRAC);
+    const baseX = Math.round((STAGE_W() - baseW) / 2);
+    const state = L.createTowerState({ baseWidth: baseW, baseX: baseX, minWidth: MIN_WIDTH_PX });
+
+    /* Bewegungs-Block */
+    let movingX = 0;
+    let moveDir = 1;
+    let speed = SPEED_START;
+    let canPlace = false;
+    let cameraY = 0;       /* virtueller Kamera-Verschiebung nach oben */
+    let finished = false;
+
+    /* DOM */
+    const wrap = el('div', 'tower-wrap');
+    wrap.innerHTML = `
+      <div class="tower-hud">
+        <span class="tower-score" id="ts-score">0</span>
+        <span class="tower-level" id="ts-level">Hoehe: 0</span>
+      </div>
+      <div class="tower-canvas" id="ts-canvas">
+        <div class="tower-blocks" id="ts-blocks"></div>
+        <div class="tower-moving" id="ts-moving"></div>
+      </div>
+      <div class="tower-instruction" id="ts-instruct">Tippe zum Stapeln!</div>`;
+    stage.appendChild(wrap);
+
+    const canvas = wrap.querySelector('#ts-canvas');
+    const blocksEl = wrap.querySelector('#ts-blocks');
+    const movingEl = wrap.querySelector('#ts-moving');
+    const scoreEl = wrap.querySelector('#ts-score');
+    const levelEl = wrap.querySelector('#ts-level');
+    const instructEl = wrap.querySelector('#ts-instruct');
+
+    /* Farbe fuer Block-Level (Zyklus durch Palette) */
+    const COLORS = [
+      '#ff3cac', '#7b2ff7', '#00f0ff', '#2bffb9',
+      '#ffd34e', '#ff9e5e', '#3a86ff', '#ff4d6d',
+    ];
+    function colorFor(level) { return COLORS[level % COLORS.length]; }
+
+    /* Basis-Block rendern */
+    function renderBlock(block, level, yOffset) {
+      const div = el('div', 'tower-block');
+      div.style.width = block.width + 'px';
+      div.style.left = block.x + 'px';
+      div.style.background = colorFor(level);
+      div.style.bottom = yOffset + 'px';
+      blocksEl.appendChild(div);
+      return div;
+    }
+
+    /* Initialer Basis-Block */
+    renderBlock(state.blocks[0], 0, 0);
+
+    /* Neuen Bewegungs-Block starten */
+    function startMovingBlock() {
+      if (finished) return;
+      const prev = state.blocks[state.blocks.length - 1];
+      movingX = 0;
+      moveDir = 1;
+      speed = Math.min(MAX_SPEED, SPEED_START + state.level * SPEED_INC);
+      movingEl.style.width = prev.width + 'px';
+      movingEl.style.background = colorFor(state.level + 1);
+      movingEl.style.display = 'block';
+      canPlace = true;
+    }
+
+    /* Block platzieren */
+    function place() {
+      if (!canPlace || finished) return;
+      canPlace = false;
+      movingEl.style.display = 'none';
+
+      const prev = state.blocks[state.blocks.length - 1];
+      /* x-Position relativ zur Stage-Breite */
+      const placeX = Math.round(movingX * (STAGE_W() - prev.width));
+
+      const result = L.placeBlock(state, placeX);
+
+      if (result.missed) {
+        /* Game Over */
+        FX.Sound.explode();
+        FX.shake(stage);
+        FX.toast(stage, 'Verfehlt!', '#ff4d6d');
+        finished = true;
+        api.timeout(() => { api.finish(state.score); }, 900);
+        return;
+      }
+
+      /* Neuen Block rendern */
+      const newBlock = state.blocks[state.blocks.length - 1];
+      const yOffset = state.level * BLOCK_HEIGHT - cameraY;
+      renderBlock(newBlock, state.level, yOffset);
+
+      /* Score-Update */
+      scoreEl.textContent = state.score;
+      levelEl.textContent = 'Hoehe: ' + L.getTowerHeight(state);
+      api.setScore(state.score);
+
+      /* Feedback */
+      if (result.perfect) {
+        FX.Sound.star();
+        FX.toast(stage, 'PERFEKT! +100', '#ffd34e');
+        FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 24, 9);
+      } else if (Math.abs(result.offset) <= PERFECT_TOL) {
+        FX.Sound.good();
+        FX.toast(stage, '+' + result.score, '#2bffb9');
+      } else {
+        FX.Sound.tap();
+        FX.toast(stage, '+' + result.score, '#2bffb9');
+      }
+
+      /* Kamera nach oben bewegen wenn Turm hoch wird */
+      const towerPx = (state.level + 2) * BLOCK_HEIGHT;
+      const canvasH = canvas.clientHeight;
+      if (towerPx > canvasH * 0.7) {
+        cameraY = towerPx - canvasH * 0.7;
+        blocksEl.style.transform = 'translateY(' + cameraY + 'px)';
+      }
+
+      /* Naechsten Block starten */
+      api.timeout(startMovingBlock, 450);
+      attachTap();
+    }
+
+    /* Eingabe: Tippen = platzieren (once: true, re-registriert nach Platzierung) */
+    function attachTap() {
+      stage.addEventListener('pointerdown', onPlace, { once: true });
+    }
+    function onPlace() {
+      if (!finished) place();
+    }
+
+    /* Bewegungs-Loop */
+    api.frameLoop(() => {
+      if (finished || !canPlace) return true;
+      const w = STAGE_W();
+      const prev = state.blocks[state.blocks.length - 1];
+      const range = w - prev.width;
+      movingX += moveDir * speed * 0.016; /* ~60fps normalisiert */
+      if (movingX >= 1) { movingX = 1; moveDir = -1; }
+      if (movingX <= 0) { movingX = 0; moveDir = 1; }
+      movingEl.style.left = Math.round(movingX * range) + 'px';
+      movingEl.style.bottom = ((state.level + 1) * BLOCK_HEIGHT - cameraY) + 'px';
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Tippe sobald der Block ueber dem Turm ist!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+      startMovingBlock();
+      attachTap();
+    }, 1200);
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -1609,7 +1790,9 @@ const Games = (() => {
     { id: 'quizduel', name: 'Quiz Duell', icon: '🧠', desc: 'Nur Quizfragen: 5 pro Runde, die meisten richtigen erhalten den Stern.',
       rules: 'Jede Runde hat <strong>5 Fragen</strong>. Pro richtiger Antwort gibt es 1 Punkt. Wer am Ende der Runde die meisten richtigen Antworten hat, bekommt einen <strong>Stern</strong>. Fragen stammen aus einem Pool mit <strong>1000</strong> Einträgen.', play: gameQuizDuel },
     { id: 'numbermemory', name: 'Zahlen-Memory', icon: '🔐', desc: 'Merke dir kurz eine Zahl und finde sie wieder.',
-      rules: 'Eine Zahl wird kurz eingeblendet und verschwindet wieder. Wähle die richtige Zahl.', play: gameNumberMemory }
+      rules: 'Eine Zahl wird kurz eingeblendet und verschwindet wieder. Wähle die richtige Zahl.', play: gameNumberMemory },
+    { id: 'towerstack', name: 'Tower Stack', icon: '🧱', desc: 'Stapele Bloecke — je praeziser, desto besser.',
+      rules: 'Ein Block bewegt sich ueber dem Turm. <strong>Tippe zum Platzieren!</strong> Je genauer du triffst, desto mehr Punkte. Perfekte Platzierung gibt <strong>100 Bonus-Punkte</strong> und der Block schrumpft nicht. Ein Fehlversuch beendet das Spiel!', play: gameTowerStack }
   ];
 
   return { list };

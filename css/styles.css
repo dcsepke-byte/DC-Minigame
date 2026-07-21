@@ -2434,3 +2434,74 @@ body.board-compact .board-layout {
 /* ---------- Alte Board-Regeln deaktivieren (für Übergang, nicht löschen falls Solo noch nutzt) ---------- */
 /* .board-topbar, .board-banner, .board-nav, .board-panels etc. bleiben im CSS
    für index.html Solo-Modus, werden im Host/Player-Board nicht mehr gerendert. */
+
+/* ============================================================
+   TOWER STACK — Minispiel Styles
+   ============================================================ */
+.tower-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.tower-hud {
+  position: absolute; top: 12px; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 24px;
+  z-index: 10;
+}
+.tower-score {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(22px, 5vw, 32px);
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
+}
+.tower-level {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(16px, 4vw, 22px);
+  color: var(--txt-dim);
+}
+
+.tower-canvas {
+  position: absolute; inset: 0;
+  overflow: hidden;
+}
+
+.tower-blocks {
+  position: absolute; bottom: 12%; left: 0; right: 0;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.tower-block {
+  position: absolute;
+  height: 28px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+  animation: tower-block-drop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tower-block-drop {
+  0%   { transform: translateY(-30px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.tower-moving {
+  position: absolute;
+  height: 28px;
+  border-radius: 6px;
+  display: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 0 20px currentColor;
+  z-index: 5;
+}
+
+.tower-instruction {
+  position: absolute; bottom: 24px; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(16px, 4vw, 22px);
+  color: var(--txt-dim);
+  transition: opacity 0.5s;
+  pointer-events: none;
+  z-index: 10;
+}
