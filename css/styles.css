@@ -2921,3 +2921,139 @@ body.board-compact .board-layout {
   background: #ff4d6d;
   box-shadow: 0 0 6px rgba(255, 77, 109, 0.6);
 }
+
+/* ============================================================
+   DODGEBALL — Baelle ausweichen
+   ============================================================ */
+.db-wrap {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #1e3a5f 0%, #0f1e30 70%, #0a1520 100%);
+  touch-action: none;
+  user-select: none;
+}
+.db-hud {
+  position: absolute; top: 12px; left: 0; right: 0;
+  display: flex; justify-content: center; align-items: center; gap: 16px;
+  z-index: 10;
+}
+.db-score {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(22px, 5vw, 32px);
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
+}
+.db-hearts {
+  display: flex; gap: 4px;
+  font-size: clamp(18px, 4vw, 24px);
+}
+.db-heart {
+  transition: transform 0.2s, opacity 0.3s;
+}
+.db-heart.lost {
+  filter: grayscale(1);
+  opacity: 0.4;
+  transform: scale(0.8);
+}
+.db-timer {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(18px, 4vw, 26px);
+  color: #2bffb9;
+  text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
+  min-width: 60px; text-align: right;
+}
+
+.db-canvas {
+  position: absolute; inset: 0;
+  overflow: hidden;
+}
+
+.db-ball {
+  position: absolute;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 4px 0 rgba(255, 255, 255, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.2);
+  animation: db-spawn 0.15s ease-out;
+  will-change: transform;
+}
+@keyframes db-spawn {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.db-ball-hit {
+  animation: db-ball-explode 0.3s ease-out forwards;
+}
+@keyframes db-ball-explode {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.6; }
+  100% { transform: scale(0.1); opacity: 0; }
+}
+
+.db-player {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffdd57 0%, #ff9e2c 60%, #e87a1a 100%);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 4px 0 rgba(255, 255, 255, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.2);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  transition: left 0.06s linear, top 0.06s linear;
+  z-index: 8;
+  will-change: left, top;
+}
+.db-player-body {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+}
+.db-player-eye {
+  position: absolute;
+  width: 30%; height: 30%;
+  background: #1a1a2e;
+  border-radius: 50%;
+  top: 25%;
+}
+.db-player-eye.left { left: 18%; }
+.db-player-eye.right { right: 18%; }
+.db-player-mouth {
+  position: absolute;
+  bottom: 20%; left: 50%;
+  transform: translateX(-50%);
+  width: 40%; height: 15%;
+  border-radius: 0 0 50% 50%;
+  background: #1a1a2e;
+}
+.db-player-hit {
+  animation: db-player-flash 0.4s ease-out;
+}
+@keyframes db-player-flash {
+  0%, 100% { background: linear-gradient(180deg, #ffdd57 0%, #ff9e2c 60%, #e87a1a 100%); }
+  50% { background: linear-gradient(180deg, #ff6b6b 0%, #ee5a5a 60%, #cc3333 100%); transform: scale(1.15); }
+}
+
+.db-combo {
+  position: absolute; top: 35%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(26px, 6vw, 42px);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+.db-combo.show {
+  animation: db-combo-pop 1.0s ease-out forwards;
+}
+@keyframes db-combo-pop {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
+}
+
+.db-instruction {
+  position: absolute; bottom: 18%; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(16px, 4vw, 22px);
+  color: rgba(255, 255, 255, 0.7);
+  transition: opacity 0.5s;
+  pointer-events: none;
+  z-index: 10;
+}

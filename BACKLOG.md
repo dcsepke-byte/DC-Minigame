@@ -13,7 +13,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Bubble Pop** — Bunte Blasen steigen auf, nur eigene Farbe poppen, Kettenreaktion-Bonus (2026-07-21)
   - [x] **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden (2026-07-21)
   - [x] **Color Catch** — Schiebender Korb, nur richtige Farben auffangen, falsche meiden (2026-07-21)
-  - [ ] **Dodgeball** — Ausweichen vor heranfliegenden Objekten, immer schneller werdend
+  - [x] **Dodgeball** — Ausweichen vor heranfliegenden Baellen, immer schneller werdend (2026-07-21)
   - [ ] **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt
   - [ ] **Quick Draw Duel** — Western-Duell: waechst bis Signal, dann schnellstes Tippen
   - [ ] **Rhythm Tap** — Im Takt tippen, musik-basiert, Combo-Multiplikator
@@ -98,6 +98,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 ---
 
 ## Done
+
+- [x] **Dodgeball Minispiel** — Komplettes Ausweich-Spiel mit TDD entwickelt: getestete Spiellogik (37 Unit-Tests + 21 Paritaetstests), Baelle von allen Seiten, Spieler-Figur mit Gesicht, Drag-Steuerung, Close-Call-Bonus, Survival-Score, Treffer-Animationen, Game Over bei 3 Treffern, Sound, 30 Sekunden (2026-07-21)
 
 - [x] **Color Catch Minispiel** — Komplettes Korb-Fang-Spiel mit TDD entwickelt: getestete Spiellogik (36 Unit-Tests + 23 Paritaetstests), fallende Farb-Bloecke, Korb-Steuerung durch Ziehen, wechselnde Zielfarbe, Combo-System, Missed-Anzeige, Game-Over, Sound, Animationen (2026-07-21)
 - [x] **Ninja Slash Minispiel** — Komplettes Fruit-Ninja-Style-Spiel mit TDD entwickelt: getestete Spiellogik (34 Unit-Tests + 18 Paritaetstests), parabolische Physik, Fruechte schlitzern, Bomben meiden, Combo-System, Missed-Anzeige, Game-Over, Sound, Animationen (2026-07-21)

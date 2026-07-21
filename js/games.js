@@ -2427,6 +2427,263 @@ const Games = (() => {
     }, 2500);
   }
 
+  /* =========================================================
+     DODGEBALL — Baelle ausweichen, 3 Treffer = Game Over
+     Spieler bewegt eine Figur durch Tippen/Ziehen.
+     Baelle kommen von allen Seiten. 30 Sekunden.
+     ========================================================= */
+  function gameDodgeball(stage, api) {
+    const L = window.DodgeballLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 30000;
+    const endAt = performance.now() + TIME_MS;
+    const SPAWN_INTERVAL_START = 900;
+    const SPAWN_INTERVAL_MIN = 350;
+    const SPEED_START = 0.18;   /* px/ms Ballgeschwindigkeit */
+    const SPEED_END = 0.45;     /* beschleunigt mit der Zeit */
+    const SIDES = ['top', 'bottom', 'left', 'right'];
+    const BALL_COLORS = ['#ff4d6d', '#3a86ff', '#2bffb9', '#ffd34e', '#7b2ff7', '#ff6a00'];
+
+    /* Spielzustand */
+    const state = L.createDodgeballState({
+      maxHits: 3,
+      stageWidth: stage.clientWidth,
+      stageHeight: stage.clientHeight,
+      playerRadius: 26,
+    });
+
+    let finished = false;
+    let lastSpawn = 0;
+    let spawnInterval = SPAWN_INTERVAL_START;
+    let lastFrame = performance.now();
+    let survivalScore = 0;
+    let closeCallScore = 0;
+
+    /* DOM */
+    const wrap = el('div', 'db-wrap');
+    wrap.innerHTML = `
+      <div class="db-hud">
+        <span class="db-score" id="db-score">0</span>
+        <span class="db-hearts" id="db-hearts"></span>
+        <span class="db-timer" id="db-timer">30s</span>
+      </div>
+      <div class="db-canvas" id="db-canvas"></div>
+      <div class="db-player" id="db-player">
+        <div class="db-player-body"></div>
+        <div class="db-player-eye left"></div>
+        <div class="db-player-eye right"></div>
+        <div class="db-player-mouth"></div>
+      </div>
+      <div class="db-combo" id="db-combo"></div>
+      <div class="db-instruction" id="db-instruct">Ziehe um dich zu bewegen!</div>`;
+    stage.appendChild(wrap);
+
+    const canvas = wrap.querySelector('#db-canvas');
+    const scoreEl = wrap.querySelector('#db-score');
+    const heartsEl = wrap.querySelector('#db-hearts');
+    const timerEl = wrap.querySelector('#db-timer');
+    const playerEl = wrap.querySelector('#db-player');
+    const comboEl = wrap.querySelector('#db-combo');
+    const instructEl = wrap.querySelector('#db-instruct');
+
+    /* Spieler visuell positionieren */
+    function updatePlayerVisual() {
+      const p = L.getPlayer(state);
+      playerEl.style.left = (p.x - p.radius) + 'px';
+      playerEl.style.top = (p.y - p.radius) + 'px';
+      playerEl.style.width = (p.radius * 2) + 'px';
+      playerEl.style.height = (p.radius * 2) + 'px';
+    }
+
+    /* Herzen anzeigen */
+    function updateHeartsUI() {
+      const maxH = state.maxHits;
+      const lost = state.hits;
+      let html = '';
+      for (let i = 0; i < maxH; i++) {
+        html += i < (maxH - lost)
+          ? '<span class="db-heart">❤️</span>'
+          : '<span class="db-heart lost">🖤</span>';
+      }
+      heartsEl.innerHTML = html;
+    }
+
+    /* Combo/Info-Anzeige */
+    function showCombo(text, color) {
+      comboEl.textContent = text;
+      comboEl.style.color = color;
+      comboEl.classList.remove('show');
+      void comboEl.offsetWidth;
+      comboEl.classList.add('show');
+    }
+
+    /* Init UI */
+    updatePlayerVisual();
+    updateHeartsUI();
+
+    /* Steuerung: Tippen/Ziehen */
+    let dragging = false;
+    function moveToPointer(clientX, clientY) {
+      const rect = stage.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      L.movePlayer(state, x, y);
+      updatePlayerVisual();
+    }
+    canvas.addEventListener('pointerdown', (ev) => {
+      dragging = true;
+      moveToPointer(ev.clientX, ev.clientY);
+      canvas.setPointerCapture(ev.pointerId);
+    });
+    canvas.addEventListener('pointermove', (ev) => {
+      if (dragging) moveToPointer(ev.clientX, ev.clientY);
+    });
+    canvas.addEventListener('pointerup', (ev) => {
+      dragging = false;
+      try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    });
+    canvas.addEventListener('pointercancel', () => { dragging = false; });
+
+    /* Ball visuell erzeugen */
+    function renderBall(ball) {
+      const div = el('div', 'db-ball');
+      div.dataset.id = ball.id;
+      div.style.width = (ball.radius * 2) + 'px';
+      div.style.height = (ball.radius * 2) + 'px';
+      div.style.background = BALL_COLORS[ball.id % BALL_COLORS.length];
+      div.style.left = (ball.x - ball.radius) + 'px';
+      div.style.top = (ball.y - ball.radius) + 'px';
+      canvas.appendChild(div);
+      return div;
+    }
+
+    /* Neuen Ball spawnen */
+    function trySpawn(now) {
+      const interval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval);
+      if (now - lastSpawn < interval) return;
+      lastSpawn = now;
+
+      const side = SIDES[rand(0, SIDES.length - 1)];
+      const progress = 1 - (endAt - now) / TIME_MS;
+      const speed = SPEED_START + progress * (SPEED_END - SPEED_START);
+
+      const ball = L.spawnBall(state, side, speed);
+      renderBall(ball);
+    }
+
+    /* Treffer-Animation */
+    function hitAnimation(ball) {
+      const divEl = canvas.querySelector('[data-id="' + ball.id + '"]');
+      if (divEl) {
+        divEl.classList.add('db-ball-hit');
+        api.timeout(() => { if (divEl.parentNode) divEl.remove(); }, 300);
+      }
+      playerEl.classList.add('db-player-hit');
+      api.timeout(() => playerEl.classList.remove('db-player-hit'), 400);
+    }
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = Math.min(50, now - lastFrame);
+      lastFrame = now;
+
+      if (now >= endAt) {
+        finished = true;
+        const totalScore = survivalScore + closeCallScore;
+        api.finish(totalScore);
+        return false;
+      }
+
+      if (finished) return false;
+
+      /* Spawn-Interval anpassen */
+      const progress = 1 - (endAt - now) / TIME_MS;
+      spawnInterval = SPAWN_INTERVAL_START - progress * (SPAWN_INTERVAL_START - SPAWN_INTERVAL_MIN);
+
+      /* Survival Score */
+      survivalScore = L.computeSurvivalScore(now - (endAt - TIME_MS));
+
+      /* Spawn */
+      trySpawn(now);
+
+      /* Baelle bewegen (Logik) */
+      const events = L.tickBalls(state, dt);
+
+      /* Events verarbeiten */
+      if (events.length > 0) {
+        for (const ev of events) {
+          if (ev.type === 'hit') {
+            hitAnimation(ev.ball);
+            FX.Sound.explode();
+            FX.shake(stage);
+            showCombo('TREFFER!', '#ff4d6d');
+            updateHeartsUI();
+          } else if (ev.type === 'closecall') {
+            const p = L.getPlayer(state);
+            const d = Math.sqrt(
+              (ev.ball.x - p.x) * (ev.ball.x - p.x) +
+              (ev.ball.y - p.y) * (ev.ball.y - p.y)
+            );
+            const bonus = L.computeCloseCallBonus(d, p.radius, ev.ball.radius, state.closeCallTolerance);
+            if (bonus > 0) {
+              closeCallScore += bonus;
+              showCombo('CLOSE! +' + bonus, '#ffd34e');
+              FX.Sound.star();
+            }
+          }
+        }
+        if (L.isGameOver(state)) {
+          finished = true;
+          const totalScore = survivalScore + closeCallScore;
+          scoreEl.textContent = totalScore;
+          api.setScore(totalScore);
+          FX.Sound.explode();
+          api.timeout(() => api.finish(totalScore), 800);
+          return false;
+        }
+      }
+
+      /* Score aktualisieren */
+      const totalScore = survivalScore + closeCallScore;
+      scoreEl.textContent = totalScore;
+      api.setScore(totalScore);
+
+      /* Timer aktualisieren */
+      const rem = Math.max(0, (endAt - now) / 1000);
+      timerEl.textContent = rem.toFixed(1) + 's';
+
+      /* Visuelle Position der Baelle aktualisieren */
+      const ballEls = canvas.querySelectorAll('.db-ball:not(.db-ball-hit)');
+      for (const divEl of ballEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        const b = state.balls.find(x => x.id === id);
+        if (b) {
+          divEl.style.left = (b.x - b.radius) + 'px';
+          divEl.style.top = (b.y - b.radius) + 'px';
+        }
+      }
+
+      /* Entfernte Baelle aus DOM loeschen */
+      for (const divEl of ballEls) {
+        const id = parseInt(divEl.dataset.id, 10);
+        if (!state.balls.find(x => x.id === id)) {
+          divEl.remove();
+        }
+      }
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Weiche den Baellen aus! 3 Treffer = Game Over!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, 2500);
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -2555,7 +2812,9 @@ const Games = (() => {
     { id: 'ninjaslash', name: 'Ninja Slash', icon: '🗡️', desc: 'Schlitze Fruechte — meide Bomben!',
       rules: 'Fruechte fliegen durch die Luft. <strong>Tippe um zu schlitzern!</strong> Jede Frucht gibt Punkte, Combos geben Bonus. <strong>Bomben meiden</strong> — eine beruehrte Bombe beendet sofort das Spiel! 5 Fruechte entkommen lassen = Game Over. 30 Sekunden.', play: gameNinjaSlash },
     { id: 'colorcatch', name: 'Color Catch', icon: '🧺', desc: 'Fange nur die richtige Farbe im Korb!',
-      rules: 'Farb-Bloecke fallen von oben. Bewege den <strong>Korb</strong> durch Ziehen nach links/rechts. Fange <strong>nur deine Zielfarbe</strong> — die wechselt alle paar Sekunden! Falsche Farbe im Korb oder richtige Farbe verpasst = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameColorCatch }
+      rules: 'Farb-Bloecke fallen von oben. Bewege den <strong>Korb</strong> durch Ziehen nach links/rechts. Fange <strong>nur deine Zielfarbe</strong> — die wechselt alle paar Sekunden! Falsche Farbe im Korb oder richtige Farbe verpasst = <strong>Missed</strong>. 5x verfehlt = Game Over. Combos geben mehr Punkte! 30 Sekunden.', play: gameColorCatch },
+    { id: 'dodgeball', name: 'Dodgeball', icon: '⚡', desc: 'Weiche heranfliegenden Baellen aus!',
+      rules: 'Baelle kommen von <strong>allen Seiten</strong>. Bewege deine Figur durch <strong>Ziehen</strong> auf dem Bildschirm. <strong>3 Treffer</strong> = Game Over! Je laenger du ueberlebst, desto mehr Punkte. <strong>Close Calls</strong> (knapp vorbeigeschrammt) geben Bonus! 30 Sekunden.', play: gameDodgeball }
   ];
 
   return { list };
