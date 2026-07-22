@@ -38,6 +38,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - Einheitliche Farbpalette und Design-Sprache
   - UI-Redesign: moderne, runde Karten statt flacher Boxen
   - Animationen: Uebergange zwischen Screens, Popup-Effekte
+  - [x] Screen Transitions — richtungsbehaftete Screen-Wechsel (forward/backward/lateral) mit CSS-Animationen + Popup-Effekt-System (scale-in, bounce-in, fade-in, slide-up), TDD: 46 Unit-Tests + 28 Paritaetstests (2026-07-23)
   - Loading Screen mit Animation (2026-07-22)
   - Lobby-Redesign
 
