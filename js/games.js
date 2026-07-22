@@ -2917,6 +2917,188 @@ const Games = (() => {
     }, 2500);
   }
 
+  /* =========================================================
+     QUICK DRAW DUEL — Western-Duell: Reaktionsschnelles Tippen
+     READY... STEADY... FIRE! Schnellstes Tippen gewinnt.
+     Fruehes Tippen = Foul. 3 Runden.
+     ========================================================= */
+  function gameQuickDraw(stage, api) {
+    const L = window.QuickDrawLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const MAX_ROUNDS = 3;
+    const MIN_WAIT = 1500; // ms bevor FIRE moeglich
+    const MAX_WAIT = 4000; // ms maximale Wartezeit
+    const ROUND_GAP = 1500; // Pause zwischen Runden
+
+    /* Spielzustand */
+    const state = L.createQuickDrawState({ maxRounds: MAX_ROUNDS });
+    let finished = false;
+    let fireTimeoutId = null;
+
+    /* DOM */
+    const wrap = el('div', 'qd-wrap');
+    wrap.innerHTML = `
+      <div class="qd-hud">
+        <span class="qd-round" id="qd-round">Runde 1/3</span>
+        <span class="qd-score" id="qd-score">0</span>
+        <span class="qd-stats" id="qd-stats"></span>
+      </div>
+      <div class="qd-arena" id="qd-arena">
+        <div class="qd-scene" id="qd-scene">
+          <div class="qd-sheriff" id="qd-sheriff">🤠</div>
+          <div class="qd-signal" id="qd-signal"></div>
+        </div>
+        <div class="qd-text" id="qd-text">Bereit?</div>
+        <div class="qd-sub" id="qd-sub">Tippe um zu starten!</div>
+      </div>`;
+    stage.appendChild(wrap);
+
+    const arena = wrap.querySelector('#qd-arena');
+    const textEl = wrap.querySelector('#qd-text');
+    const subEl = wrap.querySelector('#qd-sub');
+    const signalEl = wrap.querySelector('#qd-signal');
+    const sheriffEl = wrap.querySelector('#qd-sheriff');
+    const roundEl = wrap.querySelector('#qd-round');
+    const scoreEl = wrap.querySelector('#qd-score');
+    const statsEl = wrap.querySelector('#qd-stats');
+
+    /* UI aktualisieren */
+    function updateHUD() {
+      roundEl.textContent = `Runde ${Math.min(L.getRound(state) + (L.isRoundOver(state) ? 0 : 1), MAX_ROUNDS)}/${MAX_ROUNDS}`;
+      scoreEl.textContent = L.getScore(state);
+      const fouls = L.getFouls(state);
+      const misses = L.getMisses(state);
+      let stats = '';
+      if (fouls > 0) stats += `Foul: ${fouls} `;
+      if (misses > 0) stats += `Langsam: ${misses}`;
+      statsEl.textContent = stats;
+    }
+
+    /* Szene aktualisieren */
+    function setScene(phase) {
+      arena.className = 'qd-arena ' + phase;
+      switch (phase) {
+        case 'waiting':
+          textEl.textContent = 'Bereit?';
+          subEl.textContent = 'Tippe um Runde zu starten!';
+          signalEl.className = 'qd-signal';
+          break;
+        case 'ready':
+          textEl.textContent = 'STEADY...';
+          subEl.textContent = 'Nicht zu frueh tippen!';
+          signalEl.className = 'qd-signal steady';
+          break;
+        case 'fire':
+          textEl.textContent = 'FIRE!';
+          subEl.textContent = 'JETZT TIPPEN!';
+          signalEl.className = 'qd-signal fire';
+          break;
+        case 'foul':
+          textEl.textContent = 'FOUL! 💥';
+          subEl.textContent = 'Zu frueh getippt!';
+          signalEl.className = 'qd-signal foul';
+          break;
+        case 'done':
+          const rt = L.getReactionTime(state);
+          textEl.textContent = rt + 'ms';
+          if (rt <= 200) subEl.textContent = 'Blitzschnell! ⚡';
+          else if (rt <= 400) subEl.textContent = 'Schnell! 🎯';
+          else if (rt <= 1000) subEl.textContent = 'Gut!';
+          else subEl.textContent = 'Langsam...';
+          signalEl.className = 'qd-signal done';
+          break;
+      }
+      updateHUD();
+    }
+
+    /* Naechste Runde starten */
+    function beginRound() {
+      if (finished) return;
+      L.startRound(state);
+      setScene('ready');
+
+      /* FIRE-Signal nach zufaelliger Zeit */
+      const wait = MIN_WAIT + Math.random() * (MAX_WAIT - MIN_WAIT);
+      fireTimeoutId = api.timeout(() => {
+        if (L.getPhase(state) === 'ready') {
+          L.fireSignal(state, performance.now());
+          setScene('fire');
+          FX.Sound.go();
+          arena.classList.add('qd-shake');
+          api.timeout(() => arena.classList.remove('qd-shake'), 300);
+        }
+      }, wait);
+    }
+
+    /* Runde beenden, evtl. naechste starten */
+    function endRound() {
+      if (L.isGameOver(state)) {
+        finished = true;
+        const total = L.getScore(state);
+        scoreEl.textContent = total;
+        api.setScore(total);
+        api.timeout(() => api.finish(total), 1500);
+        return;
+      }
+      /* Pause dann naechste Runde */
+      api.timeout(() => {
+        if (!finished) beginRound();
+      }, ROUND_GAP);
+    }
+
+    /* Tipp-Handler */
+    function handleTap() {
+      const phase = L.getPhase(state);
+
+      if (phase === 'waiting') {
+        beginRound();
+        return;
+      }
+
+      if (phase === 'ready') {
+        /* Foul: vor Fire-Signal getippt */
+        if (fireTimeoutId) { /* Timeout abbrechen wenn moeglich */ }
+        L.playerTap(state, performance.now());
+        setScene('foul');
+        FX.Sound.bad();
+        FX.shake(stage);
+        updateHUD();
+        endRound();
+        return;
+      }
+
+      if (phase === 'fire') {
+        const now = performance.now();
+        L.playerTap(state, now);
+        setScene('done');
+        FX.Sound.good();
+        const pts = L.computeReactionScore(L.getReactionTime(state));
+        FX.toast(stage, '+' + pts, '#2bffb9');
+        updateHUD();
+        endRound();
+        return;
+      }
+    }
+
+    /* Event-Listener */
+    arena.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      handleTap();
+    });
+
+    /* Init */
+    setScene('waiting');
+    updateHUD();
+
+    /* Frame-Loop (nur fuer UI-Updates, Logik ist Event-basiert) */
+    api.frameLoop(() => {
+      if (finished) return false;
+      return true;
+    });
+  }
+
   function gameQuizDuel(stage, api, runMeta = {}) {
     const extPool = Array.isArray(window.QuizDuelQuestionPool)
       ? window.QuizDuelQuestionPool
@@ -3049,7 +3231,9 @@ const Games = (() => {
     { id: 'dodgeball', name: 'Dodgeball', icon: '⚡', desc: 'Weiche heranfliegenden Baellen aus!',
       rules: 'Baelle kommen von <strong>allen Seiten</strong>. Bewege deine Figur durch <strong>Ziehen</strong> auf dem Bildschirm. <strong>3 Treffer</strong> = Game Over! Je laenger du ueberlebst, desto mehr Punkte. <strong>Close Calls</strong> (knapp vorbeigeschrammt) geben Bonus! 30 Sekunden.', play: gameDodgeball },
     { id: 'bouncesurvival', name: 'Bounce Survival', icon: '🏓', desc: 'Halte den Ball am Leben — mit Paddle!',
-      rules: 'Halte den <strong>Ball am Leben</strong>! Bewege das <strong>Paddle</strong> durch Ziehen nach links/rechts. Der Ball prallt an den Waenden und am Paddle ab — der <strong>Winkel aendert sich</strong> je nachdem, wo du triffst! Die Geschwindigkeit <strong>steigt alle 5 Sekunden</strong>. <strong>3x den Ball verfehlen</strong> = Game Over. 45 Sekunden.', play: gameBounceSurvival }
+      rules: 'Halte den <strong>Ball am Leben</strong>! Bewege das <strong>Paddle</strong> durch Ziehen nach links/rechts. Der Ball prallt an den Waenden und am Paddle ab — der <strong>Winkel aendert sich</strong> je nachdem, wo du triffst! Die Geschwindigkeit <strong>steigt alle 5 Sekunden</strong>. <strong>3x den Ball verfehlen</strong> = Game Over. 45 Sekunden.', play: gameBounceSurvival },
+    { id: 'quickdraw', name: 'Quick Draw Duel', icon: '🤠', desc: 'Western-Duell: Schnellstes Tippen nach Signal!',
+      rules: 'Western-Duell! Warte auf das <strong>FIRE!</strong>-Signal, dann <strong>tippe so schnell wie moeglich</strong>. <strong>Vor dem Signal tippen = Foul</strong> (0 Punkte)! 3 Runden, schnellste Reaktionszeit gewinnt. Je schneller, desto mehr Punkte!', play: gameQuickDraw }
   ];
 
   return { list };

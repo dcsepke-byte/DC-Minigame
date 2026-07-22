@@ -3168,3 +3168,132 @@ body.board-compact .board-layout {
   pointer-events: none;
   z-index: 10;
 }
+
+/* ===== Quick Draw Duel ===== */
+.qd-wrap {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #3a2010 0%, #1a0d05 70%, #0a0503 100%);
+  touch-action: none;
+  user-select: none;
+}
+.qd-hud {
+  position: absolute; top: 12px; left: 0; right: 0;
+  display: flex; justify-content: center; align-items: center; gap: 16px;
+  z-index: 10;
+}
+.qd-round {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(16px, 3.5vw, 22px);
+  color: #ffaa55;
+}
+.qd-score {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(22px, 5vw, 32px);
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
+}
+.qd-stats {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(12px, 2.5vw, 16px);
+  color: rgba(255, 100, 100, 0.8);
+}
+.qd-arena {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.qd-scene {
+  position: relative;
+  width: 200px; height: 200px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 30px;
+}
+.qd-sheriff {
+  font-size: 80px;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
+  transition: transform 0.2s;
+  z-index: 5;
+}
+.qd-arena.ready .qd-sheriff {
+  animation: qd-sheriff-bob 0.8s ease-in-out infinite alternate;
+}
+@keyframes qd-sheriff-bob {
+  0% { transform: translateY(-4px) rotate(-3deg); }
+  100% { transform: translateY(4px) rotate(3deg); }
+}
+.qd-arena.fire .qd-sheriff {
+  transform: scale(1.3) rotate(-10deg);
+}
+.qd-arena.foul .qd-sheriff {
+  transform: scale(0.8) rotate(20deg);
+  filter: drop-shadow(0 4px 12px rgba(255, 50, 50, 0.8));
+}
+.qd-signal {
+  position: absolute;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.3s;
+  z-index: 2;
+}
+.qd-signal.steady {
+  border-color: rgba(255, 200, 80, 0.5);
+  box-shadow: 0 0 20px rgba(255, 200, 80, 0.3);
+}
+.qd-signal.fire {
+  border-color: #ff3333;
+  border-width: 8px;
+  box-shadow: 0 0 40px rgba(255, 50, 50, 0.8), inset 0 0 40px rgba(255, 50, 50, 0.3);
+  background: radial-gradient(circle, rgba(255, 80, 50, 0.3) 0%, transparent 70%);
+}
+.qd-signal.foul {
+  border-color: #ff6666;
+  border-style: dashed;
+  background: radial-gradient(circle, rgba(255, 50, 50, 0.2) 0%, transparent 70%);
+}
+.qd-signal.done {
+  border-color: #2bffb9;
+  box-shadow: 0 0 30px rgba(43, 255, 185, 0.4);
+}
+.qd-text {
+  font-family: var(--font-display); font-weight: 900;
+  font-size: clamp(36px, 9vw, 64px);
+  color: #fff;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  margin-bottom: 8px;
+  z-index: 20;
+}
+.qd-arena.fire .qd-text {
+  color: #ff5555;
+  animation: qd-flash 0.3s ease-out;
+}
+.qd-arena.foul .qd-text {
+  color: #ff8888;
+}
+.qd-arena.done .qd-text {
+  color: #2bffb9;
+}
+@keyframes qd-flash {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.qd-sub {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(16px, 4vw, 22px);
+  color: rgba(255, 255, 255, 0.6);
+  z-index: 20;
+}
+.qd-arena.fire .qd-sub {
+  color: #ff8888;
+  font-weight: 800;
+}
+.qd-shake {
+  animation: qd-shake-anim 0.3s ease-in-out;
+}
+@keyframes qd-shake-anim {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
