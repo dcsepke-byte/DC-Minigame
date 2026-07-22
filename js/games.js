@@ -3471,7 +3471,9 @@ const Games = (() => {
     { id: 'rhythmtap', name: 'Rhythm Tap', icon: '🎵', desc: 'Tippe im Takt — Combo-Multiplikator fuer Perfektion!',
       rules: 'Beats fallen im Rhythmus auf die <strong>Trefferzone</strong>. Tippe im richtigen Moment: <strong>Perfect</strong> gibt 100, <strong>Good</strong> gibt 50 Punkte. Baue eine <strong>Combo</strong> auf fuer bis zu <strong>4x Multiplikator</strong>! Zu frueh oder zu spaet bricht die Combo. <strong>5 verpasste Beats</strong> = Game Over. 30 Sekunden.', play: gameRhythmTap },
     { id: 'coindash', name: 'Coin Dash', icon: '🪙', desc: 'Sammle Muenzen, weiche Gegnern aus, nutze Power-Ups!',
-      rules: 'Bewege dich durch <strong>Ziehen</strong> auf dem Feld. Sammle <strong>goldene Muenzen</strong> fuer Punkte und <strong>Combos</strong>! Meide die <strong>roten Gegner</strong> — 3 Treffer = Game Over! <strong>Power-Ups</strong>: Magnet (Muenzen anziehen), Schild (blockt Gegner), Freeze (stoppt Gegner). 30 Sekunden.', play: gameCoinDash }
+      rules: 'Bewege dich durch <strong>Ziehen</strong> auf dem Feld. Sammle <strong>goldene Muenzen</strong> fuer Punkte und <strong>Combos</strong>! Meide die <strong>roten Gegner</strong> — 3 Treffer = Game Over! <strong>Power-Ups</strong>: Magnet (Muenzen anziehen), Schild (blockt Gegner), Freeze (stoppt Gegner). 30 Sekunden.', play: gameCoinDash },
+    { id: 'tileflip', name: 'Tile Flip', icon: '🧩', desc: 'Memory-Puzzle mit Boostern gegen die Zeit!',
+      rules: 'Decke Kacheln auf und finde <strong>Paare</strong>! Jeder Match gibt Punkte, <strong>Combos</strong> (aufeinanderfolgende Matches) geben mehr! <strong>3 Booster</strong>: Peek (alle kurz sehen), Shuffle (neu mischen), Freeze (Zeit stoppen). Finde alle Paare vor Ablauf der Zeit fuer einen <strong>Zeitbonus</strong>! 60 Sekunden.', play: gameTileFlip }
   ];
 
   /* =========================================================
@@ -3839,6 +3841,314 @@ const Games = (() => {
     const cleanup = api.timeout(() => {
       window.removeEventListener('resize', onResize);
     }, TIME_MS + 5000);
+  }
+
+  /* =========================================================
+     TILE FLIP — Memory-Puzzle mit Boostern, gegen die Zeit
+     Kacheln aufdecken, Paare finden, Combo-System, 3 Booster.
+     60 Sekunden, Zeitbonus bei Completion.
+     ========================================================= */
+  function gameTileFlip(stage, api) {
+    const L = window.TileFlipLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 60000;
+    const ROWS = 4, COLS = 4;
+    const START_DELAY = 2000;
+    const PEEK_SHOW_MS = 1500; /* wie lange Peek-Kacheln sichtbar sind */
+
+    /* Symbole-Emojis */
+    const SYMBOLS = ['🌟', '🎮', '🎯', '🎲', '🏆', '⭐', '🔥', '💎', '🚀', '🎨', '🎪', '🧩'];
+
+    /* Spielzustand */
+    const state = L.createTileFlipState({ rows: ROWS, cols: COLS, timeLimit: TIME_MS });
+    let finished = false;
+    let gameStart = performance.now();
+    let canFlip = false;
+    let pendingMatch = null; /* timeout-ID fuer auto-checkMatch */
+    let lastFreezeCheck = 0;
+    let accumulatedFreeze = 0;
+
+    /* DOM */
+    const wrap = el('div', 'tf-wrap');
+    wrap.innerHTML = `
+      <div class="tf-hud">
+        <span class="tf-score" id="tf-score">0</span>
+        <span class="tf-pairs" id="tf-pairs">0/8</span>
+        <span class="tf-timer" id="tf-timer">60s</span>
+      </div>
+      <div class="tf-combo" id="tf-combo"></div>
+      <div class="tf-boosters" id="tf-boosters">
+        <button class="tf-booster tf-peek" id="tf-peek">👁 Peek</button>
+        <button class="tf-booster tf-shuffle" id="tf-shuffle">🔀 Shuffle</button>
+        <button class="tf-booster tf-freeze" id="tf-freeze">❄ Freeze</button>
+      </div>
+      <div class="tf-grid" id="tf-grid"></div>
+      <div class="tf-feedback" id="tf-feedback"></div>
+      <div class="tf-instruction" id="tf-instruct">Finde alle Paare!</div>`;
+    stage.appendChild(wrap);
+
+    const scoreEl = wrap.querySelector('#tf-score');
+    const pairsEl = wrap.querySelector('#tf-pairs');
+    const timerEl = wrap.querySelector('#tf-timer');
+    const comboEl = wrap.querySelector('#tf-combo');
+    const gridEl = wrap.querySelector('#tf-grid');
+    const feedbackEl = wrap.querySelector('#tf-feedback');
+    const instructEl = wrap.querySelector('#tf-instruct');
+
+    /* Kachel-DOM erzeugen */
+    const tileEls = [];
+    for (let i = 0; i < state.tiles.length; i++) {
+      const tDiv = el('div', 'tf-tile');
+      tDiv.dataset.idx = i;
+      const inner = el('div', 'tf-tile-inner');
+      const front = el('div', 'tf-tile-front', '?');
+      const back = el('div', 'tf-tile-back', SYMBOLS[state.tiles[i].symbol]);
+      inner.appendChild(front);
+      inner.appendChild(back);
+      tDiv.appendChild(inner);
+      gridEl.appendChild(tDiv);
+      tileEls.push(tDiv);
+    }
+
+    /* Booster-Buttons */
+    const peekBtn = wrap.querySelector('#tf-peek');
+    const shuffleBtn = wrap.querySelector('#tf-shuffle');
+    const freezeBtn = wrap.querySelector('#tf-freeze');
+
+    /* Kachel visuell aktualisieren */
+    function updateTileVisual(idx) {
+      const tile = state.tiles[idx];
+      const elDom = tileEls[idx];
+      if (tile.matched) {
+        elDom.classList.add('matched');
+        elDom.classList.remove('flipped', 'peeking');
+      } else if (tile.flipped) {
+        elDom.classList.add('flipped');
+        elDom.classList.remove('peeking');
+      } else {
+        elDom.classList.remove('flipped', 'matched');
+        if (L.isPeeking(state, performance.now() - gameStart)) {
+          elDom.classList.add('peeking');
+        } else {
+          elDom.classList.remove('peeking');
+        }
+      }
+    }
+
+    function updateAllVisuals() {
+      for (let i = 0; i < state.tiles.length; i++) {
+        updateTileVisual(i);
+      }
+    }
+
+    /* HUD aktualisieren */
+    function updateHUD() {
+      scoreEl.textContent = state.score;
+      pairsEl.textContent = state.pairsFound + '/' + state.totalPairs;
+      if (state.combo > 1) {
+        comboEl.textContent = 'Combo x' + state.combo + '!';
+        comboEl.style.color = state.combo >= 4 ? '#ffd34e' : state.combo >= 2 ? '#ff6a00' : '#2bffb9';
+      } else {
+        comboEl.textContent = '';
+      }
+    }
+
+    /* Feedback */
+    function showFeedback(text, color) {
+      feedbackEl.textContent = text;
+      feedbackEl.style.color = color;
+      feedbackEl.classList.remove('show');
+      void feedbackEl.offsetWidth;
+      feedbackEl.classList.add('show');
+    }
+
+    /* Booster-Buttons aktualisieren */
+    function updateBoosters() {
+      peekBtn.disabled = !state.boosters.has('peek');
+      shuffleBtn.disabled = !state.boosters.has('shuffle');
+      freezeBtn.disabled = !state.boosters.has('freeze');
+      peekBtn.classList.toggle('used', !state.boosters.has('peek'));
+      shuffleBtn.classList.toggle('used', !state.boosters.has('shuffle'));
+      freezeBtn.classList.toggle('used', !state.boosters.has('freeze'));
+    }
+    updateBoosters();
+
+    /* Kachel klicken */
+    function onTileClick(e) {
+      if (finished || !canFlip) return;
+      const idx = parseInt(e.currentTarget.dataset.idx, 10);
+      const result = L.flipTile(state, idx);
+      if (!result.flipped) return;
+
+      FX.Sound.tap();
+      updateTileVisual(idx);
+
+      /* Pruefen ob zwei aufgedeckt sind */
+      const flippedCount = state.tiles.filter(t => t.flipped && !t.matched).length;
+      if (flippedCount === 2) {
+        canFlip = false;
+        /* Kurze Verzoegerung damit Spieler beide sehen kann */
+        pendingMatch = api.timeout(() => {
+          const matchResult = L.checkMatch(state);
+          if (matchResult === null) {
+            canFlip = true;
+            return;
+          }
+          if (matchResult.matched) {
+            FX.Sound.star();
+            FX.burst(window.innerWidth / 2, window.innerHeight / 2, 14, 6);
+            showFeedback('Paar! +' + matchResult.points, '#2bffb9');
+            if (state.combo >= 3) {
+              showFeedback('COMBO x' + state.combo + '! +' + matchResult.points, '#ffd34e');
+              FX.burst(window.innerWidth / 2, window.innerHeight / 2, 20, 10);
+            }
+          } else {
+            FX.Sound.bad();
+            showFeedback('Kein Paar', '#ff4d6d');
+          }
+          updateAllVisuals();
+          updateHUD();
+          canFlip = true;
+
+          if (L.isComplete(state)) {
+            finished = true;
+            const elapsed = performance.now() - gameStart;
+            const baseScore = state.score;
+            const final = L.getFinalScore(state, elapsed, 0);
+            scoreEl.textContent = final;
+            api.setScore(final);
+            const bonus = final - baseScore;
+            showFeedback('ALLE PAARE! +' + bonus + ' Zeitbonus', '#ffd34e');
+            FX.Sound.win();
+            FX.burst(window.innerWidth / 2, window.innerHeight / 2, 30, 12);
+            api.timeout(() => api.finish(final), 1500);
+          }
+        }, 700);
+      }
+    }
+
+    /* Event-Listener an Kacheln */
+    for (let i = 0; i < tileEls.length; i++) {
+      tileEls[i].addEventListener('pointerdown', onTileClick);
+    }
+
+    /* Booster-Handler */
+    peekBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (finished || !state.boosters.has('peek')) return;
+      const now = performance.now() - gameStart;
+      L.useBooster(state, 'peek', now);
+      FX.Sound.good();
+      updateAllVisuals();
+      showFeedback('PEEK!', '#00f0ff');
+      api.timeout(() => {
+        if (!finished) updateAllVisuals();
+      }, PEEK_SHOW_MS);
+      updateBoosters();
+    });
+
+    shuffleBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (finished || !state.boosters.has('shuffle')) return;
+      L.useBooster(state, 'shuffle');
+      FX.Sound.tap();
+      /* DOM-Symbole aktualisieren */
+      for (let i = 0; i < state.tiles.length; i++) {
+        const back = tileEls[i].querySelector('.tf-tile-back');
+        back.textContent = SYMBOLS[state.tiles[i].symbol];
+      }
+      updateAllVisuals();
+      showFeedback('SHUFFLE!', '#7b2ff7');
+      FX.shake(stage);
+      updateBoosters();
+    });
+
+    freezeBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (finished || !state.boosters.has('freeze')) return;
+      const now = performance.now() - gameStart;
+      L.useBooster(state, 'freeze', now);
+      lastFreezeCheck = now;
+      FX.Sound.good();
+      showFeedback('FREEZE! +5s', '#00f0ff');
+      wrap.classList.add('frozen');
+      api.timeout(() => {
+        wrap.classList.remove('frozen');
+      }, 5000);
+      updateBoosters();
+    });
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      if (finished) return false;
+      const now = performance.now();
+      const elapsed = now - gameStart;
+
+      /* Start-Verzoegerung */
+      if (elapsed < START_DELAY) {
+        const remaining = Math.max(0, (TIME_MS + START_DELAY - elapsed) / 1000);
+        timerEl.textContent = remaining.toFixed(1) + 's';
+        return true;
+      }
+
+      if (!canFlip && elapsed >= START_DELAY) {
+        canFlip = true;
+      }
+
+      /* Zeit abgelaufen */
+      if (elapsed >= TIME_MS + START_DELAY) {
+        finished = true;
+        const final = L.getFinalScore(state, elapsed, START_DELAY);
+        if (L.isComplete(state)) {
+          showFeedback('Fertig! ' + final + ' Punkte', '#ffd34e');
+        } else {
+          showFeedback('Zeit abgelaufen!', '#ff4d6d');
+          FX.Sound.bad();
+          FX.shake(stage);
+        }
+        scoreEl.textContent = final;
+        api.setScore(final);
+        api.finish(final);
+        return false;
+      }
+
+      /* Peek-Visualisierung aktualisieren */
+      if (state.peekUntil > 0) {
+        const peeping = L.isPeeking(state, elapsed);
+        if (peeping && !gridEl.classList.contains('peek-active')) {
+          gridEl.classList.add('peek-active');
+          updateAllVisuals();
+        } else if (!peeping && gridEl.classList.contains('peek-active')) {
+          gridEl.classList.remove('peek-active');
+          updateAllVisuals();
+        }
+      }
+
+      /* Timer */
+      const remaining = Math.max(0, (TIME_MS + START_DELAY - elapsed) / 1000);
+      timerEl.textContent = remaining.toFixed(1) + 's';
+
+      /* Freeze-Effekt im Timer */
+      if (L.isFrozen(state, elapsed)) {
+        timerEl.style.color = '#00f0ff';
+      } else {
+        timerEl.style.color = remaining < 10 ? '#ff4d6d' : '';
+      }
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Finde alle Paare! Nutze Booster!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, START_DELAY - 500);
+    api.timeout(() => {
+      showFeedback('LOS!', '#2bffb9');
+      FX.Sound.go();
+    }, START_DELAY);
   }
 
   return { list };

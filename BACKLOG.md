@@ -18,7 +18,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Quick Draw Duel** — Western-Duell: waechst bis Signal, dann schnellstes Tippen (2026-07-22)
   - [x] **Rhythm Tap** — Im Takt tippen, Combo-Multiplikator, BPM-basierte Beats, Perfect/Good/Early/Late (2026-07-22)
   - [x] **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen (2026-07-22)
-  - [ ] **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit
+  - [x] **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit (2026-07-22)
   - Alte simple Spiele behalten als "Classic Mix", neue als "Action Mix"
 
 - [ ] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
@@ -98,6 +98,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 ---
 
 ## Done
+
+- [x] **Tile Flip Minispiel** — Komplettes Memory-Puzzle mit TDD entwickelt: getestete Spiellogik (25 Unit-Tests + 10 Paritaetstests), 4x4 Kachel-Grid mit 8 Paaren, 3D-Flip-Animationen, Combo-System (aufeinanderfolgende Matches geben mehr Punkte), 3 Booster (Peek/Shuffle/Freeze), Zeitbonus bei Completion, 60 Sekunden, Sound, Feedback-Animationen (2026-07-22)
 
 - [x] **Coin Dash Minispiel** — Komplettes Sammel-Ausweich-Spiel mit TDD entwickelt: getestete Spiellogik (30 Unit-Tests + 10 Paritaetstests), Drag-Steuerung, Muenzen sammeln mit Combo-System (bis 4x Multiplikator), rote Gegner ausweichen (3 Leben), 4 Power-Ups (Magnet/Schild/Speed/Freeze), Canvas-Rendering mit Gesichtern, Sound, Animationen, 30 Sekunden (2026-07-22)
 

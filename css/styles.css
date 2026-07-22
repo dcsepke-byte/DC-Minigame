@@ -3512,3 +3512,155 @@ body.board-compact .board-layout {
   pointer-events: none;
   z-index: 10;
 }
+
+/* =========================================================
+   TILE FLIP — Memory-Puzzle mit Boostern
+   ========================================================= */
+.tf-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 10px; box-sizing: border-box;
+  background: linear-gradient(160deg, #1a0a2e, #16213e, #0f3460);
+  gap: 8px;
+}
+.tf-wrap.frozen {
+  background: linear-gradient(160deg, #0a1a2e, #0d1f3c, #0a2840);
+  box-shadow: inset 0 0 80px rgba(0, 240, 255, 0.15);
+}
+.tf-hud {
+  display: flex; gap: 20px; align-items: center;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(16px, 3.5vw, 24px);
+}
+.tf-score { color: #ffd34e; }
+.tf-pairs { color: #2bffb9; }
+.tf-timer { color: #fff; transition: color 0.3s; }
+.tf-combo {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(16px, 3.5vw, 22px);
+  min-height: 24px; text-align: center;
+  transition: all 0.3s;
+}
+.tf-boosters {
+  display: flex; gap: 10px;
+}
+.tf-booster {
+  padding: 8px 14px;
+  font-size: clamp(12px, 2.5vw, 16px);
+  font-family: var(--font-display); font-weight: 600;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  background: rgba(255,255,255,0.08);
+  color: #fff; cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tf-booster:active { transform: scale(0.95); }
+.tf-booster:hover:not(:disabled) {
+  border-color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.15);
+}
+.tf-booster:disabled, .tf-booster.used {
+  opacity: 0.35; cursor: default;
+}
+.tf-peek:not(:disabled) { border-color: rgba(0,240,255,0.4); }
+.tf-shuffle:not(:disabled) { border-color: rgba(123,47,247,0.4); }
+.tf-freeze:not(:disabled) { border-color: rgba(43,255,185,0.4); }
+
+.tf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: clamp(4px, 1.5vw, 10px);
+  width: min(90vw, 400px);
+  aspect-ratio: 1;
+  perspective: 600px;
+}
+.tf-tile {
+  position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tf-tile-inner {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tf-tile.flipped .tf-tile-inner,
+.tf-tile.peeking .tf-tile-inner,
+.tf-tile.matched .tf-tile-inner {
+  transform: rotateY(180deg);
+}
+.tf-tile-front, .tf-tile-back {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: clamp(6px, 2vw, 14px);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  font-size: clamp(20px, 6vw, 40px);
+}
+.tf-tile-front {
+  background: linear-gradient(135deg, #533483, #7209b7);
+  color: rgba(255,255,255,0.4);
+  font-weight: 700;
+  border: 2px solid rgba(255,255,255,0.1);
+}
+.tf-tile-front::after {
+  content: '?';
+  font-family: var(--font-display);
+  font-size: clamp(20px, 6vw, 36px);
+}
+.tf-tile-front:empty::after { content: '?'; }
+.tf-tile-back {
+  background: linear-gradient(135deg, #f72585, #4361ee);
+  transform: rotateY(180deg);
+  border: 2px solid rgba(255,255,255,0.2);
+}
+.tf-tile.matched .tf-tile-back {
+  background: linear-gradient(135deg, #2bffb9, #00f0ff);
+  box-shadow: 0 0 20px rgba(43, 255, 185, 0.4);
+  border-color: rgba(43, 255, 185, 0.6);
+}
+.tf-tile.peeking .tf-tile-back {
+  opacity: 0.7;
+}
+.tf-tile.matched { pointer-events: none; }
+.tf-tile:not(.matched):active .tf-tile-inner {
+  transform: scale(0.97);
+}
+.tf-tile:not(.matched):active.flipped .tf-tile-inner,
+.tf-tile:not(.matched):active.peeking .tf-tile-inner {
+  transform: rotateY(180deg) scale(0.97);
+}
+
+.tf-feedback {
+  position: absolute; top: 15%; left: 50%;
+  transform: translateX(-50%) translateY(0);
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(18px, 4vw, 28px);
+  opacity: 0; pointer-events: none;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  z-index: 20; white-space: nowrap;
+}
+.tf-feedback.show {
+  animation: tfFeedbackPop 1.2s ease-out forwards;
+}
+@keyframes tfFeedbackPop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.8); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.1); }
+  40% { transform: translateX(-50%) translateY(0) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(1); }
+}
+
+.tf-instruction {
+  position: absolute; bottom: 10px; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(13px, 3vw, 16px);
+  color: rgba(255,255,255,0.7);
+  transition: opacity 0.5s;
+  pointer-events: none;
+  z-index: 10;
+}
