@@ -30,11 +30,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Daily Challenge** — taegliches Minispiel mit Bonus (2026-07-22)
   - [x] **Unlock-Shop UI** — Charakter-Auswahl im Browser (Logik fertig, UI fehlt) (2026-07-22)
 
-- [ ] **ONBOARDING / TUTORIAL** — Erste-Session-Erlebnis:
-  - Willkommen-Screen mit Animation
-  - Interaktives Tutorial fuer ersten Spiel-Modus
-  - Hinweis-Pfeile und Tooltips
-  - "Dein erstes Spiel" gefuehrt
+- [x] **ONBOARDING / TUTORIAL** — Erste-Session-Erlebnis mit TDD entwickelt: getestete Spiellogik (22 Unit-Tests + 15 Paritaetstests), 5 Tutorial-Schritte (Welcome, Spieler hinzufuegen, Spiele auswaehlen, Spiel starten, Daily Challenge), Glassmorphism-Overlay mit Progress-Bar, Target-Highlighting mit Pfeil und Pulsing-Glow, Schritt-Dots, Skip-Funktion, localStorage-Persistenz (2026-07-22)
 
 ## Phase 2: Visual & Audio Polish (Woche 3-4)
 
