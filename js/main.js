@@ -744,4 +744,143 @@
   // Aktiviere AudioContext beim ersten Klick irgendwo
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
 
+  /* ============================================================
+     ONBOARDING / TUTORIAL
+     ============================================================ */
+  const OB = window.OnboardingLogic;
+  const ONB_KEY = 'pa_onboarding';
+  const onbOverlay = $('#onboarding-overlay');
+  const onbCard = $('#onboarding-card');
+  const onbIcon = $('#onboarding-icon');
+  const onbTitle = $('#onboarding-title');
+  const onbText = $('#onboarding-text');
+  const onbNext = $('#onboarding-next');
+  const onbSkip = $('#onboarding-skip');
+  const onbFill = $('#onboarding-progress-fill');
+  const onbDots = $('#onboarding-dots');
+
+  function loadOnboardingState() {
+    if (!OB) return null;
+    try {
+      const raw = localStorage.getItem(ONB_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        // Merge mit Default um neue Felder abzusichern
+        const def = OB.createOnboardingState();
+        return Object.assign(def, saved);
+      }
+    } catch (_) {}
+    return OB ? OB.createOnboardingState() : null;
+  }
+
+  function saveOnboardingState(obState) {
+    try { localStorage.setItem(ONB_KEY, JSON.stringify(obState)); } catch (_) {}
+  }
+
+  // Icons fuer die einzelnen Schritte
+  const STEP_ICONS = ['🎮', '👤', '🎮', '🚀', '📅'];
+
+  function renderDots(obState) {
+    if (!onbDots) return;
+    const steps = OB.getTutorialSteps();
+    onbDots.innerHTML = '';
+    steps.forEach((_, i) => {
+      const dot = el('span', 'onboarding-dot');
+      if (i < obState.currentStep) dot.classList.add('done');
+      if (i === obState.currentStep) dot.classList.add('active');
+      onbDots.appendChild(dot);
+    });
+  }
+
+  function highlightTarget(target) {
+    // Alte Highlights entfernen
+    document.querySelectorAll('.onboarding-highlight, .onboarding-arrow').forEach(e => e.remove());
+    if (!target || target === '#screen-start') return;
+
+    const targetEl = document.querySelector(target);
+    if (!targetEl) return;
+
+    const rect = targetEl.getBoundingClientRect();
+    const highlight = el('div', 'onboarding-highlight');
+    highlight.style.top = (rect.top - 4) + 'px';
+    highlight.style.left = (rect.left - 4) + 'px';
+    highlight.style.width = (rect.width + 8) + 'px';
+    highlight.style.height = (rect.height + 8) + 'px';
+    document.body.appendChild(highlight);
+
+    // Pfeil ueber dem Target
+    const arrow = el('div', 'onboarding-arrow');
+    arrow.textContent = '👇';
+    arrow.style.top = (rect.top - 40) + 'px';
+    arrow.style.left = (rect.left + rect.width / 2 - 12) + 'px';
+    document.body.appendChild(arrow);
+  }
+
+  function showOnboardingStep(obState) {
+    if (!OB || !onbOverlay) return;
+    const step = OB.getCurrentStep(obState);
+    if (!step) {
+      closeOnboarding(obState);
+      return;
+    }
+
+    onbIcon.textContent = STEP_ICONS[obState.currentStep] || '🎮';
+    onbTitle.textContent = step.title;
+    onbText.textContent = step.text;
+    onbFill.style.width = OB.getProgressPercent(obState) + '%';
+    renderDots(obState);
+
+    // Beim letzten Schritt Button-Text aendern
+    if (obState.currentStep >= obState.stepsTotal - 1) {
+      onbNext.textContent = 'Los gehts! 🎉';
+    } else {
+      onbNext.textContent = 'Weiter';
+    }
+
+    onbOverlay.classList.add('active');
+    // Target hervorheben (mit kleinem Delay damit Layout steht)
+    setTimeout(() => highlightTarget(step.target), 100);
+  }
+
+  function closeOnboarding(obState) {
+    if (onbOverlay) onbOverlay.classList.remove('active');
+    document.querySelectorAll('.onboarding-highlight, .onboarding-arrow').forEach(e => e.remove());
+    OB.completeOnboarding(obState);
+    saveOnboardingState(obState);
+  }
+
+  function initOnboarding() {
+    if (!OB || !onbOverlay) return;
+    const obState = loadOnboardingState();
+    if (!obState) return;
+
+    // Nur anzeigen wenn Erstbenutzer
+    if (!OB.shouldShowTutorial(obState)) return;
+
+    // Listener
+    onbNext.addEventListener('click', () => {
+      FX.Sound.click();
+      const result = OB.advanceStep(obState);
+      if (result.completed) {
+        closeOnboarding(obState);
+      } else {
+        saveOnboardingState(obState);
+        showOnboardingStep(obState);
+      }
+    });
+
+    onbSkip.addEventListener('click', () => {
+      FX.Sound.tap();
+      OB.skipTutorial(obState);
+      saveOnboardingState(obState);
+      onbOverlay.classList.remove('active');
+      document.querySelectorAll('.onboarding-highlight, .onboarding-arrow').forEach(e => e.remove());
+    });
+
+    // Beim ersten Schritt sofort zeigen (kurze Verzoegerung fuer Page-Load)
+    setTimeout(() => showOnboardingStep(obState), 600);
+  }
+
+  initOnboarding();
+
 })();
