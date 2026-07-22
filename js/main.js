@@ -10,9 +10,55 @@
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
 
+  /* Screen Transition State (richtungsbehaftete Animationen) */
+  const transState = (window.ScreenTransitions || null)
+    ? (window.ScreenTransitions).createTransitionState({ durationMs: 400, exitDurationMs: 300 })
+    : null;
+  const ST = window.ScreenTransitions || null;
+
   function showScreen(name) {
-    Object.values(screens).forEach(s => s.classList.remove('active'));
-    screens[name].classList.add('active');
+    if (ST && transState) {
+      ST.startTransition(transState, name);
+      const t = transState.activeTransition;
+      // Exit-Animation auf altem Screen
+      if (t && t.from) {
+        const oldEl = screens[t.from];
+        if (oldEl) {
+          oldEl.classList.remove('active');
+          oldEl.style.setProperty('--exit-dur', t.exitDurationMs + 'ms');
+          oldEl.classList.add('screen-exit-' + t.direction);
+          setTimeout(() => {
+            oldEl.classList.remove('screen-exit-' + t.direction, 'screen-exit-active');
+            ST.setExitPhase(transState, 'after-exit');
+          }, t.exitDurationMs);
+        }
+      }
+      // Enter-Animation auf neuem Screen
+      const newEl = screens[name];
+      if (newEl) {
+        newEl.style.setProperty('--enter-dur', t.enterDurationMs + 'ms');
+        newEl.classList.add('screen-enter-' + t.direction);
+        ST.setEnterPhase(transState, 'enter');
+        // Display sofort setzen, damit Animation sichtbar ist
+        Object.values(screens).forEach(s => {
+          if (s !== newEl && s !== (t && t.from ? screens[t.from] : null)) {
+            s.classList.remove('active');
+          }
+        });
+        // Nach kurzer Verzoegerung active setzen fuer Enter-Animation
+        requestAnimationFrame(() => {
+          newEl.classList.add('active');
+        });
+        setTimeout(() => {
+          newEl.classList.remove('screen-enter-' + t.direction, 'screen-enter-active');
+          ST.setEnterPhase(transState, 'after-enter');
+        }, t.enterDurationMs);
+      }
+    } else {
+      // Fallback: alte showScreen ohne Transition-Logik
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[name].classList.add('active');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
