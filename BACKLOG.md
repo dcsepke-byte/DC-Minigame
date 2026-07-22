@@ -41,11 +41,11 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - Loading Screen mit Animation (2026-07-22)
   - Lobby-Redesign
 
-- [ ] **SOUND DESIGN** — Professionelle Audio:
-  - Hintergrundmusik pro Modus (Lobby, Board, Minispiel)
-  - Sound-Effekte: UI-Taps, Erfolge, Fehler, Level-Up
-  - Jingle fuer Sieg/Niederlage
-  - Audio-Settings (Musik/SFX getrennt, Lautstaerkeregler)
+- [x] **SOUND DESIGN** — Professionelle Audio:
+  - [x] Hintergrundmusik pro Modus (Lobby, Board, Minispiel) — prozedurale Musik in effects.js (2026-07-22)
+  - [x] Sound-Effekte: UI-Taps, Erfolge, Fehler, Level-Up — WebAudio-Sound-Objekt mit 15+ Sounds (2026-07-22)
+  - [x] Jingle fuer Sieg/Niederlage — fanfare() und celebrate() (2026-07-22)
+  - [x] Audio-Settings (Musik/SFX getrennt, Lautstaerkeregler) — TDD: 27 Unit-Tests + 14 Paritaetstests, Toggle-Switches + Volume-Slider in index.html/host.html/player.html, localStorage-Persistenz (2026-07-22)
 
 - [ ] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
   - Pawns als erkennbare Charakter-Modelle (nicht Kapseln)
