@@ -38,7 +38,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - Einheitliche Farbpalette und Design-Sprache
   - UI-Redesign: moderne, runde Karten statt flacher Boxen
   - Animationen: Uebergange zwischen Screens, Popup-Effekte
-  - Loading Screen mit Animation
+  - Loading Screen mit Animation (2026-07-22)
   - Lobby-Redesign
 
 - [ ] **SOUND DESIGN** — Professionelle Audio:
