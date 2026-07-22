@@ -55,6 +55,50 @@
   let autoJoinTried = false;
   let uiMode = 'compact';
 
+  /* ---------- Meta-Progression (XP, Level, Sterne, Achievements) ---------- */
+  const MPL = window.MetaProgressionLogic;
+  function loadProgression() {
+    try {
+      const raw = localStorage.getItem('pa_progression');
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return MPL ? MPL.createProgression() : { xp: 0, totalXp: 0, level: 0, stars: 0, gamesPlayed: 0 };
+  }
+  function saveProgression(p) {
+    try { localStorage.setItem('pa_progression', JSON.stringify(p)); } catch (_) {}
+  }
+  function loadAchState() {
+    try {
+      const raw = localStorage.getItem('pa_achievements');
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return MPL ? MPL.createAchievementState() : { unlocked: {} };
+  }
+  function saveAchState(a) {
+    try { localStorage.setItem('pa_achievements', JSON.stringify(a)); } catch (_) {}
+  }
+  let progression = loadProgression();
+  let achState = loadAchState();
+
+  function updateLobbyMeta() {
+    const el = $('#lobby-meta');
+    if (!el || !MPL) return;
+    const xpNext = MPL.xpToNextLevel(progression.totalXp);
+    const xpCur = MPL.currentLevelXp(progression.totalXp);
+    const xpNeed = MPL.xpForLevel(progression.level);
+    const pct = xpNeed > 0 ? Math.min(100, Math.round((xpCur / xpNeed) * 100)) : 0;
+    const ownedAch = MPL.getUnlockedAchievements(achState);
+    el.innerHTML = `
+      <div class="meta-level">Level ${progression.level}</div>
+      <div class="meta-xp-bar"><div class="meta-xp-fill" style="width:${pct}%"></div></div>
+      <div class="meta-xp-text">${xpCur} / ${xpNeed} XP — ${xpNext} bis Level ${progression.level + 1}</div>
+      <div class="meta-stats">
+        <span class="meta-stat">⭐ ${progression.stars} Sterne</span>
+        <span class="meta-stat">🎮 ${progression.gamesPlayed} Spiele</span>
+        <span class="meta-stat">🏆 ${ownedAch.length}/${MPL.ACHIEVEMENTS.length} Achievements</span>
+      </div>`;
+  }
+
   function updateUiSizeButton() {
     const btn = $('#ui-size-toggle');
     if (!btn) return;
@@ -210,6 +254,7 @@
     const bName = $('#board-name');
     if (bName) bName.textContent = me.name;
     if (m.state === 'lobby') showScreen('lobby');
+    updateLobbyMeta();
     FX.Sound.star();
     FX.burst(window.innerWidth / 2, window.innerHeight * 0.4, 26, 10);
   });
@@ -467,6 +512,30 @@
       } else {
         $('#result-star').textContent = '';
         FX.Sound.whoosh();
+      }
+      /* Meta-Progression: XP + Sterne + Achievements */
+      if (MPL) {
+        const result = MPL.applyGameResult(progression, {
+          score: r.score || 0,
+          placement: idx + 1,
+          playerCount: m.ranking.length,
+        });
+        const newAch = MPL.checkAchievements(progression, achState);
+        saveProgression(progression);
+        saveAchState(achState);
+        updateLobbyMeta();
+        if (result.leveledUp) {
+          const banner = $('#result-star');
+          banner.textContent = (banner.textContent ? banner.textContent + ' ' : '') +
+            `🎉 Level ${result.newLevel}! +${result.levelStars} ⭐`;
+          FX.Sound.fanfare();
+        }
+        /* Achievement-Toast */
+        for (const ach of newAch) {
+          setTimeout(() => {
+            FX.toast && FX.toast(document.body, `${ach.icon} ${ach.label}`, '#ffd34e');
+          }, 600);
+        }
       }
     }
     showScreen('result');
