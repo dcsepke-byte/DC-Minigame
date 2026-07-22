@@ -80,6 +80,22 @@
   let progression = loadProgression();
   let achState = loadAchState();
 
+  /* ---------- Unlock-State (Shop) ---------- */
+  function loadUnlockState() {
+    try {
+      const raw = localStorage.getItem('pa_unlocks');
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return MPL ? MPL.createUnlockState() : { owned: {} };
+  }
+  function saveUnlockState(s) {
+    try { localStorage.setItem('pa_unlocks', JSON.stringify(s)); } catch (_) {}
+  }
+  let unlockState = loadUnlockState();
+  let selectedCharId = 'char_rocket';
+  let shopOpen = false;
+  let shopTab = 'characters';
+
   function updateLobbyMeta() {
     const el = $('#lobby-meta');
     if (!el || !MPL) return;
@@ -185,10 +201,13 @@
   } catch (_) {}
   try {
     const savedFigure = localStorage.getItem('pa_figure');
+    const savedCharId = localStorage.getItem('pa_char_id');
     if (savedFigure) me.figure = savedFigure;
+    if (savedCharId) selectedCharId = savedCharId;
   } catch (_) {}
   renderFigurePicker();
   initUiMode();
+  initShop();
 
   /* ---------- Verbindung ---------- */
   if (location.protocol === 'file:') {
@@ -816,16 +835,139 @@
     const picker = $('#figure-picker');
     if (!picker) return;
     picker.innerHTML = '';
-    FIGURES.forEach(f => {
-      const b = el('button', 'figure-pill' + (me.figure === f ? ' active' : ''), f);
+    const SVL = window.ShopViewLogic;
+    const ownedIds = SVL ? SVL.getOwnedCharacterIds(unlockState) : null;
+    FIGURES.forEach((f, idx) => {
+      const charId = 'char_' + ['rocket','cat','fox','frog','panda','unicorn','robot','octopus'][idx];
+      const isOwned = ownedIds ? ownedIds.includes(charId) : true;
+      const isSelected = me.figure === f;
+      const cls = 'figure-pill' + (isSelected ? ' active' : '') + (!isOwned ? ' locked' : '');
+      const b = el('button', cls, f);
       b.type = 'button';
-      b.addEventListener('click', () => {
-        me.figure = f;
-        renderFigurePicker();
-        FX.Sound.tap();
-      });
+      if (!isOwned) {
+        b.disabled = true;
+        b.title = 'Im Shop freischalten';
+      } else {
+        b.addEventListener('click', () => {
+          me.figure = f;
+          selectedCharId = charId;
+          try { localStorage.setItem('pa_figure', f); } catch (_) {}
+          try { localStorage.setItem('pa_char_id', charId); } catch (_) {}
+          renderFigurePicker();
+          FX.Sound.tap();
+        });
+      }
       picker.appendChild(b);
     });
+  }
+
+  /* ---------- Shop-UI ---------- */
+  function updateJoinStarCount() {
+    const el = $('#join-star-count');
+    if (el) el.textContent = '⭐ ' + (progression.stars || 0);
+  }
+
+  function openShop() {
+    const overlay = $('#shop-overlay');
+    if (!overlay) return;
+    shopOpen = true;
+    overlay.hidden = false;
+    renderShop();
+    FX.Sound.tap();
+  }
+
+  function closeShop() {
+    const overlay = $('#shop-overlay');
+    if (!overlay) return;
+    shopOpen = false;
+    overlay.hidden = true;
+    renderFigurePicker();
+    updateJoinStarCount();
+  }
+
+  function renderShop() {
+    const SVL = window.ShopViewLogic;
+    if (!SVL || !MPL) return;
+    const starsEl = $('#shop-stars');
+    if (starsEl) starsEl.textContent = '⭐ ' + (progression.stars || 0);
+    const grid = $('#shop-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const allItems = SVL.buildShopItems(progression, unlockState);
+    const items = allItems.filter(i => shopTab === 'characters' ? i.type === 'character' : i.type === 'trail');
+    items.forEach(item => {
+      const card = el('div', 'shop-card');
+      if (item.owned) card.classList.add('owned');
+      if (item.id === selectedCharId && item.type === 'character') card.classList.add('selected');
+      if (!item.owned && !item.affordable) card.classList.add('locked');
+      const icon = el('div', 'shop-card-icon', item.icon);
+      card.appendChild(icon);
+      const name = el('div', 'shop-card-name', item.name);
+      card.appendChild(name);
+      if (item.owned) {
+        const badge = el('div', 'shop-card-badge owned', '✓');
+        card.appendChild(badge);
+        if (item.type === 'character') {
+          const priceEl = el('div', 'shop-card-price', item.id === selectedCharId ? 'Ausgewaehlt' : 'Frei');
+          card.appendChild(priceEl);
+          card.addEventListener('click', () => {
+            selectedCharId = item.id;
+            me.figure = item.icon;
+            try { localStorage.setItem('pa_figure', item.icon); } catch (_) {}
+            try { localStorage.setItem('pa_char_id', item.id); } catch (_) {}
+            renderShop();
+            FX.Sound.tap();
+          });
+        } else {
+          const priceEl = el('div', 'shop-card-price', 'Frei');
+          card.appendChild(priceEl);
+        }
+      } else {
+        const priceEl = el('div', 'shop-card-price', '⭐ ' + item.price);
+        card.appendChild(priceEl);
+        card.addEventListener('click', () => {
+          const result = MPL.purchaseUnlock(progression, unlockState, item.id);
+          const hint = $('#shop-hint');
+          if (hint) {
+            hint.textContent = SVL.purchaseFeedback(result);
+            hint.className = 'shop-hint ' + (result.success ? 'success' : 'error');
+          }
+          if (result.success) {
+            saveUnlockState(unlockState);
+            saveProgression(progression);
+            renderShop();
+            FX.Sound.good();
+          } else {
+            FX.Sound.bad();
+          }
+          setTimeout(() => { if (hint) { hint.textContent = ''; hint.className = 'shop-hint'; } }, 2500);
+        });
+      }
+      grid.appendChild(card);
+    });
+  }
+
+  function initShop() {
+    const btnShop = $('#btn-shop');
+    if (btnShop) btnShop.addEventListener('click', openShop);
+    const btnClose = $('#shop-close');
+    if (btnClose) btnClose.addEventListener('click', closeShop);
+    const overlay = $('#shop-overlay');
+    if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeShop(); });
+    document.querySelectorAll('.shop-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        shopTab = tab.dataset.tab;
+        renderShop();
+        FX.Sound.tap();
+      });
+    });
+    try {
+      const savedCharId = localStorage.getItem('pa_char_id');
+      if (savedCharId) selectedCharId = savedCharId;
+    } catch (_) {}
+    updateJoinStarCount();
   }
 
   function tryAutoJoin() {
