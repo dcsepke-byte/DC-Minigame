@@ -14,12 +14,23 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=17" />
+  <link rel="stylesheet" href="css/styles.css?v=18" />
   <link rel="manifest" href="manifest.webmanifest?v=9" />
   <link rel="icon" href="assets/icon.svg?v=9" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="assets/icon.svg?v=9" />
 </head>
 <body>
+  <!-- Loading Screen (wird beim Start gezeigt, nach Assets-Load ausgeblendet) -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-logo">
+      <span class="logo-word">PARTY</span>
+      <span class="logo-word accent">ARENA</span>
+    </div>
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+    <div class="loading-bar-wrap"><div class="loading-bar-fill" id="loading-bar-fill"></div></div>
+    <div class="loading-percent" id="loading-percent">0%</div>
+  </div>
+
   <!-- FX Canvas for confetti (kept for effects) -->
   <canvas id="fx-canvas"></canvas>
   <button id="sound-toggle" class="sound-toggle" title="Sound an/aus">🔊</button>
@@ -243,6 +254,8 @@
   }
   </script>
   <script type="module" src="js/scene3d.js?v=13"></script>
+  <script src="js/loading-screen-logic-browser.js?v=1"></script>
+  <script src="js/loading-screen-ui.js?v=1"></script>
   <script src="js/effects.js?v=13"></script>
   <script src="js/quiz-duel-questions.js?v=13"></script>
   <script src="js/tower-stack-logic-browser.js?v=13"></script>
