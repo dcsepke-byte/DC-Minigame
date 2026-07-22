@@ -17,7 +17,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Bounce Survival** — Ball am Leben halten mit Paddle, Geschwindigkeit steigt (2026-07-22)
   - [x] **Quick Draw Duel** — Western-Duell: waechst bis Signal, dann schnellstes Tippen (2026-07-22)
   - [x] **Rhythm Tap** — Im Takt tippen, Combo-Multiplikator, BPM-basierte Beats, Perfect/Good/Early/Late (2026-07-22)
-  - [ ] **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen
+  - [x] **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen (2026-07-22)
   - [ ] **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit
   - Alte simple Spiele behalten als "Classic Mix", neue als "Action Mix"
 
@@ -98,6 +98,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 ---
 
 ## Done
+
+- [x] **Coin Dash Minispiel** — Komplettes Sammel-Ausweich-Spiel mit TDD entwickelt: getestete Spiellogik (30 Unit-Tests + 10 Paritaetstests), Drag-Steuerung, Muenzen sammeln mit Combo-System (bis 4x Multiplikator), rote Gegner ausweichen (3 Leben), 4 Power-Ups (Magnet/Schild/Speed/Freeze), Canvas-Rendering mit Gesichtern, Sound, Animationen, 30 Sekunden (2026-07-22)
 
 - [x] **Dodgeball Minispiel** — Komplettes Ausweich-Spiel mit TDD entwickelt: getestete Spiellogik (37 Unit-Tests + 21 Paritaetstests), Baelle von allen Seiten, Spieler-Figur mit Gesicht, Drag-Steuerung, Close-Call-Bonus, Survival-Score, Treffer-Animationen, Game Over bei 3 Treffern, Sound, 30 Sekunden (2026-07-21)
 

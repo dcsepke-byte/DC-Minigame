@@ -3469,8 +3469,377 @@ const Games = (() => {
     { id: 'quickdraw', name: 'Quick Draw Duel', icon: '🤠', desc: 'Western-Duell: Schnellstes Tippen nach Signal!',
       rules: 'Western-Duell! Warte auf das <strong>FIRE!</strong>-Signal, dann <strong>tippe so schnell wie moeglich</strong>. <strong>Vor dem Signal tippen = Foul</strong> (0 Punkte)! 3 Runden, schnellste Reaktionszeit gewinnt. Je schneller, desto mehr Punkte!', play: gameQuickDraw },
     { id: 'rhythmtap', name: 'Rhythm Tap', icon: '🎵', desc: 'Tippe im Takt — Combo-Multiplikator fuer Perfektion!',
-      rules: 'Beats fallen im Rhythmus auf die <strong>Trefferzone</strong>. Tippe im richtigen Moment: <strong>Perfect</strong> gibt 100, <strong>Good</strong> gibt 50 Punkte. Baue eine <strong>Combo</strong> auf fuer bis zu <strong>4x Multiplikator</strong>! Zu frueh oder zu spaet bricht die Combo. <strong>5 verpasste Beats</strong> = Game Over. 30 Sekunden.', play: gameRhythmTap }
+      rules: 'Beats fallen im Rhythmus auf die <strong>Trefferzone</strong>. Tippe im richtigen Moment: <strong>Perfect</strong> gibt 100, <strong>Good</strong> gibt 50 Punkte. Baue eine <strong>Combo</strong> auf fuer bis zu <strong>4x Multiplikator</strong>! Zu frueh oder zu spaet bricht die Combo. <strong>5 verpasste Beats</strong> = Game Over. 30 Sekunden.', play: gameRhythmTap },
+    { id: 'coindash', name: 'Coin Dash', icon: '🪙', desc: 'Sammle Muenzen, weiche Gegnern aus, nutze Power-Ups!',
+      rules: 'Bewege dich durch <strong>Ziehen</strong> auf dem Feld. Sammle <strong>goldene Muenzen</strong> fuer Punkte und <strong>Combos</strong>! Meide die <strong>roten Gegner</strong> — 3 Treffer = Game Over! <strong>Power-Ups</strong>: Magnet (Muenzen anziehen), Schild (blockt Gegner), Freeze (stoppt Gegner). 30 Sekunden.', play: gameCoinDash }
   ];
+
+  /* =========================================================
+     COIN DASH — Muenzen sammeln, Gegner ausweichen, Power-Ups
+     Drag-Steuerung, 30 Sekunden, 3 Leben, Combo-System
+     ========================================================= */
+  function gameCoinDash(stage, api) {
+    const L = window.CoinDashLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 30000;
+    const COIN_VALUE = 10;
+    const SPAWN_INTERVAL_COIN = 800;  // ms
+    const SPAWN_INTERVAL_ENEMY = 2500; // ms
+    const SPAWN_INTERVAL_POWERUP = 8000; // ms
+    const ENEMY_SPEED = 0.15; // pro Sekunde
+
+    /* Spielzustand */
+    const state = L.createCoinDashState({ maxLives: 3 });
+    let finished = false;
+    let gameStart = performance.now();
+    let lastCoinSpawn = 0;
+    let lastEnemySpawn = 0;
+    let lastPowerUpSpawn = 0;
+    let lastTime = gameStart;
+    let dragActive = false;
+
+    /* DOM */
+    const wrap = el('div', 'cd-wrap');
+    wrap.innerHTML = `
+      <div class="cd-hud">
+        <span class="cd-score" id="cd-score">0</span>
+        <span class="cd-combo" id="cd-combo">Combo: 0</span>
+        <span class="cd-timer" id="cd-timer">30s</span>
+      </div>
+      <div class="cd-lives" id="cd-lives"></div>
+      <div class="cd-powerup-badge" id="cd-powerup"></div>
+      <div class="cd-arena" id="cd-arena">
+        <canvas class="cd-canvas" id="cd-canvas"></canvas>
+      </div>
+      <div class="cd-feedback" id="cd-feedback"></div>
+      <div class="cd-instruction" id="cd-instruct">Ziehe um zu bewegen! Sammle Muenzen, meide Gegner!</div>`;
+    stage.appendChild(wrap);
+
+    const scoreEl = wrap.querySelector('#cd-score');
+    const comboEl = wrap.querySelector('#cd-combo');
+    const timerEl = wrap.querySelector('#cd-timer');
+    const livesEl = wrap.querySelector('#cd-lives');
+    const arenaEl = wrap.querySelector('#cd-arena');
+    const canvasEl = wrap.querySelector('#cd-canvas');
+    const feedbackEl = wrap.querySelector('#cd-feedback');
+    const powerupEl = wrap.querySelector('#cd-powerup');
+    const instructEl = wrap.querySelector('#cd-instruct');
+    const ctx = canvasEl.getContext('2d');
+
+    /* Canvas anpassen */
+    function resizeCanvas() {
+      const r = arenaEl.getBoundingClientRect();
+      canvasEl.width = r.width;
+      canvasEl.height = r.height;
+    }
+    resizeCanvas();
+
+    /* Lives anzeigen */
+    function updateLives() {
+      let html = '';
+      for (let i = 0; i < state.maxLives; i++) {
+        html += i < state.lives ? '<span class="cd-life">❤️</span>' : '<span class="cd-life lost">🖤</span>';
+      }
+      livesEl.innerHTML = html;
+    }
+    updateLives();
+
+    /* Feedback */
+    function showFeedback(text, color) {
+      feedbackEl.textContent = text;
+      feedbackEl.style.color = color;
+      feedbackEl.classList.remove('show');
+      void feedbackEl.offsetWidth;
+      feedbackEl.classList.add('show');
+    }
+
+    /* Combo-Anzeige */
+    function updateCombo() {
+      if (state.combo > 0) {
+        const mult = L.getComboMultiplier(state.combo);
+        comboEl.textContent = `Combo: ${state.combo} (${mult}x)`;
+        comboEl.style.color = mult >= 3 ? '#ffd34e' : mult >= 2 ? '#ff6a00' : '#2bffb9';
+      } else {
+        comboEl.textContent = 'Combo: 0';
+        comboEl.style.color = 'rgba(255,255,255,0.5)';
+      }
+    }
+
+    /* PowerUp-Badge */
+    function updatePowerUpBadge() {
+      if (state.activePowerUp) {
+        const icons = { magnet: '🧲', shield: '🛡️', speed: '⚡', freeze: '❄️' };
+        const names = { magnet: 'Magnet', shield: 'Schild', speed: 'Speed', freeze: 'Freeze' };
+        powerupEl.innerHTML = `${icons[state.activePowerUp]} ${names[state.activePowerUp]} (${state.powerUpTimer.toFixed(1)}s)`;
+        powerupEl.style.opacity = '1';
+      } else {
+        powerupEl.style.opacity = '0';
+      }
+    }
+
+    /* Position relativ zu Arena */
+    function getRelPos(clientX, clientY) {
+      const r = arenaEl.getBoundingClientRect();
+      return {
+        x: (clientX - r.left) / r.width,
+        y: (clientY - r.top) / r.height,
+      };
+    }
+
+    /* Drag-Steuerung */
+    function onPointerDown(e) {
+      if (finished) return;
+      dragActive = true;
+      const pos = getRelPos(e.clientX, e.clientY);
+      L.movePlayer(state, pos.x, pos.y);
+      arenaEl.setPointerCapture(e.pointerId);
+    }
+    function onPointerMove(e) {
+      if (finished || !dragActive) return;
+      const pos = getRelPos(e.clientX, e.clientY);
+      L.movePlayer(state, pos.x, pos.y);
+    }
+    function onPointerUp(e) {
+      dragActive = false;
+      try { arenaEl.releasePointerCapture(e.pointerId); } catch(_) {}
+    }
+    arenaEl.addEventListener('pointerdown', onPointerDown);
+    arenaEl.addEventListener('pointermove', onPointerMove);
+    arenaEl.addEventListener('pointerup', onPointerUp);
+    arenaEl.addEventListener('pointercancel', onPointerUp);
+
+    /* Spawn-Logik */
+    const PU_TYPES = ['magnet', 'shield', 'speed', 'freeze'];
+    function randomSpawn(type) {
+      const margin = 0.1;
+      const x = margin + Math.random() * (1 - 2 * margin);
+      const y = margin + Math.random() * (1 - 2 * margin);
+      // Nicht zu nah am Spieler
+      const dx = x - state.player.x, dy = y - state.player.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 0.15) return false;
+      if (type === 'coin') {
+        L.spawnCoin(state, x, y, COIN_VALUE);
+      } else if (type === 'enemy') {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = ENEMY_SPEED * (0.8 + Math.random() * 0.4);
+        L.spawnEnemy(state, x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 0);
+      } else if (type === 'powerup') {
+        const t = PU[Math.floor(Math.random() * PU.length)];
+        L.spawnPowerUp(state, x, y, t);
+      }
+      return true;
+    }
+    const PU = PU_TYPES;
+
+    /* Render */
+    function render() {
+      const w = canvasEl.width, h = canvasEl.height;
+      ctx.clearRect(0, 0, w, h);
+
+      /* Muenzen */
+      for (const c of state.coins) {
+        const cx = c.x * w, cy = c.y * h, r = c.radius * Math.min(w, h);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffd34e';
+      ctx.fill();
+        ctx.strokeStyle = '#b8860b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        /* Glanz */
+        ctx.beginPath();
+        ctx.arc(cx - r * 0.3, cy - r * 0.3, r * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fill();
+      }
+
+      /* PowerUps */
+      const puIcons = { magnet: '🧲', shield: '🛡️', speed: '⚡', freeze: '❄️' };
+      const puColors = { magnet: '#ff6a00', shield: '#3a86ff', speed: '#2bffb9', freeze: '#00f0ff' };
+      for (const pu of state.powerUps) {
+        const px = pu.x * w, py = pu.y * h, r = pu.radius * Math.min(w, h);
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fillStyle = puColors[pu.type] || '#fff';
+        ctx.globalAlpha = 0.3;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = puColors[pu.type] || '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.font = `${r * 1.2}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(puIcons[pu.type] || '?', px, py);
+      }
+
+      /* Gegner */
+      for (const e of state.enemies) {
+        const ex = e.x * w, ey = e.y * h, r = e.radius * Math.min(w, h);
+        ctx.beginPath();
+        ctx.arc(ex, ey, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff4d6d';
+        ctx.fill();
+        ctx.strokeStyle = '#8b0000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        /* Augen */
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(ex - r * 0.3, ey - r * 0.2, r * 0.2, 0, Math.PI * 2);
+        ctx.arc(ex + r * 0.3, ey - r * 0.2, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(ex - r * 0.3, ey - r * 0.2, r * 0.1, 0, Math.PI * 2);
+        ctx.arc(ex + r * 0.3, ey - r * 0.2, r * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      /* Spieler */
+      const p = state.player;
+      const px = p.x * w, py = p.y * h, r = p.radius * Math.min(w, h);
+      /* Shield-Aura */
+      if (state.activePowerUp === 'shield') {
+        ctx.beginPath();
+        ctx.arc(px, py, r * 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(58, 134, 255, 0.2)';
+        ctx.fill();
+        ctx.strokeStyle = '#3a86ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      /* Magnet-Aura */
+      if (state.activePowerUp === 'magnet') {
+        ctx.beginPath();
+        ctx.arc(px, py, r * 4, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 106, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#2bffb9';
+      ctx.fill();
+      ctx.strokeStyle = '#0a7a52';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      /* Gesicht */
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(px - r * 0.3, py - r * 0.2, r * 0.15, 0, Math.PI * 2);
+      ctx.arc(px + r * 0.3, py - r * 0.2, r * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      /* Laecheln */
+      ctx.beginPath();
+      ctx.arc(px, py + r * 0.1, r * 0.3, 0.2, Math.PI - 0.2);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    /* Frame-Loop */
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (now >= gameStart + TIME_MS) {
+        finished = true;
+        scoreEl.textContent = state.score;
+        api.setScore(state.score);
+        api.finish(state.score);
+        return false;
+      }
+
+      if (finished) return false;
+
+      const elapsed = now - gameStart;
+
+      /* Spawning */
+      if (elapsed - lastCoinSpawn > SPAWN_INTERVAL_COIN) {
+        randomSpawn('coin');
+        lastCoinSpawn = elapsed;
+      }
+      if (elapsed - lastEnemySpawn > SPAWN_INTERVAL_ENEMY) {
+        randomSpawn('enemy');
+        lastEnemySpawn = elapsed;
+      }
+      if (elapsed - lastPowerUpSpawn > SPAWN_INTERVAL_POWERUP) {
+        randomSpawn('powerup');
+        lastPowerUpSpawn = elapsed;
+      }
+
+      /* Logik updaten */
+      L.updateEnemies(state, dt);
+      L.tick(state, dt);
+      const events = L.checkCollisions(state);
+
+      /* Events verarbeiten */
+      for (const ev of events) {
+        if (ev.type === 'coin') {
+          FX.Sound.star();
+          showFeedback('+' + ev.value, '#ffd34e');
+        } else if (ev.type === 'hit') {
+          FX.Sound.bad();
+          FX.shake(stage);
+          showFeedback('TREFFER!', '#ff4d6d');
+          updateLives();
+          if (L.isGameOver(state)) {
+            finished = true;
+            FX.Sound.explode();
+            FX.shake(stage);
+            showFeedback('GAME OVER', '#ff4d6d');
+            scoreEl.textContent = state.score;
+            api.setScore(state.score);
+            api.timeout(() => api.finish(state.score), 1000);
+            return false;
+          }
+        } else if (ev.type === 'blocked') {
+          FX.Sound.good();
+          showFeedback('BLOCKT!', '#3a86ff');
+        } else if (ev.type === 'powerup') {
+          FX.Sound.star();
+          const names = { magnet: 'MAGNET!', shield: 'SCHILD!', speed: 'SPEED!', freeze: 'FREEZE!' };
+          showFeedback(names[ev.powerUp] || 'POWER UP!', '#ff6a00');
+          FX.burst(window.innerWidth / 2, window.innerHeight / 2, 20, 10);
+        }
+      }
+
+      /* UI updaten */
+      scoreEl.textContent = state.score;
+      api.setScore(state.score);
+      updateCombo();
+      updatePowerUpBadge();
+      render();
+
+      /* Timer */
+      const remaining = Math.max(0, (TIME_MS - elapsed) / 1000);
+      timerEl.textContent = remaining.toFixed(1) + 's';
+
+      return true;
+    });
+
+    /* Start */
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, 2500);
+    api.timeout(() => {
+      showFeedback('LOS!', '#2bffb9');
+      FX.Sound.go();
+    }, 500);
+
+    /* Resize-Handler */
+    const onResize = () => resizeCanvas();
+    window.addEventListener('resize', onResize);
+    const cleanup = api.timeout(() => {
+      window.removeEventListener('resize', onResize);
+    }, TIME_MS + 5000);
+  }
 
   return { list };
 })();
