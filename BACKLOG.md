@@ -21,13 +21,14 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit (2026-07-22)
   - Alte simple Spiele behalten als "Classic Mix", neue als "Action Mix"
 
-- [ ] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
-  - Spieler-Level (XP aus Spielen)
-  - Unlockable Charaktere/Figuren (nicht nur Emojis — echte 3D-Figuren)
-  - Cosmetics: Farben, Trails, Pawn-Skins
-  - Daily Challenge: taegliches Minispiel mit Bonus
-  - Sternen-Sammlung als Waehrung fuer Unlocks
-  - Achievement-System (erste 10 Achievements)
+- [~] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
+  - [x] **XP & Level-System** — XP aus Minispielen (sqrt-basiert, diminishing returns), progressive Level-Kurve (1.5x), Level-Up gibt Sterne (2026-07-22)
+  - [x] **Sternen-Waehrung** — Sterne aus Platzierung (1.=5, 2.=3, 3.=2, 4.+=1) und Level-Up, gespeichert in localStorage (2026-07-22)
+  - [x] **Achievement-System** — 10 Achievements: first_game, veteran_10/50, level_5/10/25, star_collector_50/200, high_scorer, dedicated (2026-07-22)
+  - [x] **Unlock-Shop Logik** — 8 Charaktere + 3 Trails, Default-Rakete kostenlos, Sterne als Waehrung (2026-07-22)
+  - [x] **Lobby-Anzeige** — Level, XP-Bar, Sterne, Spiele-Anzahl, Achievement-Zaeler in der Lobby (2026-07-22)
+  - [ ] **Daily Challenge** — taegliches Minispiel mit Bonus
+  - [ ] **Unlock-Shop UI** — Charakter-Auswahl im Browser (Logik fertig, UI fehlt)
 
 - [ ] **ONBOARDING / TUTORIAL** — Erste-Session-Erlebnis:
   - Willkommen-Screen mit Animation
@@ -98,6 +99,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 ---
 
 ## Done
+
+- [x] **Meta-Progression System (Kern)** — Komplettes XP/Level/Sterne/Achievement/Unlock-System mit TDD entwickelt: getestete Spiellogik (80 Unit-Tests + 38 Paritaetstests), progressive XP-Kurve (1.5x pro Level), XP aus Minispiel-Score mit Diminishing Returns (sqrt), Sterne aus Platzierung + Level-Up, 10 Achievements, 8 Charaktere + 3 Trails als Unlocks, Lobby-Anzeige mit XP-Bar, localStorage-Persistenz, ESM + IIFE Browser-Version (2026-07-22)
 
 - [x] **Tile Flip Minispiel** — Komplettes Memory-Puzzle mit TDD entwickelt: getestete Spiellogik (25 Unit-Tests + 10 Paritaetstests), 4x4 Kachel-Grid mit 8 Paaren, 3D-Flip-Animationen, Combo-System (aufeinanderfolgende Matches geben mehr Punkte), 3 Booster (Peek/Shuffle/Freeze), Zeitbonus bei Completion, 60 Sekunden, Sound, Feedback-Animationen (2026-07-22)
 
