@@ -2918,6 +2918,240 @@ const Games = (() => {
   }
 
   /* =========================================================
+     RHYTHM TAP — Im Takt tippen, Combo-Multiplikator
+     Beats kommen im Rhythmus, tippe im richtigen Moment.
+     Perfect/Good/Early/Late Bewertung, Combo steigert Punkte.
+     30 Sekunden, 5 Misses = Game Over.
+     ========================================================= */
+  function gameRhythmTap(stage, api) {
+    const L = window.RhythmTapLogic;
+    if (!L) { api.finish(0); return; }
+
+    /* Konfiguration */
+    const TIME_MS = 30000;
+    const BPM = 100;
+    const BEAT_INTERVAL = 60000 / BPM; // 600ms pro Beat
+    const BEAT_COUNT = Math.ceil(TIME_MS / BEAT_INTERVAL) + 2; // ein paar extra
+    const START_DELAY = 2000; // 2s Vorbereitung
+
+    /* Spielzustand */
+    const state = L.createRhythmState({
+      bpm: BPM,
+      beatCount: BEAT_COUNT,
+      maxMisses: 5,
+      offset: START_DELAY,
+    });
+
+    let finished = false;
+    let gameStart = performance.now();
+    let lastBeatChecked = performance.now();
+    let activeBeatEl = null;
+    let nextBeatSpawnTime = state.beats[0];
+
+    /* DOM */
+    const wrap = el('div', 'rt-wrap');
+    wrap.innerHTML = `
+      <div class="rt-hud">
+        <span class="rt-score" id="rt-score">0</span>
+        <span class="rt-combo" id="rt-combo">Combo: 0</span>
+        <span class="rt-timer" id="rt-timer">30s</span>
+      </div>
+      <div class="rt-lives" id="rt-lives"></div>
+      <div class="rt-track" id="rt-track">
+        <div class="rt-zones">
+          <div class="rt-zone rt-zone-early" id="rt-zone-early"></div>
+          <div class="rt-zone rt-zone-good" id="rt-zone-good"></div>
+          <div class="rt-zone rt-zone-perfect" id="rt-zone-perfect"></div>
+          <div class="rt-zone rt-zone-good2" id="rt-zone-good2"></div>
+          <div class="rt-zone rt-zone-late" id="rt-zone-late"></div>
+        </div>
+        <div class="rt-beats" id="rt-beats"></div>
+        <div class="rt-tap-area" id="rt-tap-area"></div>
+      </div>
+      <div class="rt-feedback" id="rt-feedback"></div>
+      <div class="rt-instruction" id="rt-instruct">Tippe im Takt!</div>`;
+    stage.appendChild(wrap);
+
+    const scoreEl = wrap.querySelector('#rt-score');
+    const comboEl = wrap.querySelector('#rt-combo');
+    const timerEl = wrap.querySelector('#rt-timer');
+    const livesEl = wrap.querySelector('#rt-lives');
+    const trackEl = wrap.querySelector('#rt-track');
+    const beatsEl = wrap.querySelector('#rt-beats');
+    const feedbackEl = wrap.querySelector('#rt-feedback');
+    const instructEl = wrap.querySelector('#rt-instruct');
+
+    /* Farben */
+    const COLORS = ['#ff3cac', '#7b2ff7', '#00f0ff', '#2bffb9', '#ffd34e', '#ff6a00', '#3a86ff', '#ff4d6d'];
+
+    /* Lives anzeigen */
+    function updateLives() {
+      const max = state.maxMisses;
+      const lost = state.misses;
+      let html = '';
+      for (let i = 0; i < max; i++) {
+        html += i < (max - lost) ? '<span class="rt-life">❤️</span>' : '<span class="rt-life lost">🖤</span>';
+      }
+      livesEl.innerHTML = html;
+    }
+    updateLives();
+
+    /* Feedback anzeigen */
+    function showFeedback(text, color) {
+      feedbackEl.textContent = text;
+      feedbackEl.style.color = color;
+      feedbackEl.classList.remove('show');
+      void feedbackEl.offsetWidth;
+      feedbackEl.classList.add('show');
+    }
+
+    /* Combo-Anzeige aktualisieren */
+    function updateCombo() {
+      if (state.combo > 0) {
+        const mult = L.getComboMultiplier(state.combo);
+        comboEl.textContent = `Combo: ${state.combo} (${mult}x)`;
+        comboEl.style.color = mult >= 3 ? '#ffd34e' : mult >= 2 ? '#ff6a00' : '#2bffb9';
+      } else {
+        comboEl.textContent = 'Combo: 0';
+        comboEl.style.color = 'rgba(255,255,255,0.5)';
+      }
+    }
+
+    /* Beat-Element erstellen und animieren */
+    function spawnBeat(beatIdx) {
+      if (beatIdx >= state.beats.length) return;
+      const beatTime = state.beats[beatIdx];
+      const beatDiv = el('div', 'rt-beat');
+      beatDiv.style.background = COLORS[beatIdx % COLORS.length];
+      beatsEl.appendChild(beatDiv);
+
+      /* Animation: Beat faellt von oben in die Trefferzone */
+      const travelTime = beatTime - (performance.now() - gameStart);
+      if (travelTime <= 0) return;
+
+      /* Beat startet 1000ms vor seiner Zeit und faellt in 1000ms zur Zone */
+      const approachMs = 1000;
+      const spawnDelay = Math.max(0, travelTime - approachMs);
+
+      api.timeout(() => {
+        if (finished) return;
+        beatDiv.classList.add('rt-beat-active');
+        beatDiv.style.transition = 'top ' + approachMs + 'ms linear';
+        beatDiv.style.top = '50%';
+        /* Beat nach 200ms in Trefferzone entfernen wenn nicht getippt */
+        api.timeout(() => {
+          if (beatDiv.parentNode && beatDiv.classList.contains('rt-beat-active')) {
+            beatDiv.classList.add('rt-beat-missed');
+            api.timeout(() => { if (beatDiv.parentNode) beatDiv.remove(); }, 300);
+          }
+        }, approachMs + 200);
+      }, spawnDelay);
+    }
+
+    /* Tippen verarbeiten */
+    function onTap() {
+      if (finished) return;
+      if (performance.now() - gameStart < START_DELAY - 200) {
+        /* Zu frueh vor erstem Beat */
+        showFeedback('Warte!', '#ff4d6d');
+        FX.Sound.bad();
+        return;
+      }
+
+      const tapTime = performance.now() - gameStart;
+      const result = L.judgeTap(state, tapTime);
+
+      /* Visuelles Feedback */
+      if (result.timing === 'perfect') {
+        showFeedback('PERFECT! +' + result.points, '#ffd34e');
+        FX.Sound.star();
+        FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 16, 8);
+      } else if (result.timing === 'good') {
+        showFeedback('GOOD! +' + result.points, '#2bffb9');
+        FX.Sound.good();
+      } else if (result.timing === 'early') {
+        showFeedback('ZU FRUEH!', '#ff9e5e');
+        FX.Sound.bad();
+      } else if (result.timing === 'late') {
+        showFeedback('ZU SPAET!', '#ff4d6d');
+        FX.Sound.bad();
+        FX.shake(stage);
+        updateLives();
+      }
+
+      scoreEl.textContent = state.score;
+      api.setScore(state.score);
+      updateCombo();
+    }
+
+    trackEl.addEventListener('pointerdown', onTap);
+
+    /* Naechste Beats spawnen */
+    function spawnPendingBeats() {
+      const elapsed = performance.now() - gameStart;
+      for (let i = state.beatIndex; i < state.beats.length; i++) {
+        const beatTime = state.beats[i];
+        if (beatTime - elapsed <= 1100 && beatTime - elapsed > 0) {
+          spawnBeat(i);
+        }
+      }
+    }
+
+    /* Frame-Loop */
+    let lastFrame = performance.now();
+    api.frameLoop(() => {
+      const now = performance.now();
+      lastFrame = now;
+
+      if (now >= gameStart + TIME_MS + START_DELAY) {
+        finished = true;
+        scoreEl.textContent = state.score;
+        api.setScore(state.score);
+        api.finish(state.score);
+        return false;
+      }
+
+      if (finished) return false;
+
+      /* Verpasste Beats pruefen */
+      const elapsed = now - gameStart;
+      const missed = L.checkMissedBeats(state, elapsed);
+      if (missed > 0) {
+        updateLives();
+        if (L.isGameOver(state)) {
+          finished = true;
+          FX.Sound.explode();
+          FX.shake(stage);
+          showFeedback('GAME OVER', '#ff4d6d');
+          scoreEl.textContent = state.score;
+          api.setScore(state.score);
+          api.timeout(() => api.finish(state.score), 1000);
+          return false;
+        }
+      }
+
+      /* Beats spawnen */
+      spawnPendingBeats();
+
+      /* Timer */
+      const remaining = Math.max(0, (TIME_MS + START_DELAY - elapsed) / 1000);
+      timerEl.textContent = remaining.toFixed(1) + 's';
+
+      return true;
+    });
+
+    /* Start */
+    instructEl.textContent = 'Bereit? Tippe im Takt!';
+    api.timeout(() => {
+      instructEl.style.opacity = '0';
+    }, START_DELAY - 500);
+    api.timeout(() => {
+      showFeedback('LOS!', '#2bffb9');
+      FX.Sound.go();
+    }, START_DELAY);
+  }
+
+  /* =========================================================
      QUICK DRAW DUEL — Western-Duell: Reaktionsschnelles Tippen
      READY... STEADY... FIRE! Schnellstes Tippen gewinnt.
      Fruehes Tippen = Foul. 3 Runden.
@@ -3233,7 +3467,9 @@ const Games = (() => {
     { id: 'bouncesurvival', name: 'Bounce Survival', icon: '🏓', desc: 'Halte den Ball am Leben — mit Paddle!',
       rules: 'Halte den <strong>Ball am Leben</strong>! Bewege das <strong>Paddle</strong> durch Ziehen nach links/rechts. Der Ball prallt an den Waenden und am Paddle ab — der <strong>Winkel aendert sich</strong> je nachdem, wo du triffst! Die Geschwindigkeit <strong>steigt alle 5 Sekunden</strong>. <strong>3x den Ball verfehlen</strong> = Game Over. 45 Sekunden.', play: gameBounceSurvival },
     { id: 'quickdraw', name: 'Quick Draw Duel', icon: '🤠', desc: 'Western-Duell: Schnellstes Tippen nach Signal!',
-      rules: 'Western-Duell! Warte auf das <strong>FIRE!</strong>-Signal, dann <strong>tippe so schnell wie moeglich</strong>. <strong>Vor dem Signal tippen = Foul</strong> (0 Punkte)! 3 Runden, schnellste Reaktionszeit gewinnt. Je schneller, desto mehr Punkte!', play: gameQuickDraw }
+      rules: 'Western-Duell! Warte auf das <strong>FIRE!</strong>-Signal, dann <strong>tippe so schnell wie moeglich</strong>. <strong>Vor dem Signal tippen = Foul</strong> (0 Punkte)! 3 Runden, schnellste Reaktionszeit gewinnt. Je schneller, desto mehr Punkte!', play: gameQuickDraw },
+    { id: 'rhythmtap', name: 'Rhythm Tap', icon: '🎵', desc: 'Tippe im Takt — Combo-Multiplikator fuer Perfektion!',
+      rules: 'Beats fallen im Rhythmus auf die <strong>Trefferzone</strong>. Tippe im richtigen Moment: <strong>Perfect</strong> gibt 100, <strong>Good</strong> gibt 50 Punkte. Baue eine <strong>Combo</strong> auf fuer bis zu <strong>4x Multiplikator</strong>! Zu frueh oder zu spaet bricht die Combo. <strong>5 verpasste Beats</strong> = Game Over. 30 Sekunden.', play: gameRhythmTap }
   ];
 
   return { list };
