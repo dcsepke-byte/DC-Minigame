@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=17" />
+  <link rel="stylesheet" href="css/styles.css?v=19" />
   <link rel="manifest" href="manifest.webmanifest?v=9" />
   <link rel="icon" href="assets/icon.svg?v=9" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="assets/icon.svg?v=9" />
@@ -25,7 +25,42 @@
   <button id="btn-in-game-end" class="in-game-end-toggle" title="Spiel sofort beenden">⛔</button>
   <button id="ui-size-toggle" class="ui-size-toggle" title="Anzeigegröße">A</button>
   <button id="fullscreen-toggle" class="fullscreen-toggle" title="Vollbild">⛶</button>
-  <button id="sound-toggle" class="sound-toggle" title="Sound an/aus">🔊</button>
+  <button id="sound-toggle" class="sound-toggle" title="Audio-Einstellungen">🔊</button>
+
+  <!-- Audio Settings Overlay -->
+  <div class="shop-overlay" id="audio-settings-overlay" style="display:none;">
+    <div class="shop-modal audio-settings-modal">
+      <div class="shop-header">
+        <span class="shop-title">🔊 Audio-Einstellungen</span>
+        <button class="shop-close" id="audio-settings-close">✕</button>
+      </div>
+      <div class="audio-settings-body">
+        <div class="audio-row">
+          <div class="audio-row-label">
+            <span class="audio-icon">🎵</span>
+            <span class="audio-name">Musik</span>
+          </div>
+          <label class="audio-switch">
+            <input type="checkbox" id="audio-music-toggle" />
+            <span class="audio-slider"></span>
+          </label>
+          <input type="range" min="0" max="100" value="50" class="audio-volume-range" id="audio-music-volume" />
+        </div>
+        <div class="audio-row">
+          <div class="audio-row-label">
+            <span class="audio-icon">🔊</span>
+            <span class="audio-name">Sound-Effekte</span>
+          </div>
+          <label class="audio-switch">
+            <input type="checkbox" id="audio-sfx-toggle" />
+            <span class="audio-slider"></span>
+          </label>
+          <input type="range" min="0" max="100" value="70" class="audio-volume-range" id="audio-sfx-volume" />
+        </div>
+        <p class="audio-hint" id="audio-hint"></p>
+      </div>
+    </div>
+  </div>
 
   <main id="app">
 
@@ -218,7 +253,8 @@
   }
   </script>
   <script type="module" src="js/scene3d.js?v=13"></script>
-  <script src="js/effects.js?v=13"></script>
+  <script src="js/audio-settings-logic-browser.js?v=1"></script>
+  <script src="js/effects.js?v=14"></script>
   <script src="js/quiz-duel-questions.js?v=13"></script>
   <script src="js/tower-stack-logic-browser.js?v=13"></script>
   <script src="js/bubble-pop-logic-browser.js?v=13"></script>
@@ -236,6 +272,6 @@
   <script src="js/net.js?v=13"></script>
   <script src="js/pwa.js?v=13"></script>
   <script src="js/branchchoice.js?v=13"></script>
-  <script src="js/player.js?v=15"></script>
+  <script src="js/player.js?v=16"></script>
 </body>
 </html>

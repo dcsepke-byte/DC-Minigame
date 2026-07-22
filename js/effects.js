@@ -9,6 +9,9 @@ const FX = (() => {
   /* ---------------- Sound (WebAudio, kein Asset nötig) ---------------- */
   let audioCtx = null;
   let soundEnabled = true;
+  let musicVolume = 0.5;
+  let sfxVolume = 0.7;
+  let musicOn = true;
 
   function ensureCtx() {
     if (!audioCtx) {
@@ -29,7 +32,7 @@ const FX = (() => {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+    gain.gain.linearRampToValueAtTime(vol * sfxVolume, t0 + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t0);
@@ -46,7 +49,25 @@ const FX = (() => {
     osc.type = type;
     osc.frequency.setValueAtTime(f1, t0);
     osc.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
-    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.setValueAtTime(vol * sfxVolume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  /* Wie tone(), aber nutzt musicVolume statt sfxVolume */
+  function toneMusic(freq, dur, type = 'sine', vol = 0.18, when = 0) {
+    if (!soundEnabled || !musicOn) return;
+    const ctx = ensureCtx();
+    if (!ctx) return;
+    const t0 = ctx.currentTime + when;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(vol * musicVolume, t0 + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t0);
@@ -102,18 +123,18 @@ const FX = (() => {
     [165, 220, 247]    // E minor
   ];
   function startMusic() {
-    if (musicTimer || !soundEnabled) return;
+    if (musicTimer || !soundEnabled || !musicOn) return;
     musicEnabled = true;
     let bar = 0;
     function playBar() {
-      if (!musicEnabled) return;
+      if (!musicEnabled || !musicOn) return;
       const chord = MUSIC_CHORDS[bar % MUSIC_CHORDS.length];
       const t = 0;
-      chord.forEach(f => tone(f, 1.6, 'sine', 0.05, t));
+      chord.forEach(f => toneMusic(f, 1.6, 'sine', 0.05, t));
       /* simple arpeggio */
-      chord.forEach((f, i) => tone(f * 2, 0.25, 'triangle', 0.06, i * 0.22));
+      chord.forEach((f, i) => toneMusic(f * 2, 0.25, 'triangle', 0.06, i * 0.22));
       /* bass note */
-      tone(chord[0] / 2, 1.5, 'triangle', 0.08, 0);
+      toneMusic(chord[0] / 2, 1.5, 'triangle', 0.08, 0);
       bar++;
       musicTimer = setTimeout(playBar, 1700);
     }
@@ -126,6 +147,12 @@ const FX = (() => {
 
   function setSoundEnabled(on) { soundEnabled = on; if (on) ensureCtx(); }
   function isSoundEnabled() { return soundEnabled; }
+  function setMusicVolumeInternal(v) { musicVolume = Math.max(0, Math.min(1, v)); }
+  function setSfxVolumeInternal(v) { sfxVolume = Math.max(0, Math.min(1, v)); }
+  function setMusicOnInternal(on) { musicOn = !!on; if (!on) stopMusic(); }
+  function isMusicOnInternal() { return musicOn; }
+  function getMusicVolumeInternal() { return musicVolume; }
+  function getSfxVolumeInternal() { return sfxVolume; }
 
   /* ---------------- Animated Particle Background (disabled - 3D replaces it) ---------------- */
   /* Stoppt automatisch wenn ein Three.js Canvas vorhanden ist (3D Board aktiv) */
@@ -360,6 +387,9 @@ const FX = (() => {
     Sound, setSoundEnabled, isSoundEnabled,
     ensureCtx, setBg3DActive,
     startMusic, stopMusic,
+    setMusicVolumeInternal, setSfxVolumeInternal,
+    setMusicOnInternal, isMusicOnInternal,
+    getMusicVolumeInternal, getSfxVolumeInternal,
     burst, rain, celebrate, shake, toast,
     coinRain, scorePopup, transitionScreen,
     confettiAt: burst

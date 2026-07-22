@@ -745,6 +745,130 @@
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(FX.isSoundEnabled()), { once: true });
 
   /* ============================================================
+     AUDIO SETTINGS — Musik/SFX getrennt, Lautstaerkeregler
+     ============================================================ */
+  const ASL = window.AudioSettingsLogic;
+  let audioSettings = ASL ? ASL.loadAudioSettings(localStorage) : null;
+
+  function applyAudioSettings() {
+    if (!audioSettings || !ASL) return;
+    FX.setSoundEnabled(ASL.isMusicOn(audioSettings) || ASL.isSfxOn(audioSettings));
+    FX.setMusicOnInternal(ASL.isMusicOn(audioSettings));
+    FX.setSfxVolumeInternal(ASL.getSfxVolume(audioSettings));
+    FX.setMusicVolumeInternal(ASL.getMusicVolume(audioSettings));
+    // Musik starten/stoppen je nach Status
+    if (ASL.isMusicOn(audioSettings)) FX.startMusic();
+    else FX.stopMusic();
+  }
+
+  function updateAudioSettingsUI() {
+    if (!audioSettings || !ASL) return;
+    const musicToggle = $('#audio-music-toggle');
+    const sfxToggle = $('#audio-sfx-toggle');
+    const musicVol = $('#audio-music-volume');
+    const sfxVol = $('#audio-sfx-volume');
+    if (musicToggle) musicToggle.checked = ASL.isMusicOn(audioSettings);
+    if (sfxToggle) sfxToggle.checked = ASL.isSfxOn(audioSettings);
+    if (musicVol) {
+      musicVol.value = Math.round(ASL.getMusicVolume(audioSettings) * 100);
+      musicVol.disabled = !ASL.isMusicOn(audioSettings);
+    }
+    if (sfxVol) {
+      sfxVol.value = Math.round(ASL.getSfxVolume(audioSettings) * 100);
+      sfxVol.disabled = !ASL.isSfxOn(audioSettings);
+    }
+  }
+
+  function openAudioSettings() {
+    const overlay = $('#audio-settings-overlay');
+    if (!overlay) return;
+    overlay.style.display = '';
+    overlay.classList.add('active');
+    updateAudioSettingsUI();
+  }
+
+  function closeAudioSettings() {
+    const overlay = $('#audio-settings-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+  }
+
+  function initAudioSettings() {
+    if (!ASL) return;
+
+    // Sound-Toggle-Button oeffnet jetzt Settings-Overlay
+    const soundBtn = $('#sound-toggle');
+    if (soundBtn) {
+      soundBtn.addEventListener('click', openAudioSettings);
+    }
+
+    // Schliessen-Button
+    const closeBtn = $('#audio-settings-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeAudioSettings);
+
+    // Backdrop-Klick schliesst
+    const overlay = $('#audio-settings-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeAudioSettings();
+      });
+    }
+
+    // Musik an/aus Toggle
+    const musicToggle = $('#audio-music-toggle');
+    if (musicToggle) {
+      musicToggle.addEventListener('change', () => {
+        audioSettings = ASL.toggleMusic(audioSettings);
+        ASL.saveAudioSettings(audioSettings, localStorage);
+        applyAudioSettings();
+        updateAudioSettingsUI();
+      });
+    }
+
+    // SFX an/aus Toggle
+    const sfxToggle = $('#audio-sfx-toggle');
+    if (sfxToggle) {
+      sfxToggle.addEventListener('change', () => {
+        audioSettings = ASL.toggleSfx(audioSettings);
+        ASL.saveAudioSettings(audioSettings, localStorage);
+        applyAudioSettings();
+        updateAudioSettingsUI();
+        if (ASL.isSfxOn(audioSettings)) FX.Sound.click();
+      });
+    }
+
+    // Musik-Lautstaerke
+    const musicVol = $('#audio-music-volume');
+    if (musicVol) {
+      musicVol.addEventListener('input', () => {
+        const v = parseInt(musicVol.value, 10) / 100;
+        audioSettings = ASL.setMusicVolume(audioSettings, v);
+        ASL.saveAudioSettings(audioSettings, localStorage);
+        FX.setMusicVolumeInternal(v);
+      });
+    }
+
+    // SFX-Lautstaerke
+    const sfxVol = $('#audio-sfx-volume');
+    if (sfxVol) {
+      sfxVol.addEventListener('input', () => {
+        const v = parseInt(sfxVol.value, 10) / 100;
+        audioSettings = ASL.setSfxVolume(audioSettings, v);
+        ASL.saveAudioSettings(audioSettings, localStorage);
+        FX.setSfxVolumeInternal(v);
+        // Test-Ton abspielen
+        if (ASL.isSfxOn(audioSettings)) FX.Sound.tap();
+      });
+    }
+
+    // Initial anwenden
+    applyAudioSettings();
+  }
+
+  initAudioSettings();
+
+  /* ============================================================
      ONBOARDING / TUTORIAL
      ============================================================ */
   const OB = window.OnboardingLogic;
