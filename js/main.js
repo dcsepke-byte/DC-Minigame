@@ -522,6 +522,223 @@
     requestAnimationFrame(step);
   }
 
+  /* ============================================================
+     DAILY CHALLENGE — Taegliches Minispiel mit Streak-Bonus
+     ============================================================ */
+  const DC = window.DailyChallengeLogic;
+  const MP = window.MetaProgressionLogic;
+
+  // Action-Spiele fuer Daily Challenge (nur die spannenden neuen)
+  const DAILY_GAME_IDS = [
+    'towerstack', 'bubblepop', 'ninjaslash', 'colorcatch',
+    'dodgeball', 'bouncesurvival', 'quickdraw', 'rhythmtap',
+    'coindash', 'tileflip',
+  ];
+
+  let dailyState = null;
+  let dailyGame = null;
+  let dailyApiScoreEl = null;
+
+  function initDailyChallenge() {
+    if (!DC || !MP) return;
+    dailyState = DC.loadDailyState();
+    updateDailyChallengeUI();
+  }
+
+  function updateDailyChallengeUI() {
+    if (!dailyState) return;
+    const now = new Date();
+    const gameId = DC.getDailyGameId(now, DAILY_GAME_IDS);
+    const game = Games.list.find(g => g.id === gameId);
+    if (!game) return;
+
+    $('#dc-icon').textContent = game.icon;
+    $('#dc-name').textContent = 'Heute: ' + game.name;
+    $('#dc-desc').textContent = game.desc;
+
+    const info = DC.getStreakInfo(dailyState);
+    $('#dc-streak-badge').textContent = '🔥 ' + info.streak;
+    $('#dc-best').textContent = 'Best: ' + info.bestStreak;
+    $('#dc-total').textContent = 'Gesamt: ' + info.totalCompleted;
+
+    const canPlay = DC.canPlayDaily(dailyState, now);
+    const btn = $('#btn-daily-challenge');
+    btn.disabled = !canPlay;
+    btn.textContent = canPlay ? '🎯 Daily Challenge spielen' : 'Heute schon gespielt ✓';
+
+    // Bonus-Vorschau
+    const nextStreak = info.streak; // Streak vor heutigem Play
+    const bonusStars = DC.getDailyBonusStars(nextStreak);
+    const xpMult = DC.getDailyXpMultiplier(nextStreak);
+    $('#dc-bonus-info').textContent = canPlay
+      ? 'Bonus: +' + bonusStars + ' ⭐  |  ' + xpMult.toFixed(1) + 'x XP'
+      : 'Komm morgen wieder fuer den naechsten Streak!';
+  }
+
+  function startDailyChallenge() {
+    if (!dailyState) return;
+    const now = new Date();
+    if (!DC.canPlayDaily(dailyState, now)) return;
+
+    const gameId = DC.getDailyGameId(now, DAILY_GAME_IDS);
+    dailyGame = Games.list.find(g => g.id === gameId);
+    if (!dailyGame) return;
+
+    $('#daily-game-name').textContent = dailyGame.icon + ' ' + dailyGame.name;
+    showScreen('daily-play');
+
+    const stage = $('#daily-stage');
+    stage.innerHTML = '';
+    dailyApiScoreEl = $('#daily-score');
+    dailyApiScoreEl.textContent = '0';
+
+    // Timer (30 Sekunden Standard, manche Spiele regeln das selbst)
+    const timeLimit = 30000;
+    const timerEl = $('#daily-timer');
+
+    const api = createDailyApi(stage, timeLimit, (finalScore) => {
+      finishDailyChallenge(finalScore);
+    });
+
+    try {
+      dailyGame.play(stage, api);
+    } catch (err) {
+      console.error('Daily Challenge Fehler:', err);
+      finishDailyChallenge(0);
+    }
+  }
+
+  function createDailyApi(stage, timeLimitMs, onFinish) {
+    const timeouts = [], intervals = [], loops = [];
+    let finished = false;
+    function cleanup() {
+      timeouts.forEach(clearTimeout);
+      intervals.forEach(clearInterval);
+      loops.forEach(l => l.alive = false);
+    }
+    const api = {
+      stage,
+      setScore(n) { if (dailyApiScoreEl) dailyApiScoreEl.textContent = n; },
+      finish(score) {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        onFinish(Math.max(0, Math.round(score)));
+      },
+      timeout(fn, ms) { const id = setTimeout(fn, ms); timeouts.push(id); return id; },
+      interval(fn, ms) { const id = setInterval(fn, ms); intervals.push(id); return id; },
+      frameLoop(fn) {
+        const lstate = { alive: true };
+        loops.push(lstate);
+        function step() {
+          if (!lstate.alive) return;
+          if (fn() === false) { lstate.alive = false; return; }
+          requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      },
+    };
+
+    // Countdown-Timer
+    const start = performance.now();
+    api.interval(() => {
+      const rem = timeLimitMs - (performance.now() - start);
+      if (timerEl) timerEl.textContent = Math.max(0, rem / 1000).toFixed(1) + 's';
+    }, 100);
+
+    // Hard-Stop Fallback
+    api.timeout(() => {
+      const cur = parseInt(dailyApiScoreEl.textContent, 10) || 0;
+      api.finish(cur);
+    }, timeLimitMs + 200);
+
+    return api;
+  }
+
+  function finishDailyChallenge(score) {
+    const now = new Date();
+    const result = DC.recordDailyPlay(dailyState, now, score);
+    DC.saveDailyState(dailyState);
+
+    // Result-Screen fuellen
+    $('#daily-result-title').textContent = '📅 ' + (dailyGame ? dailyGame.name : 'Daily Challenge');
+    $('#daily-result-score').textContent = score;
+
+    if (result.alreadyPlayed) {
+      $('#daily-reward-stars').textContent = 'Bereits gespielt heute!';
+      $('#daily-reward-xp').textContent = '';
+      $('#daily-reward-streak').textContent = '🔥 Streak: ' + result.streak;
+    } else {
+      $('#daily-reward-stars').textContent = '⭐ +' + result.bonusStars + ' Bonus-Sterne';
+      $('#daily-reward-xp').textContent = '✨ ' + result.xpMultiplier.toFixed(1) + 'x XP';
+      $('#daily-reward-streak').textContent = '🔥 Streak: ' + result.streak
+        + (result.newBestStreak ? ' — NEUER REKORD! 🎉' : '');
+
+      // Meta-Progression aktualisieren: Sterne + XP
+      const prog = MP.createProgression ? null : null; // wird unten geladen
+      applyDailyRewards(result, score);
+    }
+
+    FX.Sound.fanfare();
+    if (result.newBestStreak) FX.celebrate();
+
+    showScreen('daily-result');
+    updateDailyChallengeUI();
+  }
+
+  function applyDailyRewards(result, score) {
+    if (!MP) return;
+    // Progression laden
+    let prog = null;
+    try {
+      const raw = localStorage.getItem('pa_progression');
+      prog = raw ? JSON.parse(raw) : MP.createProgression();
+    } catch (_) { prog = MP.createProgression(); }
+
+    // Sterne addieren
+    prog.stars += result.bonusStars;
+
+    // XP mit Multiplikator
+    const baseXp = MP.xpFromGameScore(score);
+    const xpEarned = Math.floor(baseXp * result.xpMultiplier);
+    const xpResult = MP.addXp(prog, xpEarned);
+
+    // Achievements checken
+    let achState = null;
+    try {
+      const raw = localStorage.getItem('pa_achievements');
+      achState = raw ? JSON.parse(raw) : MP.createAchievementState();
+    } catch (_) { achState = MP.createAchievementState(); }
+
+    MP.checkAchievements(prog, achState);
+
+    // Speichern
+    try {
+      localStorage.setItem('pa_progression', JSON.stringify(prog));
+      localStorage.setItem('pa_achievements', JSON.stringify(achState));
+    } catch (_) {}
+  }
+
+  // Button-Listener fuer Daily Challenge
+  const dailyBtn = $('#btn-daily-challenge');
+  if (dailyBtn) {
+    dailyBtn.addEventListener('click', () => {
+      FX.Sound.click();
+      startDailyChallenge();
+    });
+  }
+
+  const dailyBackBtn = $('#btn-daily-result-back');
+  if (dailyBackBtn) {
+    dailyBackBtn.addEventListener('click', () => {
+      FX.Sound.click();
+      showScreen('start');
+    });
+  }
+
+  // Daily Challenge beim Laden initialisieren
+  initDailyChallenge();
+
   /* ---------------- Demo-Spieler beim ersten Laden (optional) ---------------- */
   renderPlayers();
   // Aktiviere AudioContext beim ersten Klick irgendwo

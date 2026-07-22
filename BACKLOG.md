@@ -27,7 +27,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Achievement-System** — 10 Achievements: first_game, veteran_10/50, level_5/10/25, star_collector_50/200, high_scorer, dedicated (2026-07-22)
   - [x] **Unlock-Shop Logik** — 8 Charaktere + 3 Trails, Default-Rakete kostenlos, Sterne als Waehrung (2026-07-22)
   - [x] **Lobby-Anzeige** — Level, XP-Bar, Sterne, Spiele-Anzahl, Achievement-Zaeler in der Lobby (2026-07-22)
-  - [ ] **Daily Challenge** — taegliches Minispiel mit Bonus
+  - [x] **Daily Challenge** — taegliches Minispiel mit Bonus (2026-07-22)
   - [x] **Unlock-Shop UI** — Charakter-Auswahl im Browser (Logik fertig, UI fehlt) (2026-07-22)
 
 - [ ] **ONBOARDING / TUTORIAL** — Erste-Session-Erlebnis:

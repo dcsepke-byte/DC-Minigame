@@ -3905,3 +3905,185 @@ body.board-compact .board-layout {
   font-size: 0.85em;
   opacity: 0.85;
 }
+
+/* ============================================================
+   DAILY CHALLENGE
+   ============================================================ */
+
+.daily-challenge-card {
+  border: 1px solid rgba(255, 210, 78, 0.3);
+  background: linear-gradient(135deg, rgba(255, 211, 78, 0.06), rgba(255, 60, 172, 0.04));
+}
+
+.daily-challenge-info {
+  margin: 12px 0 16px;
+}
+
+.dc-game-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.dc-icon {
+  font-size: 2.2em;
+  filter: drop-shadow(0 2px 8px rgba(255, 211, 78, 0.4));
+}
+
+.dc-text {
+  flex: 1;
+}
+
+.dc-name {
+  font-family: var(--font-display);
+  font-size: 1.15em;
+  font-weight: 700;
+  color: var(--txt);
+}
+
+.dc-desc {
+  font-size: 0.82em;
+  color: var(--txt-dim);
+  margin-top: 2px;
+}
+
+.dc-streak-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.dc-streak-badge {
+  background: linear-gradient(135deg, #ff6a00, #ff3cac);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-family: var(--font-display);
+}
+
+.dc-streak-label {
+  font-size: 0.8em;
+  color: var(--txt-dim);
+}
+
+.dc-best, .dc-total {
+  font-size: 0.8em;
+  color: var(--txt-dim);
+  margin-left: auto;
+}
+
+.dc-bonus-row {
+  margin-top: 4px;
+}
+
+.dc-bonus-info {
+  font-size: 0.85em;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+#btn-daily-challenge:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#btn-daily-challenge:disabled::after {
+  content: ' ✓';
+}
+
+/* Daily Play Screen */
+#screen-daily-play .play-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(255, 211, 78, 0.1), rgba(255, 60, 172, 0.06));
+}
+
+#daily-stage {
+  min-height: 400px;
+}
+
+/* Daily Result Screen */
+.daily-result-content {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.daily-result-title {
+  font-family: var(--font-display);
+  font-size: 1.8em;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--gold), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 20px;
+}
+
+.daily-result-score-row {
+  margin: 20px 0;
+}
+
+.daily-result-score-box {
+  display: inline-block;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  padding: 20px 40px;
+}
+
+.drs-label {
+  font-size: 0.9em;
+  color: var(--txt-dim);
+  margin-bottom: 8px;
+}
+
+.drs-value {
+  font-family: var(--font-display);
+  font-size: 3em;
+  font-weight: 800;
+  color: var(--gold);
+}
+
+.daily-rewards {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.daily-reward-item {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 10px 24px;
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--txt);
+  animation: daily-reward-pop 0.5s ease-out backwards;
+}
+
+.daily-reward-item:nth-child(1) { animation-delay: 0.15s; }
+.daily-reward-item:nth-child(2) { animation-delay: 0.3s; }
+.daily-reward-item:nth-child(3) { animation-delay: 0.45s; }
+
+.daily-reward-streak {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15em;
+  color: var(--accent);
+}
+
+@keyframes daily-reward-pop {
+  0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}

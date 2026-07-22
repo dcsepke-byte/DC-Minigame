@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=15" />
+  <link rel="stylesheet" href="css/styles.css?v=16" />
   <link rel="manifest" href="manifest.webmanifest?v=9" />
   <link rel="icon" href="assets/icon.svg?v=9" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="assets/icon.svg?v=9" />
@@ -71,11 +71,68 @@
         </button>
       </div>
 
+      <div class="card daily-challenge-card" id="daily-challenge-card">
+        <h2 class="card-title">📅 Taegliche Challenge</h2>
+        <div class="daily-challenge-info" id="daily-challenge-info">
+          <div class="dc-game-row">
+            <span class="dc-icon" id="dc-icon">🎯</span>
+            <div class="dc-text">
+              <div class="dc-name" id="dc-name">Heute: </div>
+              <div class="dc-desc" id="dc-desc"></div>
+            </div>
+          </div>
+          <div class="dc-streak-row">
+            <span class="dc-streak-badge" id="dc-streak-badge">🔥 0</span>
+            <span class="dc-streak-label" id="dc-streak-label">Streak</span>
+            <span class="dc-best" id="dc-best">Best: 0</span>
+            <span class="dc-total" id="dc-total">Gesamt: 0</span>
+          </div>
+          <div class="dc-bonus-row" id="dc-bonus-row">
+            <span class="dc-bonus-info" id="dc-bonus-info"></span>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-big" id="btn-daily-challenge">🎯 Daily Challenge spielen</button>
+      </div>
+
       <div class="card games-preview">
         <h2 class="card-title">🎮 Spiele auswählen</h2>
         <p class="hint games-pick-hint">Tippe ein Spiel an, um es <strong>ein- oder auszuschalten</strong>. Ausgegraute Spiele werden nicht gespielt.</p>
         <div class="games-grid" id="games-grid"></div>
         <p class="hint" id="games-hint"></p>
+      </div>
+    </section>
+
+    <!-- ============ DAILY CHALLENGE PLAY ============ -->
+    <section class="screen" id="screen-daily-play" data-screen="daily-play">
+      <div class="play-hud">
+        <div class="hud-player">
+          <span class="hud-name" id="daily-game-name">📅 Daily Challenge</span>
+        </div>
+        <div class="hud-timer" id="daily-timer">30.0s</div>
+        <div class="hud-score">
+          <span class="hud-score-label">Punkte</span>
+          <span class="hud-score-value" id="daily-score">0</span>
+        </div>
+      </div>
+      <div class="game-stage" id="daily-stage"></div>
+    </section>
+
+    <!-- ============ DAILY CHALLENGE RESULT ============ -->
+    <section class="screen" id="screen-daily-result" data-screen="daily-result">
+      <div class="daily-result-content">
+        <h2 class="daily-result-title" id="daily-result-title">📅 Daily Challenge</h2>
+        <div class="daily-result-score-row">
+          <div class="daily-result-score-box">
+            <div class="drs-label">Deine Punkte</div>
+            <div class="drs-value" id="daily-result-score">0</div>
+          </div>
+        </div>
+        <div class="daily-rewards" id="daily-rewards">
+          <div class="daily-reward-item" id="daily-reward-stars">⭐ +3 Bonus-Sterne</div>
+          <div class="daily-reward-item" id="daily-reward-xp">✨ 1.0x XP</div>
+          <div class="daily-reward-streak" id="daily-reward-streak">🔥 Streak: 1</div>
+        </div>
+        <button class="btn btn-primary btn-big" id="btn-daily-result-back">Weiter</button>
       </div>
     </section>
 
@@ -179,8 +236,9 @@
   <script src="js/rhythm-tap-logic-browser.js?v=14"></script>
   <script src="js/coin-dash-logic-browser.js?v=14"></script>
   <script src="js/meta-progression-logic-browser.js?v=1"></script>
-  <script src="js/games.js?v=14"></script>
+  <script src="js/daily-challenge-logic-browser.js?v=1"></script>
+  <script src="js/games.js?v=15"></script>
   <script src="js/pwa.js?v=13"></script>
-  <script src="js/main.js?v=14"></script>
+  <script src="js/main.js?v=15"></script>
 </body>
 </html>
