@@ -532,6 +532,7 @@
     document.querySelectorAll('.final-others').forEach(e => e.remove());
     showScreen('start');
     renderPlayers();
+    renderLobbyMeta();
   });
 
   /* ============================================================
@@ -763,6 +764,9 @@
       localStorage.setItem('pa_progression', JSON.stringify(prog));
       localStorage.setItem('pa_achievements', JSON.stringify(achState));
     } catch (_) {}
+
+    // Lobby-Meta-Anzeige aktualisieren
+    renderLobbyMeta();
   }
 
   // Button-Listener fuer Daily Challenge
@@ -779,11 +783,49 @@
     dailyBackBtn.addEventListener('click', () => {
       FX.Sound.click();
       showScreen('start');
+      renderLobbyMeta();
     });
   }
 
   // Daily Challenge beim Laden initialisieren
   initDailyChallenge();
+
+  /* ============================================================
+     LOBBY META-ANZEIGE — Level, XP, Sterne, Spiele, Achievements
+     ============================================================ */
+  const LML = window.LobbyMetaLogic;
+
+  function renderLobbyMeta() {
+    if (!LML || !MP) return;
+    let prog = null;
+    let achState = null;
+    try {
+      const raw = localStorage.getItem('pa_progression');
+      prog = raw ? JSON.parse(raw) : MP.createProgression();
+    } catch (_) { prog = MP.createProgression(); }
+    try {
+      const raw = localStorage.getItem('pa_achievements');
+      achState = raw ? JSON.parse(raw) : MP.createAchievementState();
+    } catch (_) { achState = MP.createAchievementState(); }
+
+    const meta = LML.createLobbyMeta(prog, achState);
+
+    const levelEl = $('#meta-level-text');
+    const starsEl = $('#meta-stars-text');
+    const gamesEl = $('#meta-games-text');
+    const achEl = $('#meta-ach-text');
+    const xpFill = $('#meta-xp-fill');
+    const xpText = $('#meta-xp-text');
+
+    if (levelEl) levelEl.textContent = LML.getLevelDisplay(prog);
+    if (starsEl) starsEl.textContent = meta.stars;
+    if (gamesEl) gamesEl.textContent = meta.gamesPlayed;
+    if (achEl) achEl.textContent = meta.achievementCount + '/10';
+    if (xpFill) xpFill.style.width = meta.xpBar.percent + '%';
+    if (xpText) xpText.textContent = meta.xpBar.current + ' / ' + meta.xpBar.needed + ' XP';
+  }
+
+  renderLobbyMeta();
 
   /* ---------------- Demo-Spieler beim ersten Laden (optional) ---------------- */
   renderPlayers();

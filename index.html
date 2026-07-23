@@ -100,6 +100,29 @@
         <p class="tagline">Die ultimative Mini-Spiel-Challenge</p>
       </div>
 
+      <div class="lobby-meta-bar" id="lobby-meta-bar">
+        <div class="meta-stat meta-level">
+          <span class="meta-stat-icon">⭐</span>
+          <span class="meta-stat-value" id="meta-level-text">Level 0</span>
+        </div>
+        <div class="meta-stat meta-stars">
+          <span class="meta-stat-icon">✨</span>
+          <span class="meta-stat-value" id="meta-stars-text">0</span>
+        </div>
+        <div class="meta-stat meta-games">
+          <span class="meta-stat-icon">🎮</span>
+          <span class="meta-stat-value" id="meta-games-text">0</span>
+        </div>
+        <div class="meta-stat meta-achievements">
+          <span class="meta-stat-icon">🏆</span>
+          <span class="meta-stat-value" id="meta-ach-text">0/10</span>
+        </div>
+        <div class="meta-xp-bar">
+          <div class="meta-xp-fill" id="meta-xp-fill" style="width:0%"></div>
+          <span class="meta-xp-text" id="meta-xp-text">0 / 100 XP</span>
+        </div>
+      </div>
+
       <div class="card setup-card">
         <h2 class="card-title">👥 Spieler hinzufügen</h2>
         <div class="add-player-row">
@@ -306,6 +329,7 @@
   <script src="js/daily-challenge-logic-browser.js?v=1"></script>
   <script src="js/onboarding-logic-browser.js?v=1"></script>
   <script src="js/screen-transitions-logic-browser.js?v=1"></script>
+  <script src="js/lobby-meta-logic-browser.js?v=1"></script>
   <script src="js/games.js?v=15"></script>
   <script src="js/pwa.js?v=13"></script>
   <script src="js/main.js?v=18"></script>

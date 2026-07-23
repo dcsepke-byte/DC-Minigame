@@ -433,6 +433,89 @@ body.host-mirror-player-view #host-play-card .game-stage {
   text-transform: uppercase;
 }
 
+/* ---------- Lobby Meta-Bar ---------- */
+.lobby-meta-bar {
+  width: 100%;
+  max-width: 600px;
+  margin: 12px auto 4px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.meta-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.meta-stat-icon { font-size: 22px; line-height: 1; }
+.meta-stat-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta-level .meta-stat-value {
+  background: linear-gradient(90deg, var(--gold), #ffaa00);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.meta-stars .meta-stat-value {
+  color: var(--accent-3);
+}
+.meta-xp-bar {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 22px;
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 11px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+}
+.meta-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-3), var(--accent-2), var(--accent));
+  background-size: 200% auto;
+  border-radius: 11px;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: shimmer 4s linear infinite;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+.meta-xp-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--txt);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.5px;
+}
+
+/* Player-app: kompakter */
+body.player-app .lobby-meta-bar {
+  padding: 10px 12px;
+  gap: 6px;
+  margin: 8px auto 2px;
+}
+body.player-app .meta-stat-icon { font-size: 18px; }
+body.player-app .meta-stat-value { font-size: 12px; }
+body.player-app .meta-xp-bar { height: 18px; }
+body.player-app .meta-xp-text { font-size: 10px; }
+
 /* ---------- Cards ---------- */
 .card {
   width: 100%;
