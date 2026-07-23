@@ -51,7 +51,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 - [~] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
   - [x] Pawns als erkennbare Charakter-Modelle — Koerper, Kopf, Arme, Beine, Augen, Antenne (10 Teile), TDD: 26 Unit-Tests + 7 Paritaetstests, pawn-model-logic.js + browser IIFE, scene3d.js Integration (2026-07-23)
   - Tile-Texturen mit Normal Maps fuer Tiefe
-  - Bessere Biom-Deko (mehr Variation, weniger Primitive)
+  - [x] Bessere Biom-Deko (mehr Variation, weniger Primitive) — TDD: 24 Unit-Tests + 20 Paritaetstests, spec-basiertes System (biome-decor-logic.js + browser IIFE), 45 Deko-Typen (10 neu: Zaun/Laterne/Skelett/Oasenpalme/Baumstamm/Farn/Steinmaennchen/Seerosenblatt/Polarstern/Glutfunken/Wolkenbruecke), scene3d.js Integration (2026-07-23)
   - [x] Partikel-Effekte bei Events (Muenzen, Sterne, Duell, Wuerfel, Zug) — TDD: 31 Unit-Tests + 20 Paritaetstests, 5 Burst-Typen (coin/star/duel/dice/move), ESM+IIFE, 3D-Integration mit AdditiveBlending, Event-Trigger in host.js/player.js (2026-07-23)
   - [x] Kamera-Fuehrung bei Board-Zuegen (cinematic) — TDD: 26 Unit-Tests + 66 Paritaetstests, State-Machine (idle/dice_roll/pawn_move/settle/game), filmische Kamera-Positionierung pro Phase, FOV-Dynamik (weit bei Wuerfel, eng bei Zug), smooth Interpolation, Auto-Transition settle->idle, Integration in scene3d.js + host.js + player.js (2026-07-23)
 
