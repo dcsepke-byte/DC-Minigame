@@ -432,6 +432,10 @@
   Net.on('board:rolled', m => {
     if (!m) return;
     showDiceRoll(m.roll, m.playerId, state.players);
+    /* Cinematic Camera: Wuerfel-Phase beenden wenn Zug beginnt */
+    if (window.Party3D && Party3D.finishDiceRollCinematic) {
+      Party3D.finishDiceRollCinematic();
+    }
     /* Etappe 2: Path-basiert — Server sendet path-Array.
        Fallback auf from/to für alte Boards. */
     if (window.Party3D && Party3D.animatePawnMove) {

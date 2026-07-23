@@ -17,6 +17,12 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { createBurst, updateBurst, aliveCount, BURST_TYPES } from './particle-burst-logic.js';
 
+/* Cinematic Camera — filmische Kamerafuehrung bei Board-Zuegen */
+let camState = null;
+if (window.CinematicCamera) {
+  camState = window.CinematicCamera.createCameraState();
+}
+
 /* Global exposure fuer Konsumenten (host.js/player.js/main.js pruefen window.Party3D) */
 window.THREE = THREE;
 
@@ -1491,6 +1497,18 @@ function animatePawnMove(playerId, from, to, total) {
     progress: 0,
     hopDuration: 0.28,
   };
+  /* Cinematic Camera: Zug-Verfolgung starten — Kamera folgt dem Pawn von hinten */
+  if (camState && window.CinematicCamera) {
+    const mesh = pawnMeshes[pidKey];
+    let startPos = null;
+    if (mesh) {
+      startPos = { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z };
+    } else {
+      const p0 = tilePosition(path[0], state.board.tiles.length || 24);
+      startPos = { x: p0.x, y: p0.y, z: p0.z };
+    }
+    window.CinematicCamera.startPawnMove(camState, startPos);
+  }
 }
 
 /* Berechnet Pawn-Position auf einem Feld (mit Offset wenn mehrere drauf). */
@@ -1537,6 +1555,10 @@ function updatePawnHops(delta) {
       mesh.rotation.y = -target.angle;
       /* Move-Burst am Zielfeld — kleine Partikel-Wolke beim Landen */
       spawnBurst(target.x, target.y + 0.3, target.z, 'move');
+      /* Cinematic Camera: settle-Phase starten — Closeup auf Zielfeld */
+      if (camState && window.CinematicCamera) {
+        window.CinematicCamera.finishPawnMove(camState);
+      }
       return;
     }
 
@@ -1791,7 +1813,12 @@ function rollDice(value, durationMs = 1700) {
   diceState.t = 0;
   diceState.duration = durationMs / 1000;
   diceMesh.visible = true;
-  /* Start: Würfel fällt von oben — realistisches „Wurf aus der Hand" */
+  /* Cinematic Camera: Wuerfel-Phase starten — Kamera zieht dramatisch zurueck */
+  if (camState && window.CinematicCamera) {
+    const pawnPos = activePawnWorldPos();
+    window.CinematicCamera.startDiceRoll(camState, { x: pawnPos.x, y: pawnPos.y, z: pawnPos.z });
+  }
+  /* Start: Wuerfel faellt von oben */
   diceMesh.position.set(0, 5.5, 0);
   diceMesh.rotation.set(0, 0, 0);
   /* target rotation to land on value v (face 1 up) */
@@ -2026,22 +2053,44 @@ function updateCamera() {
   if (!camera) return;
   const board = state.mode === 'board';
   const game = state.mode === 'game';
-  /* Etappe 2.5: Im Board-Modus folgt die Kamera dem aktiven Spieler.
-     Kamera positioniert sich hinter/über dem Pawn (Richtung Mitte + Höhe).
-     Beim ersten Board-Bild (kein aktiver Spieler) fällt sie auf Übersicht zurück. */
+
+  /* Cinematic Camera: wenn camState verfuegbar, nutze filmische Positionierung.
+     Die Logik berechnet Position/LookAt/FOV/Speed pro Phase.
+     Falls camState fehlt (Browser ohne Modul), falle auf alte statische Kamera zurueck. */
+  if (camState && board) {
+    const pawnPos = activePawnWorldPos();
+    const target = window.CinematicCamera.getCameraTarget(camState, { x: pawnPos.x, y: pawnPos.y, z: pawnPos.z });
+    const speed = window.CinematicCamera.getInterpolationSpeed(camState);
+    const fov = window.CinematicCamera.getFov(camState);
+
+    const targetX = target.position.x + pointer.x * 1.0;
+    const targetY = target.position.y + pointer.y * 0.4;
+    camera.position.x += (targetX - camera.position.x) * speed;
+    camera.position.y += (targetY - camera.position.y) * speed;
+    camera.position.z += (target.position.z - camera.position.z) * speed;
+
+    /* FOV smooth anpassen — filmischer Zoom-Effekt */
+    if (camera.fov !== fov) {
+      camera.fov += (fov - camera.fov) * 0.04;
+      camera.updateProjectionMatrix();
+    }
+
+    camera.lookAt(target.lookAt.x, target.lookAt.y, target.lookAt.z);
+    return;
+  }
+
+  /* Fallback: alte statische Kamera (showcase / game / board ohne camState) */
   let base;
   if (board) {
     const focus = activePawnWorldPos();
-    /* Kamera steht leicht versetzt vom Pawn Richtung Board-Außenrand + deutlich höher. */
     const outLen = Math.hypot(focus.x, focus.z) || 1;
-    const camDist = 7.5;   /* Abstand hinter dem Pawn */
-    const camHeight = 8.5; /* Höhe über dem Pawn */
+    const camDist = 7.5;
+    const camHeight = 8.5;
     base = {
       x: focus.x + (focus.x / outLen) * camDist,
       y: focus.y + camHeight,
       z: focus.z + (focus.z / outLen) * camDist,
     };
-    /* Wenn der Pawn nah an der Mitte ist (Start), Übersicht behalten. */
     if (outLen < 3) base = { x: 0, y: 14, z: 14 };
   } else if (game) {
     base = { x: 0, y: 8.2, z: 11.4 };
@@ -2129,6 +2178,10 @@ function syncVisibility() {
 
 function showBoard() {
   state.mode = 'board';
+  /* Cinematic Camera: idle-Phase beim Board-Betreten (Uebersicht) */
+  if (camState && window.CinematicCamera) {
+    window.CinematicCamera.setPhase(camState, 'idle');
+  }
   if (state.ready) {
     buildBoard();
     syncVisibility();
@@ -2139,6 +2192,10 @@ function showMiniGame(id, meta) {
   const nextId = String(id || (meta && meta.id) || 'reaction');
   state.game = Object.assign({}, state.game || {}, meta || {}, { id: nextId });
   state.mode = 'game';
+  /* Cinematic Camera: game-Phase fuer Arena-Ansicht */
+  if (camState && window.CinematicCamera) {
+    window.CinematicCamera.setPhase(camState, 'game');
+  }
   if (state.ready && activeArenaId !== nextId) {
     activeArenaId = nextId;
     buildArena(nextId);
@@ -2148,6 +2205,10 @@ function showMiniGame(id, meta) {
 
 function showShowcase() {
   state.mode = 'showcase';
+  /* Cinematic Camera: idle-Phase im Showcase-Modus */
+  if (camState && window.CinematicCamera) {
+    window.CinematicCamera.setPhase(camState, 'idle');
+  }
   if (state.ready) syncVisibility();
 }
 
@@ -2324,6 +2385,16 @@ API.rollDice = rollDice;
 API.animatePawnMove = animatePawnMove;
 API.pulse = noop;
 API.spawnBurst = spawnBurst;
+/* Cinematic Camera API — host.js/player.js koennen Phasen manuell setzen */
+API.startDiceRollCinematic = function(pawnPos) {
+  if (camState && window.CinematicCamera) window.CinematicCamera.startDiceRoll(camState, pawnPos);
+};
+API.finishDiceRollCinematic = function() {
+  if (camState && window.CinematicCamera) window.CinematicCamera.finishDiceRoll(camState);
+};
+API.getCinematicPhase = function() {
+  return camState ? window.CinematicCamera.getPhase(camState) : 'idle';
+};
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
 else init();

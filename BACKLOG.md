@@ -53,7 +53,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - Tile-Texturen mit Normal Maps fuer Tiefe
   - Bessere Biom-Deko (mehr Variation, weniger Primitive)
   - [x] Partikel-Effekte bei Events (Muenzen, Sterne, Duell, Wuerfel, Zug) — TDD: 31 Unit-Tests + 20 Paritaetstests, 5 Burst-Typen (coin/star/duel/dice/move), ESM+IIFE, 3D-Integration mit AdditiveBlending, Event-Trigger in host.js/player.js (2026-07-23)
-  - Kamera-Fuehrung bei Board-Zuegen (cinematic)
+  - [x] Kamera-Fuehrung bei Board-Zuegen (cinematic) — TDD: 26 Unit-Tests + 66 Paritaetstests, State-Machine (idle/dice_roll/pawn_move/settle/game), filmische Kamera-Positionierung pro Phase, FOV-Dynamik (weit bei Wuerfel, eng bei Zug), smooth Interpolation, Auto-Transition settle->idle, Integration in scene3d.js + host.js + player.js (2026-07-23)
 
 ## Phase 3: App Store Preparation (Woche 5-6)
 
