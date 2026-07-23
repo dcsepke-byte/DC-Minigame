@@ -40,7 +40,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - Animationen: Uebergange zwischen Screens, Popup-Effekte
   - [x] Screen Transitions — richtungsbehaftete Screen-Wechsel (forward/backward/lateral) mit CSS-Animationen + Popup-Effekt-System (scale-in, bounce-in, fade-in, slide-up), TDD: 46 Unit-Tests + 28 Paritaetstests (2026-07-23)
   - Loading Screen mit Animation (2026-07-22)
-  - Lobby-Redesign
+  - [x] Lobby-Redesign — Meta-Bar mit Level, XP-Bar (animiert), Sterne, Spiele-Anzahl, Achievement-Zaehler, Glassmorphism-Styling, TDD: 28 Unit-Tests + 15 Paritaetstests (2026-07-23)
 
 - [x] **SOUND DESIGN** — Professionelle Audio:
   - [x] Hintergrundmusik pro Modus (Lobby, Board, Minispiel) — prozedurale Musik in effects.js (2026-07-22)
