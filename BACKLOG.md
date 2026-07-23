@@ -49,7 +49,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Audio-Settings (Musik/SFX getrennt, Lautstaerkeregler) — TDD: 27 Unit-Tests + 14 Paritaetstests, Toggle-Switches + Volume-Slider in index.html/host.html/player.html, localStorage-Persistenz (2026-07-22)
 
 - [~] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
-  - Pawns als erkennbare Charakter-Modelle (nicht Kapseln)
+  - [x] Pawns als erkennbare Charakter-Modelle — Koerper, Kopf, Arme, Beine, Augen, Antenne (10 Teile), TDD: 26 Unit-Tests + 7 Paritaetstests, pawn-model-logic.js + browser IIFE, scene3d.js Integration (2026-07-23)
   - Tile-Texturen mit Normal Maps fuer Tiefe
   - Bessere Biom-Deko (mehr Variation, weniger Primitive)
   - [x] Partikel-Effekte bei Events (Muenzen, Sterne, Duell, Wuerfel, Zug) — TDD: 31 Unit-Tests + 20 Paritaetstests, 5 Burst-Typen (coin/star/duel/dice/move), ESM+IIFE, 3D-Integration mit AdditiveBlending, Event-Trigger in host.js/player.js (2026-07-23)
