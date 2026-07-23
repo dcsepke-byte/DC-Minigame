@@ -459,10 +459,10 @@
     if (!m || !m.text) return;
     const text = (typeof m.text === 'object' ? String(m.text.text || '') : String(m.text)).toLowerCase();
     /* Sound + FX passend zur Meldung */
-    if (/stern|star|⭐/.test(text)) { FX.Sound.star(); FX.coinRain(60); }
-    else if (/münze|coin|🪙|\+/.test(text)) { FX.Sound.coin(); FX.coinRain(40); }
+    if (/stern|star|⭐/.test(text)) { FX.Sound.star(); FX.coinRain(60); if (window.Party3D && Party3D.spawnBurst) Party3D.spawnBurst(0, 1.5, 0, 'star'); }
+    else if (/münze|coin|🪙|\+/.test(text)) { FX.Sound.coin(); FX.coinRain(40); if (window.Party3D && Party3D.spawnBurst) Party3D.spawnBurst(0, 1.5, 0, 'coin'); }
     else if (/event|blitz|sturm|shuffle|swap|reverse/.test(text)) { FX.Sound.event(); FX.shake(document.querySelector('#app') || document.body); }
-    else if (/duell|⚔️|challenge/.test(text)) { FX.Sound.go(); }
+    else if (/duell|⚔️|challenge/.test(text)) { FX.Sound.go(); if (window.Party3D && Party3D.spawnBurst) Party3D.spawnBurst(0, 1.5, 0, 'duel'); }
     else FX.Sound.tap();
     pushBoardStory(m.text);
   });

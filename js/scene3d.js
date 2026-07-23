@@ -15,6 +15,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { createBurst, updateBurst, aliveCount, BURST_TYPES } from './particle-burst-logic.js';
 
 /* Global exposure fuer Konsumenten (host.js/player.js/main.js pruefen window.Party3D) */
 window.THREE = THREE;
@@ -49,6 +50,8 @@ const _lodVec = new THREE.Vector3();
 /* Pawn-Hop-Animation — Meshes und Anim-State werden über rebuilds hinweg behalten */
 let pawnMeshes = {};   /* playerId -> THREE.Group */
 let pawnAnim = {};     /* playerId -> {active, from, to, currentStep, nextStep, progress, ...} */
+/* Event-Partikel-Bursts — Array von {burst: Partikel[], points: THREE.Points} */
+let activeBursts = [];
 
 function noop() {}
 
@@ -1532,6 +1535,8 @@ function updatePawnHops(delta) {
       const target = pawnPosOnTile(lastIdx, 0, 1);
       mesh.position.set(target.x, target.y, target.z);
       mesh.rotation.y = -target.angle;
+      /* Move-Burst am Zielfeld — kleine Partikel-Wolke beim Landen */
+      spawnBurst(target.x, target.y + 0.3, target.z, 'move');
       return;
     }
 
@@ -1851,6 +1856,8 @@ function animateDice(delta, elapsed) {
     diceMesh.position.y = 0.55;
     diceMesh.rotation.x = diceState.targetRot.x;
     diceMesh.rotation.z = diceState.targetRot.z;
+    /* Dice-Burst beim Aufkommen — cyan-Partikel am Boden */
+    spawnBurst(0, 0.6, 0, 'dice');
     /* Würfel bleibt 1.8s sichtbar, dann ausblenden */
     setTimeout(() => { if (diceMesh) diceMesh.visible = false; }, 1800);
   }
@@ -1896,6 +1903,76 @@ function buildShowcase() {
     pillar.position.set(Math.cos(angle) * 4.3, 0.9, Math.sin(angle) * 3.1);
     pillar.castShadow = false;
     showcaseGroup.add(pillar);
+  }
+}
+
+/* ============================================================
+   Event-Partikel-Bursts
+   Feuert Partikel bei Events: Muenzen, Sterne, Duell, Wuerfel, Zug.
+   Nutzt particle-burst-logic.js fuer die reine Logik.
+   ============================================================ */
+function spawnBurst(x, y, z, typeOrOpts) {
+  if (!scene || state.reducedMotion) return;
+  let opts;
+  if (typeof typeOrOpts === 'string') {
+    opts = { x, y, z, type: typeOrOpts };
+  } else {
+    opts = Object.assign({ x, y, z }, typeOrOpts);
+  }
+  const burst = createBurst(opts);
+  if (burst.length === 0) return;
+
+  /* THREE.Points aus Partikeln aufbauen */
+  const positions = new Float32Array(burst.length * 3);
+  const colors = new Float32Array(burst.length * 3);
+  for (let i = 0; i < burst.length; i++) {
+    positions[i * 3]     = burst[i].x;
+    positions[i * 3 + 1] = burst[i].y;
+    positions[i * 3 + 2] = burst[i].z;
+    const c = new THREE.Color(burst[i].color);
+    colors[i * 3]     = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.PointsMaterial({
+    size: 0.22,
+    vertexColors: true,
+    transparent: true,
+    opacity: 1.0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  activeBursts.push({ burst, points, geo, mat });
+}
+
+function updateBursts(delta) {
+  if (activeBursts.length === 0) return;
+  for (let i = activeBursts.length - 1; i >= 0; i--) {
+    const entry = activeBursts[i];
+    const alive = updateBurst(entry.burst, delta, { drag: 0.3 });
+    /* Positionen updaten */
+    const pos = entry.geo.attributes.position.array;
+    for (let j = 0; j < entry.burst.length; j++) {
+      pos[j * 3]     = entry.burst[j].x;
+      pos[j * 3 + 1] = entry.burst[j].y;
+      pos[j * 3 + 2] = entry.burst[j].z;
+    }
+    entry.geo.attributes.position.needsUpdate = true;
+    /* Opazitaet basierend auf Leben */
+    entry.mat.opacity = Math.max(0, alive / entry.burst.length);
+
+    if (alive === 0) {
+      scene.remove(entry.points);
+      entry.geo.dispose();
+      entry.mat.dispose();
+      activeBursts.splice(i, 1);
+    }
   }
 }
 
@@ -1989,6 +2066,7 @@ function animate() {
   if (bloomPass) bloomPass.enabled = true;
 
   if (particles) particles.rotation.y += delta * 0.008;
+  updateBursts(delta);
   animateDice(delta, elapsed);
   /* World animations: cloud drift + star twinkle */
   if (state.clouds) {
@@ -2245,6 +2323,7 @@ API.setGame = (meta) => showMiniGame(meta && meta.id, meta);
 API.rollDice = rollDice;
 API.animatePawnMove = animatePawnMove;
 API.pulse = noop;
+API.spawnBurst = spawnBurst;
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
 else init();

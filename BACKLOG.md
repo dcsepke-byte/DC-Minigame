@@ -48,11 +48,11 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Jingle fuer Sieg/Niederlage — fanfare() und celebrate() (2026-07-22)
   - [x] Audio-Settings (Musik/SFX getrennt, Lautstaerkeregler) — TDD: 27 Unit-Tests + 14 Paritaetstests, Toggle-Switches + Volume-Slider in index.html/host.html/player.html, localStorage-Persistenz (2026-07-22)
 
-- [ ] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
+- [~] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
   - Pawns als erkennbare Charakter-Modelle (nicht Kapseln)
   - Tile-Texturen mit Normal Maps fuer Tiefe
   - Bessere Biom-Deko (mehr Variation, weniger Primitive)
-  - Partikel-Effekte bei Events (Muenzen, Sterne, Duell)
+  - [x] Partikel-Effekte bei Events (Muenzen, Sterne, Duell, Wuerfel, Zug) — TDD: 31 Unit-Tests + 20 Paritaetstests, 5 Burst-Typen (coin/star/duel/dice/move), ESM+IIFE, 3D-Integration mit AdditiveBlending, Event-Trigger in host.js/player.js (2026-07-23)
   - Kamera-Fuehrung bei Board-Zuegen (cinematic)
 
 ## Phase 3: App Store Preparation (Woche 5-6)
