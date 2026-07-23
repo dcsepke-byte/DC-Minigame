@@ -273,54 +273,107 @@ function drawPathBand(pos1, pos2) {
 
 function pawn(player, index, totalAtTile) {
   const group = new THREE.Group();
-  /* Etappe 2: Pawns größer für das 200-Felder-Board (Kamera weiter weg). */
+  /* Etappe 2: Pawns groesser fuer das 200-Felder-Board (Kamera weiter weg). */
   const PS = 1.6;
   group.scale.setScalar(PS);
   const baseColor = player.color || palette[index % palette.length];
-  const darkMat = material('#3a3a5a', { metalness: 0.5, emissiveIntensity: 0.04 });
 
-  /* Pedestal — hexagonal disc with glowing rim */
-  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.16, 12), darkMat);
-  pedestal.position.y = 0.08;
-  pedestal.castShadow = true;   /* Etappe 2.5 Perf: Pawn-Pedestal wirft Schatten */
-  pedestal.receiveShadow = true;
-  group.add(pedestal);
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(0.38, 0.025, 12, 10),
-    new THREE.MeshStandardMaterial({ color: color(baseColor), transparent: true, opacity: 0.9, emissive: color(baseColor), emissiveIntensity: 0.3 })
-  );
-  rim.rotation.x = Math.PI / 2;
-  rim.position.y = 0.16;
-  group.add(rim);
+  /* Charakter-Modell aus pawn-model-logic laden und in THREE-Meshes umwandeln */
+  const PML = window.PawnModelLogic;
+  const parts = PML ? PML.buildPawnParts({ color: baseColor, index: index }) : null;
 
-  /* Glow ring under pawn */
-  addGlow(group, baseColor, 0.85, 0.75);
+  /* Farbe pro colorMode festlegen */
+  function colorForMode(mode) {
+    if (mode === 'primary') return color(baseColor);
+    if (mode === 'dark') return color('#3a3a5a');
+    if (mode === 'eye') return 0x111111;
+    if (mode === 'accent') return color(baseColor);
+    return color(baseColor);
+  }
 
-  /* Haupt-Charakter: runder, freundlicher Figur mit Gesicht (Augen) —
-     Mario-Party-Vibe statt abstrakter Kapsel. */
-  const pawnMat = new THREE.MeshStandardMaterial({
-    color: color(baseColor), roughness: 0.38, metalness: 0.42,
-    emissive: color(baseColor), emissiveIntensity: 0.18,
-  });
-  /* Body: runde Kugel in Spielerfarbe — freundlich und kompakt */
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), pawnMat);
-  body.position.y = 0.48;
-  body.castShadow = true;
-  group.add(body);
-  /* Augen: zwei kleine schwarze Kugeln vorne auf dem Koerper — Gesicht */
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.1 });
-  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
-  eyeL.position.set(-0.08, 0.54, 0.19);
-  group.add(eyeL);
-  const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
-  eyeR.position.set(0.08, 0.54, 0.19);
-  group.add(eyeR);
+  /* Geometrie aus Part-Definition erzeugen */
+  function geomForPart(part) {
+    const s = part.size;
+    if (part.geometry === 'sphere') return new THREE.SphereGeometry(s[0], s[1] || 12, s[2] || 8);
+    if (part.geometry === 'cylinder') return new THREE.CylinderGeometry(s[0], s[1], s[2], 10);
+    if (part.geometry === 'capsule') return new THREE.CapsuleGeometry(s[0], s[1], 6, 12);
+    return new THREE.SphereGeometry(s[0], 12, 8);
+  }
+
+  if (parts) {
+    /* Neuer Charakter: alle Teile aus der Logik bauen */
+    parts.forEach(function(part) {
+      var mat = new THREE.MeshStandardMaterial({
+        color: colorForMode(part.colorMode),
+        roughness: part.material.roughness,
+        metalness: part.material.metalness,
+      });
+      if (part.colorMode === 'primary') {
+        mat.emissive = color(baseColor);
+        mat.emissiveIntensity = 0.18;
+      }
+      if (part.colorMode === 'accent') {
+        mat.emissive = color(baseColor);
+        mat.emissiveIntensity = 0.4;
+      }
+      var mesh = new THREE.Mesh(geomForPart(part), mat);
+      mesh.position.set(part.position[0], part.position[1], part.position[2]);
+      if (part.rotation) mesh.rotation.set(part.rotation[0], part.rotation[1], part.rotation[2]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    });
+
+    /* Glow ring under pawn */
+    addGlow(group, baseColor, 0.85, 0.75);
+
+    /* Rim (glowender Ring auf dem Pedestal) */
+    var rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.38, 0.025, 12, 10),
+      new THREE.MeshStandardMaterial({ color: color(baseColor), transparent: true, opacity: 0.9, emissive: color(baseColor), emissiveIntensity: 0.3 })
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.16;
+    group.add(rim);
+  } else {
+    /* Fallback: alte einfache Figur falls PawnModelLogic nicht geladen */
+    var darkMat = material('#3a3a5a', { metalness: 0.5, emissiveIntensity: 0.04 });
+    var pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.16, 12), darkMat);
+    pedestal.position.y = 0.08;
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    group.add(pedestal);
+    var rim2 = new THREE.Mesh(
+      new THREE.TorusGeometry(0.38, 0.025, 12, 10),
+      new THREE.MeshStandardMaterial({ color: color(baseColor), transparent: true, opacity: 0.9, emissive: color(baseColor), emissiveIntensity: 0.3 })
+    );
+    rim2.rotation.x = Math.PI / 2;
+    rim2.position.y = 0.16;
+    group.add(rim2);
+    addGlow(group, baseColor, 0.85, 0.75);
+    var pawnMat = new THREE.MeshStandardMaterial({
+      color: color(baseColor), roughness: 0.38, metalness: 0.42,
+      emissive: color(baseColor), emissiveIntensity: 0.18,
+    });
+    var body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), pawnMat);
+    body.position.y = 0.48;
+    body.castShadow = true;
+    group.add(body);
+    var eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.1 });
+    var eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
+    eyeL.position.set(-0.08, 0.54, 0.19);
+    group.add(eyeL);
+    var eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
+    eyeR.position.set(0.08, 0.54, 0.19);
+    group.add(eyeR);
+  }
+
   /* Emoji als kleine Textur ueber dem Kopf (Sprite, depthTest=true damit es
      nicht durch Modelle scheint). */
   const emoji = String(player.figure || player.char || player.emoji || '★');
   const charSprite = makeTextSprite(emoji, baseColor);
   charSprite.scale.setScalar(0.3);
-  charSprite.position.y = 0.85;
+  charSprite.position.y = 1.05;
   charSprite.userData.bob = index * 0.5;  /* phasenversetzte Schwebeanimation */
   group.add(charSprite);
   group.userData.charSprite = charSprite;
