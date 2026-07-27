@@ -24,6 +24,15 @@ import socket
 import string
 import uuid
 
+from room_security import (
+    generate_code as _gen_secure_code,
+    create_rate_limiter as _create_rate_limiter,
+    check_and_record as _check_rate,
+    clear_failures as _clear_rate,
+    RATE_LIMIT_MAX_ATTEMPTS,
+    RATE_LIMIT_WINDOW,
+)
+
 HOST = "0.0.0.0"
 PORT = int(os.environ.get("PORT", "3000"))
 ROOT = os.path.dirname(os.path.abspath(__file__))

@@ -64,8 +64,40 @@
 
   <main id="app">
 
+    <!-- ============ HAUPTMENUE ============ -->
+    <section class="screen active" data-screen="menu">
+      <div class="logo-wrap">
+        <h1 class="logo"><span class="logo-word">PARTY</span><span class="logo-word accent">ARENA</span></h1>
+        <p class="tagline">Mit dem Handy mitspielen</p>
+      </div>
+      <div class="menu-stats" id="menu-stats">
+        <div class="menu-stat">
+          <span class="menu-stat-icon">🎖️</span>
+          <span class="menu-stat-value" id="menu-level">Level 0</span>
+        </div>
+        <div class="menu-stat">
+          <span class="menu-stat-icon">⭐</span>
+          <span class="menu-stat-value" id="menu-stars">0 Sterne</span>
+        </div>
+        <div class="menu-stat">
+          <span class="menu-stat-icon">✨</span>
+          <span class="menu-stat-value" id="menu-xp">0 XP</span>
+        </div>
+      </div>
+      <div class="menu-xp-bar">
+        <div class="menu-xp-fill" id="menu-xp-fill" style="width:0%"></div>
+        <span class="menu-xp-text" id="menu-xp-text">0 / 0 XP</span>
+      </div>
+      <div class="menu-buttons">
+        <button class="menu-btn menu-btn-play" id="btn-menu-join">🎮 Spiel beitreten</button>
+        <button class="menu-btn menu-btn-shop" id="btn-menu-shop">🛒 Shop <span id="menu-star-count">⭐ 0</span></button>
+        <button class="menu-btn menu-btn-settings" id="btn-menu-settings">⚙️ Einstellungen</button>
+      </div>
+    </section>
+
     <!-- ============ JOIN ============ -->
-    <section class="screen active" data-screen="join">
+    <section class="screen" data-screen="join">
+      <button class="back-btn" id="btn-back-to-menu" title="Zurueck zum Menue">← Zurueck</button>
       <div class="logo-wrap">
         <h1 class="logo"><span class="logo-word">PARTY</span><span class="logo-word accent">ARENA</span></h1>
         <p class="tagline">Mit dem Handy mitspielen</p>

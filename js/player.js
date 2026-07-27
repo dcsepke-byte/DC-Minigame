@@ -21,7 +21,7 @@
           next.classList.add('screen-in');
           if (name === 'play') next.classList.add('game-fixed');
         }
-        document.body.classList.toggle('in-game', !['join', 'lobby'].includes(name));
+        document.body.classList.toggle('in-game', !['join', 'lobby', 'menu'].includes(name));
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
     } else {
@@ -31,7 +31,7 @@
         if (window.FX) next.classList.add('screen-in');
         if (name === 'play') next.classList.add('game-fixed');
       }
-      document.body.classList.toggle('in-game', !['join', 'lobby'].includes(name));
+      document.body.classList.toggle('in-game', !['join', 'lobby', 'menu'].includes(name));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
@@ -79,6 +79,7 @@
   }
   let progression = loadProgression();
   let achState = loadAchState();
+  updateMenuStats();
 
   /* ---------- Unlock-State (Shop) ---------- */
   function loadUnlockState() {
@@ -113,6 +114,25 @@
         <span class="meta-stat">🎮 ${progression.gamesPlayed} Spiele</span>
         <span class="meta-stat">🏆 ${ownedAch.length}/${MPL.ACHIEVEMENTS.length} Achievements</span>
       </div>`;
+  }
+
+  function updateMenuStats() {
+    const levelEl = $('#menu-level');
+    const starsEl = $('#menu-stars');
+    const xpEl = $('#menu-xp');
+    const xpFill = $('#menu-xp-fill');
+    const xpText = $('#menu-xp-text');
+    if (levelEl) levelEl.textContent = 'Level ' + (progression.level || 0);
+    if (starsEl) starsEl.textContent = (progression.stars || 0) + ' Sterne';
+    if (xpEl) xpEl.textContent = (progression.totalXp || 0) + ' XP';
+    if (MPL && xpFill && xpText) {
+      const xpNeed = MPL.xpForLevel(progression.level);
+      const xpCur = MPL.currentLevelXp(progression.totalXp);
+      const pct = xpNeed > 0 ? Math.min(100, Math.round((xpCur / xpNeed) * 100)) : 0;
+      xpFill.style.width = pct + '%';
+      xpText.textContent = xpCur + ' / ' + xpNeed + ' XP';
+    }
+    updateJoinStarCount();
   }
 
   function updateUiSizeButton() {
@@ -226,11 +246,32 @@
   const btnInGameEnd = $('#btn-in-game-end');
   if (btnInGameEnd) btnInGameEnd.addEventListener('click', () => {
     Net.send({ type: 'player:endGame' });
-    showScreen('join');
+    showScreen('menu');
     showJoinError('Spiel wurde beendet.');
   });
   $('#code-input').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
   $('#name-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('#code-input').focus(); });
+
+  /* ---------- Hauptmenue-Buttons ---------- */
+  const btnMenuJoin = $('#btn-menu-join');
+  if (btnMenuJoin) btnMenuJoin.addEventListener('click', () => {
+    showScreen('join');
+    FX.Sound.tap();
+  });
+  const btnMenuShop = $('#btn-menu-shop');
+  if (btnMenuShop) btnMenuShop.addEventListener('click', () => {
+    openShop();
+  });
+  const btnMenuSettings = $('#btn-menu-settings');
+  if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => {
+    openAudioSettings();
+    FX.Sound.tap();
+  });
+  const btnBackToMenu = $('#btn-back-to-menu');
+  if (btnBackToMenu) btnBackToMenu.addEventListener('click', () => {
+    showScreen('menu');
+    FX.Sound.tap();
+  });
 
   function doJoin() {
     const name = $('#name-input').value.trim();
@@ -547,6 +588,7 @@
         saveProgression(progression);
         saveAchState(achState);
         updateLobbyMeta();
+        updateMenuStats();
         if (result.leveledUp) {
           const banner = $('#result-star');
           banner.textContent = (banner.textContent ? banner.textContent + ' ' : '') +
@@ -596,7 +638,7 @@
 
   Net.on('hostLeft', () => {
     boardModeActive = false;
-    showScreen('join');
+    showScreen('menu');
     showJoinError('Der Host hat das Spiel beendet.');
   });
   Net.on('hostDisconnected', m => {
@@ -604,8 +646,8 @@
     showJoinError(`Host kurz getrennt. Bitte warten (${sec}s Reconnect-Fenster).`);
   });
   Net.on('_close', () => {
-    if (!isActive('join')) showJoinError('Verbindung verloren — bitte neu beitreten.');
-    showScreen('join');
+    if (!isActive('menu')) showJoinError('Verbindung verloren — bitte neu beitreten.');
+    showScreen('menu');
   });
   Net.on('_error', () => {
     showJoinError('❌ Keine Verbindung. Bist du im selben WLAN? Öffne die Adresse vom Host-Bildschirm.');
@@ -952,6 +994,8 @@
   function updateJoinStarCount() {
     const el = $('#join-star-count');
     if (el) el.textContent = '⭐ ' + (progression.stars || 0);
+    const menuEl = $('#menu-star-count');
+    if (menuEl) menuEl.textContent = '⭐ ' + (progression.stars || 0);
   }
 
   function openShop() {
