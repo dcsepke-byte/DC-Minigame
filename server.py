@@ -177,6 +177,7 @@ class Client:
         self.alive = True
         self.req_host = None   # Host-Header der Verbindung (für Cloud-URL)
         self.req_proto = None  # http/https (X-Forwarded-Proto hinter Proxy)
+        self.ip = "unknown"    # Client-IP fuer Rate-Limiting
 
     def send(self, obj):
         if not self.alive:
@@ -197,11 +198,48 @@ class Client:
 #  Room / Spiel-Logik
 # ============================================================
 def gen_code():
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    while True:
-        code = "".join(random.choice(alphabet) for _ in range(4))
-        if code not in rooms:
-            return code
+    """Erzeugt einen 5-stelligen Raum-Code ueber room_security.generate_code."""
+    return _gen_secure_code(set(rooms.keys()))
+
+
+# --- Brute-Force-Schutz fuer Raum-Join ---
+join_rate_limiter = _create_rate_limiter()
+
+
+def _client_ip(writer) -> str:
+    """Extrahiert die Client-IP aus dem Writer (peername oder x-forwarded-for)."""
+    try:
+        peer = writer.get_extra_info("peername")
+        if peer:
+            return peer[0]
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _check_join_allowed(ip: str) -> dict:
+    """Prueft ob ein Join-Versuch von dieser IP erlaubt ist.
+    @param ip: Client-IP
+    @returns: {'allowed': bool, 'retry_after': float (nur wenn blocked)}
+    """
+    import time
+    return _check_rate(join_rate_limiter, ip, time.time())
+
+
+def record_join_failure(ip: str) -> None:
+    """Protokolliert einen Fehlversuch beim Join-Vorgang.
+    @param ip: Client-IP
+    """
+    import time
+    from room_security import record_failure as _record_failure
+    _record_failure(join_rate_limiter, ip, time.time())
+
+
+def clear_join_failures(ip: str) -> None:
+    """Loescht alle Fehlversuche einer IP (nach erfolgreichem Join).
+    @param ip: Client-IP
+    """
+    _clear_rate(join_rate_limiter, ip)
 
 
 class Room:
@@ -1777,11 +1815,19 @@ def handle_message(client, msg):
     if t == "host:resume":
         code = (msg.get("code") or "").strip().upper()
         token = (msg.get("hostToken") or "").strip()
+        # Brute-Force-Schutz auch fuer Host-Resume
+        allowed = _check_join_allowed(client.ip)
+        if not allowed["allowed"]:
+            retry = int(allowed.get("retry_after", 60))
+            client.send({"type": "joinError",
+                         "message": f"Zu viele Versuche. Bitte in {retry}s erneut versuchen."})
+            return
         room = rooms.get(code)
         if not room or not token or token != room.host_token:
             client.send({"type": "joinError", "message": "Host-Session konnte nicht wiederhergestellt werden."})
             return
         room.attach_host(client)
+        clear_join_failures(client.ip)
         return
 
     if t in ("host:setParticipates", "host:setParticipation"):
@@ -1797,12 +1843,21 @@ def handle_message(client, msg):
         return
 
     if t == "player:join":
+        # Brute-Force-Schutz: Rate-Limit pro IP (check_and_record zaehlt den Versuch)
+        allowed = _check_join_allowed(client.ip)
+        if not allowed["allowed"]:
+            retry = int(allowed.get("retry_after", 60))
+            client.send({"type": "joinError",
+                         "message": f"Zu viele Versuche. Bitte in {retry}s erneut versuchen."})
+            return
         code = (msg.get("code") or "").strip().upper()
         room = rooms.get(code)
         if not room:
             client.send({"type": "joinError", "message": "Raum-Code nicht gefunden."})
             return
         room.add_player(client, msg.get("name"), msg.get("playerId"), msg.get("figure"), msg.get("reconnectToken"))
+        # Erfolgreicher Join -> Fehlversuche loeschen
+        clear_join_failures(client.ip)
         return
 
     room = client.room
@@ -1937,6 +1992,12 @@ async def handle_websocket(reader, writer, headers):
     client = Client(writer)
     client.req_host = headers.get("host")
     client.req_proto = headers.get("x-forwarded-proto")
+    # Client-IP fuer Rate-Limiting (x-forwarded-for hinter Proxy, sonst peername)
+    xff = headers.get("x-forwarded-for")
+    if xff:
+        client.ip = xff.split(",")[0].strip()
+    else:
+        client.ip = _client_ip(writer)
 
     # --- WebSocket Keep-Alive: alle 30s einen Ping-Frame senden ---
     # Verhindert Render/Cloud-Proxy-Timeouts (idle connections werden nach ~60s gekillt)

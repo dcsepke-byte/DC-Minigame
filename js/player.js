@@ -277,7 +277,7 @@
     const name = $('#name-input').value.trim();
     const code = $('#code-input').value.trim().toUpperCase();
     if (!name) return showJoinError('Bitte einen Namen eingeben.');
-    if (code.length !== 4) return showJoinError('Bitte den 4-stelligen Raum-Code eingeben.');
+    if (code.length !== 5) return showJoinError('Bitte den 5-stelligen Raum-Code eingeben.');
     try { localStorage.setItem('pa_name', name); } catch (_) {}
     try { localStorage.setItem('pa_figure', me.figure); } catch (_) {}
     try { localStorage.setItem('pa_last_code', code); } catch (_) {}
@@ -1114,7 +1114,7 @@
       pid = localStorage.getItem('pa_pid_' + code) || '';
       token = localStorage.getItem('pa_ptok_' + code) || '';
     } catch (_) {}
-    if (code.length !== 4 || !name || (!pid && !token)) return;
+    if (code.length !== 5 || !name || (!pid && !token)) return;
     Net.send({ type: 'player:join', name, code, playerId: pid, reconnectToken: token, figure: me.figure });
   }
 
