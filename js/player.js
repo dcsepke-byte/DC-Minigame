@@ -296,6 +296,11 @@
 
   Net.on('joinError', m => showJoinError(m.message));
 
+  Net.on('rateLimit', m => {
+    if (typeof FX !== 'undefined' && FX.Sound) FX.Sound.bad();
+    console.warn('[rateLimit]', m && m.message);
+  });
+
   Net.on('joined', m => {
     me.id = m.playerId; me.name = m.name; me.color = m.color;
     me.figure = m.figure || me.figure;

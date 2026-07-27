@@ -22,6 +22,7 @@ import os
 import random
 import socket
 import string
+import time
 import uuid
 
 from room_security import (
@@ -31,6 +32,10 @@ from room_security import (
     clear_failures as _clear_rate,
     RATE_LIMIT_MAX_ATTEMPTS,
     RATE_LIMIT_WINDOW,
+)
+from ws_rate_limit import (
+    create_msg_limiter as _create_msg_limiter,
+    check_message as _check_msg,
 )
 
 HOST = "0.0.0.0"
@@ -205,6 +210,9 @@ def gen_code():
 # --- Brute-Force-Schutz fuer Raum-Join ---
 join_rate_limiter = _create_rate_limiter()
 
+# --- WebSocket Message Rate-Limiting (max 10 Msg/s pro Client) ---
+msg_rate_limiter = _create_msg_limiter()
+
 
 def _client_ip(writer) -> str:
     """Extrahiert die Client-IP aus dem Writer (peername oder x-forwarded-for)."""
@@ -222,7 +230,6 @@ def _check_join_allowed(ip: str) -> dict:
     @param ip: Client-IP
     @returns: {'allowed': bool, 'retry_after': float (nur wenn blocked)}
     """
-    import time
     return _check_rate(join_rate_limiter, ip, time.time())
 
 
@@ -230,7 +237,6 @@ def record_join_failure(ip: str) -> None:
     """Protokolliert einen Fehlversuch beim Join-Vorgang.
     @param ip: Client-IP
     """
-    import time
     from room_security import record_failure as _record_failure
     _record_failure(join_rate_limiter, ip, time.time())
 
@@ -2030,6 +2036,12 @@ async def handle_websocket(reader, writer, headers):
             try:
                 msg = json.loads(data.decode("utf-8"))
             except Exception:
+                continue
+            # --- Message Rate-Limiting: max 10 Msg/s pro Client ---
+            msg_check = _check_msg(msg_rate_limiter, str(id(client)), time.time())
+            if not msg_check["allowed"]:
+                client.send({"type": "rateLimit", "message": "Zu viele Nachrichten. Bitte kurz warten."})
+                await safe_drain(writer)
                 continue
             handle_message(client, msg)
             await safe_drain(writer)

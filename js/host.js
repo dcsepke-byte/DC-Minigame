@@ -334,6 +334,11 @@
     setConn(`⚠️ ${m.message}`, 'err');
   });
 
+  Net.on('rateLimit', m => {
+    if (typeof FX !== 'undefined' && FX.Sound) FX.Sound.bad();
+    console.warn('[rateLimit]', m && m.message);
+  });
+
   Net.on('hostDisconnected', m => {
     const sec = m && m.graceSeconds ? m.graceSeconds : 120;
     setConn(`⏳ Host getrennt. Reconnect-Fenster: ${sec}s`, 'err');
