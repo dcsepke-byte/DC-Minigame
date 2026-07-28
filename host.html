@@ -36,6 +36,7 @@
   <button id="btn-in-game-end" class="in-game-end-toggle" title="Spiel sofort beenden">⛔</button>
   <button id="fullscreen-toggle" class="fullscreen-toggle" title="Vollbild">⛶</button>
   <button id="sound-toggle" class="sound-toggle" title="Audio-Einstellungen">🔊</button>
+  <button id="btn-menu-settings" class="menu-btn menu-btn-settings" style="position:fixed;top:12px;right:60px;z-index:100;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);color:var(--txt);padding:8px 14px;font-size:16px;cursor:pointer;">⚙️ Einstellungen</button>
 
   <!-- Audio Settings Overlay -->
   <div class="shop-overlay" id="audio-settings-overlay" style="display:none;">
@@ -68,6 +69,51 @@
           <input type="range" min="0" max="100" value="70" class="audio-volume-range" id="audio-sfx-volume" />
         </div>
         <p class="audio-hint" id="audio-hint"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS MODAL ============ -->
+  <div class="shop-overlay" id="settings-overlay" hidden>
+    <div class="shop-modal settings-modal">
+      <div class="shop-header">
+        <h2 class="shop-title">⚙️ Einstellungen</h2>
+        <button class="shop-close" id="settings-close" aria-label="Schließen">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <h3>🌐 Sprache</h3>
+          <div class="settings-row">
+            <select id="settings-lang" class="settings-select">
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>🔊 Audio</h3>
+          <div class="settings-row">
+            <span>Musik</span>
+            <label class="audio-switch"><input type="checkbox" id="settings-music" /><span class="audio-slider"></span></label>
+          </div>
+          <div class="settings-row">
+            <span>Lautstärke Musik</span>
+            <input type="range" min="0" max="100" value="50" class="settings-range" id="settings-music-vol" />
+          </div>
+          <div class="settings-row">
+            <span>Sound-Effekte</span>
+            <label class="audio-switch"><input type="checkbox" id="settings-sfx" /><span class="audio-slider"></span></label>
+          </div>
+          <div class="settings-row">
+            <span>Lautstärke SFX</span>
+            <input type="range" min="0" max="100" value="70" class="settings-range" id="settings-sfx-vol" />
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>👤 Account</h3>
+          <button class="btn btn-ghost btn-big" id="settings-reset">⚠️ Fortschritt zurücksetzen</button>
+          <p class="settings-hint" id="settings-hint"></p>
+        </div>
       </div>
     </div>
   </div>
