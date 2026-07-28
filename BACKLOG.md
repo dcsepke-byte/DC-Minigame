@@ -90,8 +90,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 - [ ] **DIFF-BASIERTE BOARD-UPDATES** — nur geaenderte Tiles senden
 - [x] **5-STELLIGER RAUM-CODE** — oder Brute-Force-Sperre (2026-07-27)
 - [x] **RATE-LIMITING WEBSOCKET** — max 10 Msg/s pro Client, sliding-window, TDD: 15 Unit-Tests, ws_rate_limit.py, server.py Integration, rateLimit-Handler in host.js/player.js (2026-07-27)
-- [ ] **I18N** — DE/EN Sprachauswahl
-- [ ] **SETTINGS-MENU** — Sound, Musik, Sprache, Vibration, Account
+- [x] **I18N** — DE/EN Sprachauswahl in Settings-Menu (index.html, host.html, player.html)
+- [x] **SETTINGS-MENU** — Sound, Musik, Sprache, Vibration, Account (alle 3 Seiten: index.html, host.html, player.html)
 
 ---
 
