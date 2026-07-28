@@ -515,6 +515,85 @@ function makeNoiseTexture(baseHex, accentHex, size = 64) {
   return tex;
 }
 
+/* Prozedurale Normal-Map aus Noise-Textur — Sobel-Operator auf Graustufen.
+   Erzeugt eine Tangent-Space Normal-Map die dem Tile-Material Tiefe gibt.
+   Textur wird pro (baseHex,accentHex) gecacht. */
+const _normalMapCache = {};
+function makeNormalMap(baseHex, accentHex, size = 64) {
+  const cacheKey = 'nm|' + baseHex + '|' + accentHex + '|' + size;
+  if (_normalMapCache[cacheKey]) return _normalMapCache[cacheKey];
+
+  /* Noise-Textur als Canvas rendern (gleiche Logik wie makeNoiseTexture) */
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = baseHex;
+  ctx.fillRect(0, 0, size, size);
+  const rng = mulberry32((baseHex.charCodeAt(1) || 1) * 97 + (accentHex.charCodeAt(1) || 1) * 31 + size);
+  for (let i = 0; i < size * size * 0.18; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    ctx.globalAlpha = rng() * 0.35;
+    ctx.fillStyle = accentHex;
+    ctx.fillRect(x, y, 1, 1);
+  }
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 8; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const r = 1 + Math.floor(rng() * 2);
+    ctx.globalAlpha = 0.15 + rng() * 0.2;
+    ctx.fillStyle = accentHex;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  /* Pixel-Daten auslesen und Sobel-Operator anwenden */
+  const imageData = ctx.getImageData(0, 0, size, size);
+  const pixels = imageData.data;
+  const out = new Uint8ClampedArray(size * size * 4);
+  const getGray = (x, y) => {
+    if (x < 0 || x >= size || y < 0 || y >= size) return 128;
+    return pixels[(y * size + x) * 4]; // R channel
+  };
+  const strength = 2.5;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const tl = getGray(x - 1, y - 1), t = getGray(x, y - 1), tr = getGray(x + 1, y - 1);
+      const l = getGray(x - 1, y), r = getGray(x + 1, y);
+      const bl = getGray(x - 1, y + 1), b = getGray(x, y + 1), br = getGray(x + 1, y + 1);
+      const gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+      const gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+      const nx = -gx * strength / 255;
+      const ny = -gy * strength / 255;
+      const nz = 1.0;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      const idx = (y * size + x) * 4;
+      out[idx] = Math.round(((nx / len) * 0.5 + 0.5) * 255);
+      out[idx + 1] = Math.round(((ny / len) * 0.5 + 0.5) * 255);
+      out[idx + 2] = Math.round(((nz / len) * 0.5 + 0.5) * 255);
+      out[idx + 3] = 255;
+    }
+  }
+
+  /* Normal-Map als CanvasTexture */
+  const nmCanvas = document.createElement('canvas');
+  nmCanvas.width = size; nmCanvas.height = size;
+  const nmCtx = nmCanvas.getContext('2d');
+  const nmImageData = nmCtx.createImageData(size, size);
+  nmImageData.data.set(out);
+  nmCtx.putImageData(nmImageData, 0, 0);
+
+  const tex = new THREE.CanvasTexture(nmCanvas);
+  if ('anisotropy' in tex) tex.anisotropy = 4;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  _normalMapCache[cacheKey] = tex;
+  return tex;
+}
+
 /* Biom-spezifische Dekoration — nutzt BiomeDecorLogic fuer Spec-Erzeugung,
    wandelt Specs in THREE.js-Meshes um. Mehr Variation, weniger harte Primitive.
    center = {x, z} = Regionsmittelpunkt, rng = mulberry32-seeded RNG. */
@@ -1332,6 +1411,8 @@ function buildBoard() {
     const noiseMap = makeNoiseTexture(baseTileColor, accentHex, 64);
     const tileMat = material(baseTileColor, { metalness: 0.5, emissiveIntensity: owner ? 0.44 : (isJunction ? 0.5 : 0.24) });
     tileMat.map = noiseMap;   /* Base-Color-Textur ueberlagert Solid-Farbe mit Noise */
+    tileMat.normalMap = makeNormalMap(baseTileColor, accentHex, 64);  /* Prozedurale Normal-Map fuer Tiefe */
+    tileMat.normalScale = new THREE.Vector2(0.6, 0.6);  /* Subtile Tiefenwirkung */
     /* Feld — abgerundete Box (RoundedBoxGeometry), flach auf dem Pfad.
        Mario-Party-Spielbrett-Look: weiche Kanten, freundliche Form. */
     const tileMesh = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.22, 0.36, 4, 0.08), tileMat);
