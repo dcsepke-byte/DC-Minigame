@@ -233,21 +233,21 @@
     <!-- ============ BOARD MODE — Vollbild-3D + HUD-Overlays (neu Layout C) ============ -->
     <section class="screen" data-screen="board">
       <!-- Spieler-Pillbar: alle Spieler als Chips, aktiver gehighlighted -->
-      <div class="hud-pills" id="host-board-pills" role="list" aria-label="Spieler"></div>
+      <div class="hud-pills" id="board-pills" role="list" aria-label="Spieler"></div>
 
       <!-- Fortschritts-Chip + Menü oben-rechts -->
       <div class="hud-top-right">
         <span class="hud-chip" id="board-lap">Runde 0 / 0</span>
-        <button class="hud-icon-btn" id="host-board-menu" aria-label="Menü">☰</button>
+        <button class="hud-icon-btn" id="board-menu" aria-label="Menü">☰</button>
       </div>
 
       <!-- Status-Toasts (ersetzt board-banner + board-log) -->
-      <div class="hud-toasts" id="host-board-toasts" role="status" aria-live="polite"></div>
+      <div class="hud-toasts" id="board-toasts" role="status" aria-live="polite"></div>
 
       <!-- Bottom-Actionbar: Prompt-Text + Würfeln/Item-Buttons prominent -->
       <div class="hud-bottom">
-        <div class="hud-bottom-prompt" id="host-board-prompt">Warte auf den Start…</div>
-        <div class="hud-bottom-actions" id="host-board-actions"></div>
+        <div class="hud-bottom-prompt" id="board-prompt">Warte auf den Start…</div>
+        <div class="hud-bottom-actions" id="board-actions"></div>
         <div class="hud-bottom-items" id="host-board-items" hidden></div>
       </div>
 
@@ -343,6 +343,7 @@
   <script src="js/net.js?v=13"></script>
   <script src="js/pwa.js?v=13"></script>
   <script src="js/branchchoice.js?v=13"></script>
+  <script src="js/shared.js?v=1"></script>
   <script src="js/host.js?v=15"></script>
 </body>
 </html>
