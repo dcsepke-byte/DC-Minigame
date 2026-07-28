@@ -2839,7 +2839,8 @@ body.in-game .hud-pills { display: flex; }
   .hud-icon-btn { width: 32px; height: 32px; font-size: 15px; }
   .hud-toasts { top: 52px; }
   .hud-bottom { bottom: 8px; width: 96vw; }
-  .hud-bottom-actions .btn { min-height: 44px; padding: 10px 18px; font-size: 15px; }
+  .hud-bottom-actions .btn { min-height: 40px; padding: 9px 16px; font-size: 14px; border-radius: 12px; }
+  .hud-bottom-prompt { font-size: 13px; }
   .slide-panel { top: 52px; bottom: 96px; width: 92vw; border-radius: 14px; }
   .slide-right { right: 4vw; }
   .slide-left  { left: 4vw; }
