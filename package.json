@@ -1,0 +1,36 @@
+{
+  "name": "dc-minigame",
+  "version": "1.0.0",
+  "description": "Party Arena ist eine browserbasierte Multiplayer-Minispielsammlung mit Host-Ansicht und Handy-Clients.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "rm -rf www && mkdir -p www && cp -r index.html player.html host.html solo.html css js assets manifest.webmanifest .nojekyll 404.html www/ 2>/dev/null || true",
+    "sync": "npm run build && npx cap sync",
+    "android": "npm run sync && npx cap open android",
+    "ios": "npm run sync && npx cap open ios",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dcsepke-byte/DC-Minigame.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dcsepke-byte/DC-Minigame/issues"
+  },
+  "homepage": "https://github.com/dcsepke-byte/DC-Minigame#readme",
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/ios": "^6.2.1"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3"
+  }
+}

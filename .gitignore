@@ -1,1 +1,8 @@
 __pycache__/
+node_modules/
+www/
+android/
+ios/
+.DS_Store
+*.log
+.env
