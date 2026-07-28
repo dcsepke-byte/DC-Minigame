@@ -409,6 +409,36 @@ body.player-app .board-layout {
 }
 .screen.active { display: flex; }
 
+/* Result/Standings/Final Overlays – Modal-Style auf mobil */
+body.player-app .screen[data-screen="result"],
+body.player-app .screen[data-screen="standings"],
+body.player-app .screen[data-screen="final"] {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  max-width: 100%;
+  height: 100%;
+  justify-content: center;
+  background: rgba(8, 10, 22, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 16px;
+  gap: 10px;
+}
+body.player-app .screen[data-screen="result"] .player-result-content,
+body.player-app .screen[data-screen="standings"] .standings-content,
+body.player-app .screen[data-screen="final"] .final-content {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100dvh - 32px);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 20px 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  overflow-y: auto;
+}
+
 .screen.game-fixed {
   overflow: hidden;
 }
