@@ -1546,21 +1546,15 @@
         owners: board.owners || {},
       });
     }
-    /* Center action overlay auf den 3D-Hinweis-Container */
+    /* Center action overlay: altes zentrales Overlay deaktiviert —
+       Aktionen werden jetzt ausschließlich in .hud-bottom-actions angezeigt,
+       damit der 3D-Bereich nicht durch einen riesigen Button blockiert wird. */
     const panel = $('#player-board-grid-3d') || document.querySelector('.board-3d-hint');
     if (panel) panel.innerHTML = '';
-    if (centerActions.text) {
-      const box = el('div', 'board-center-action');
-      box.appendChild(el('div', 'board-center-action-text', escapeHtml(centerActions.text)));
-      const btnWrap = el('div', 'board-center-action-buttons');
-      centerActions.buttons.forEach(a => {
-        const b = el('button', 'btn btn-primary', a.label);
-        b.type = 'button';
-        b.addEventListener('click', a.action);
-        btnWrap.appendChild(b);
-      });
-      box.appendChild(btnWrap);
-      if (panel) panel.appendChild(box);
+    /* Optional: kleiner Hinweistext im 3D-Bereich, aber keine Buttons mehr */
+    if (centerActions.text && panel) {
+      const hint = el('div', 'board-3d-hint', escapeHtml(centerActions.text));
+      panel.appendChild(hint);
     }
   }
 

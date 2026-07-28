@@ -1626,13 +1626,15 @@ body.board-compact .board-layout {
   background: rgba(11, 12, 34, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
   min-height: 40px;
+  pointer-events: auto;
 }
 .board-center-action {
-  margin-top: 8px;
+  margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  pointer-events: auto;
 }
 
 .board-center-action-text {
@@ -1644,20 +1646,29 @@ body.board-compact .board-layout {
 
 .board-center-action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .board-center-action-buttons .btn {
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+  pointer-events: auto;
 }
-.board-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+
+/* Mobile: zentraler Würfel-Button darf nicht riesig werden */
+@media (max-width: 600px) {
+  .board-center-action-buttons .btn {
+    font-size: 13px;
+    padding: 9px 14px;
+    min-height: 36px;
+  }
+  .board-center-action-text { font-size: 11px; }
 }
 
 .board-timeline {
