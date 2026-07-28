@@ -57,12 +57,12 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 ## Phase 3: App Store Preparation (Woche 5-6)
 
-- [ ] **APP WRAPPER (Capacitor)** — PWA → native App:
-  - Capacitor installieren und konfigurieren
-  - iOS und Android Build-Pipeline
-  - Native APIs: Haptik (Vibration), Push-Notifications
-  - App-Icon und Splash-Screen Assets
-  - Screen-Orientation Lock (landscape fuer Host, portrait fuer Player)
+- [x] **APP WRAPPER (Capacitor)** — PWA → native App:
+  - [x] Capacitor installieren und konfigurieren (2026-07-28)
+  - [x] iOS und Android Build-Pipeline (2026-07-28)
+  - [x] Native APIs: Haptik (Vibration), Push-Notifications (2026-07-28)
+  - [x] App-Icon und Splash-Screen Assets (2026-07-28)
+  - [x] Screen-Orientation Lock (landscape fuer Host, portrait fuer Player) (2026-07-28)
 
 - [ ] **MONETARISIERUNG** — Strategie festlegen und implementieren:
   - Freemium: Basis kostenlos, Premium-Charaktere/Figuren kosten
