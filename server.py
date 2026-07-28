@@ -1603,7 +1603,7 @@ class Room:
             }]
             order_mode = "fixed"
         self.settings = {"rounds": rounds, "order": order_mode, "games": games, "tempo": tempo}
-        if self.mode == "board":
+        if self.mode == "board" or self.mode == "board-party":
             self.start_board_game(rounds, games, tempo=tempo)
             return
         # Queue bauen
