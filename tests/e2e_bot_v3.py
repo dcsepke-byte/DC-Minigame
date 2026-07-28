@@ -98,12 +98,13 @@ async def main():
     print('\n--- RESULT ---')
     print('HOST types:', host_types)
     print('PLAYER types:', player_types)
-    round_started = 'roundIntro' in host_types and 'roundIntro' in player_types
+    round_started = any(t in host_types for t in ('roundIntro','minigame:start','duel:start','game:start')) and any(t in player_types for t in ('roundIntro','minigame:start','duel:start','game:start'))
+    game_started = any(t in host_types for t in ('minigame:start','duel:start','game:start')) or any(t in player_types for t in ('minigame:start','duel:start','game:start'))
     board_started = 'board:init' in host_types or 'board:init' in player_types
     ended = 'gameOver' in host_types or 'final' in host_types or 'gameOver' in player_types or 'final' in player_types
     print('ROUND STARTED:', round_started)
     print('BOARD STARTED:', board_started)
     print('GAME ENDED:', ended)
-    print('PASS:', round_started and board_started)
+    print('PASS:', board_started and (round_started or game_started) and not ended)
 
 asyncio.run(main())

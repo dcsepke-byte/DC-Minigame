@@ -110,8 +110,8 @@ ROUTES = {
     "/": "player.html",
     "/host": "host.html",
     "/host/": "host.html",
-    "/solo": "solo.html",
-    "/solo/": "solo.html",
+    "/solo": "index.html",
+    "/solo/": "index.html",
 }
 
 rooms = {}        # code -> Room
