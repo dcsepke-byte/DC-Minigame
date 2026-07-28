@@ -721,12 +721,56 @@
     board.lapsTotal = m.lapsTotal || 0;
     board.log = m.log || '';
     board.history = Array.isArray(m.history) ? m.history.slice(-20) : board.history;
+    renderBoardFromDiff();
+  });
+
+  Net.on('board:updateDiff', m => {
+    const diff = m && m.diff;
+    if (!diff) return;
+    boardModeActive = true;
+    if (Array.isArray(diff.tiles)) {
+      if (!board.tiles) board.tiles = [];
+      diff.tiles.forEach(({ index, tile }) => {
+        if (index != null) board.tiles[index] = tile;
+      });
+    }
+    if (diff.players) {
+      if (!board.players) board.players = [];
+      const byId = {};
+      board.players.forEach(p => { byId[p.id] = p; });
+      Object.entries(diff.players).forEach(([pid, changes]) => {
+        if (byId[pid]) {
+          Object.assign(byId[pid], changes);
+        } else if (changes && typeof changes === 'object') {
+          board.players.push(changes);
+        }
+      });
+    }
+    if (diff.owners) {
+      board.owners = board.owners || {};
+      Object.assign(board.owners, diff.owners);
+    }
+    if (Array.isArray(diff.history) && diff.history.length) {
+      board.history = (board.history || []).concat(diff.history).slice(-20);
+    }
+    if (diff.phase != null) board.phase = diff.phase;
+    if (diff.turnPlayerId !== undefined) board.turnPlayerId = diff.turnPlayerId || null;
+    if (diff.pendingPlayerId !== undefined) board.pendingPlayerId = diff.pendingPlayerId || null;
+    if (diff.lapsDone != null) board.lapsDone = diff.lapsDone;
+    if (diff.lapsTotal != null) board.lapsTotal = diff.lapsTotal;
+    if (diff.log != null) board.log = diff.log;
+    if (diff.lastLuckyPlayer !== undefined) board.lastLuckyPlayer = diff.lastLuckyPlayer;
+    if (diff.itemPacks) board.itemPacks = Object.assign({}, board.itemPacks, diff.itemPacks);
+    renderBoardFromDiff();
+  });
+
+  function renderBoardFromDiff() {
     if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();
     renderBoardTimeline();
-    renderBoardPills();   /* NEU Layout C: Spieler-Pillbar pro Update */
+    renderBoardPills();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${board.lapsDone} / ${board.lapsTotal}`;
     setBoardStatus(board.log || 'Warte auf deinen Zug…');
@@ -743,7 +787,7 @@
       (board.phase === 'global' || board.phase === 'duel' || board.phase === 'globalIntro' || board.phase === 'duelIntro') &&
       (isActive('play') || isActive('round-intro') || isActive('waiting'));
     if (!keepGameScreen) showScreen('board');
-  });
+  }
 
   Net.on('board:yourTurn', m => {
     showScreen('board');

@@ -192,6 +192,14 @@ class Client:
         except Exception:
             self.alive = False
 
+    def board_snapshot(self, payload):
+        """Speichert die zuletzt erfolgreich versendete Board-Payload.
+        payload ist das serialisierte dict, bevor es an den Client geht."""
+        try:
+            self._last_board_snapshot = json.loads(json.dumps(payload))
+        except Exception:
+            self._last_board_snapshot = None
+
     def send_raw(self, opcode, data):
         try:
             self.writer.write(ws_encode(data, opcode))
@@ -706,6 +714,104 @@ class Room:
             "itemPacks": b.get("itemPacks", {}),
             "lastLuckyPlayer": b.get("lastLuckyPlayer"),
         }
+
+    def _board_payload_with_seq(self, seq):
+        payload = self.board_payload()
+        payload["seq"] = seq
+        return payload
+
+    def _board_diff_for(self, snapshot, full):
+        """Berechnet Delta zwischen snapshot und aktuellem full payload.
+        Rückgabe: dict mit nur den geänderten Feldern oder None wenn nicht diffbar."""
+        if not isinstance(snapshot, dict) or snapshot.get("type") != "board:update":
+            return None
+        diff = {}
+        # Einfache Top-Level-Felder: nur bei Änderung
+        for key in ("phase", "turnPlayerId", "pendingPlayerId", "lapsDone",
+                    "lapsTotal", "log", "lastLuckyPlayer"):
+            if full.get(key) != snapshot.get(key):
+                diff[key] = full.get(key)
+        # tiles: Vergleich per Index, nur geänderte tiles als {index, tile}
+        old_tiles = snapshot.get("tiles") or []
+        new_tiles = full.get("tiles") or []
+        tile_changes = []
+        for i, tile in enumerate(new_tiles):
+            if i >= len(old_tiles) or old_tiles[i] != tile:
+                tile_changes.append({"index": i, "tile": tile})
+        if tile_changes:
+            diff["tiles"] = tile_changes
+        # players: Vergleich per ID, nur geänderte Felder
+        old_players = {p["id"]: p for p in (snapshot.get("players") or [])}
+        new_players = {p["id"]: p for p in (full.get("players") or [])}
+        player_changes = {}
+        tracked_fields = ("position", "stars", "coins", "totalPoints", "disconnected")
+        for pid, new_p in new_players.items():
+            old_p = old_players.get(pid)
+            if old_p is None:
+                player_changes[pid] = new_p
+                continue
+            changes = {}
+            for f in tracked_fields:
+                if old_p.get(f) != new_p.get(f):
+                    changes[f] = new_p.get(f)
+            if changes:
+                player_changes[pid] = changes
+        if player_changes:
+            diff["players"] = player_changes
+        # owners: nur geänderte Einträge
+        old_owners = snapshot.get("owners") or {}
+        new_owners = full.get("owners") or {}
+        owner_changes = {}
+        all_owner_keys = set(old_owners.keys()) | set(new_owners.keys())
+        for k in all_owner_keys:
+            if old_owners.get(k) != new_owners.get(k):
+                owner_changes[k] = new_owners.get(k)
+        if owner_changes:
+            diff["owners"] = owner_changes
+        # history: nur neue Einträge seit bekannter Länge
+        old_hist = snapshot.get("history") or []
+        new_hist = full.get("history") or []
+        if len(new_hist) > len(old_hist):
+            diff["history"] = new_hist[len(old_hist):]
+        return diff
+
+    def send_board_update(self):
+        b = self.board or {}
+        b["boardSeq"] = b.get("boardSeq", 0) + 1
+        seq = b["boardSeq"]
+        full = self._board_payload_with_seq(seq)
+        # Host
+        if self.host and self.host.alive:
+            snap = getattr(self.host, "_last_board_snapshot", None)
+            d = self._board_diff_for(snap, full)
+            if d is None:
+                payload = full
+            else:
+                payload = {"type": "board:updateDiff", "baseSeq": snap.get("seq") if snap else None, "seq": seq, "diff": d}
+            self.host.board_snapshot(full)
+            self.host.send(payload)
+        # Player
+        for pid in self.order:
+            p = self.players.get(pid)
+            if not p or not p.get("client") or not p.get("connected"):
+                continue
+            client = p["client"]
+            snap = getattr(client, "_last_board_snapshot", None)
+            d = self._board_diff_for(snap, full)
+            if d is None:
+                payload = full
+            else:
+                payload = {"type": "board:updateDiff", "baseSeq": snap.get("seq") if snap else None, "seq": seq, "diff": d}
+            client.board_snapshot(full)
+            client.send(payload)
+
+        # Alle 10 Updates ein Full-Update an alle senden, um Synchronisation zu sichern
+        if seq % 10 == 0:
+            self.broadcast(full)
+
+    def send_board_update_broadcast(self):
+        """Vollständiges Board-Update an alle verbundenen Clients senden."""
+        self.broadcast(self.board_payload())
 
     def grant_board_item(self, pid, item_id, label, price=0):
         if not self.board or pid not in self.players:

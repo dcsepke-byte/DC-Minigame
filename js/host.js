@@ -94,109 +94,61 @@
     pushBoardToast(value);
   }
 
-  /* NEU Layout C: Toast-System ersetzt board-banner */
-  let toastTimer = null;
-  function pushBoardToast(text, kind = '') {
-    const host = $('#host-board-toasts');
-    if (!host) return;
-    const t = el('div', 'hud-toast' + (kind ? ' ' + kind : ''), text);
-    host.appendChild(t);
-    /* Max 3 Toasts gleichzeitig — älteste entfernen */
-    while (host.children.length > 3) host.removeChild(host.firstElementChild);
-    const lifespan = kind === 'win' ? 4200 : 3200;
-    setTimeout(() => {
-      t.classList.add('fading');
-      setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 420);
-    }, lifespan);
-  }
-
   /* NEU Layout C: Spieler-Pillbar (oben-links) */
-  function renderBoardPills() {
-    const wrap = $('#host-board-pills');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-    const arr = state.players || [];
-    arr.forEach(p => {
-      const isTurn = (state.boardPhase === 'turn' && state.turnPlayerId === p.id)
-        || (state.boardPhase === 'decision' && state.pendingPlayerId === p.id);
-      const isYou = p.id === HOST_PID;
-      const pill = el('div', 'hud-pill' + (isTurn ? ' active' : '') + (isYou ? ' you' : ''));
-      pill.setAttribute('role', 'listitem');
-      pill.innerHTML = `
-        <span class="hud-pill-avatar" style="background:${p.color || 'linear-gradient(135deg,#7b2ff7,#00f0ff)'}">${p.figure || initials(p.name)}</span>
-        <span class="hud-pill-name">${escapeHtml(p.name)}</span>
-        <span class="hud-pill-stats">⭐${p.stars || 0} · 🪙${p.coins || 0}</span>`;
-      wrap.appendChild(pill);
+  function renderBoardPillsHost() {
+    PartyArenaShared.renderBoardPills({
+      players: state.players,
+      phase: state.boardPhase,
+      turnPlayerId: state.turnPlayerId,
+      pendingPlayerId: state.pendingPlayerId,
+      myId: HOST_PID,
     });
   }
 
   /* NEU Layout C: Slide-In-Panels oeffnen/schliessen + Menue-Button (einmalig binden) */
-  let slidesBound = false;
-  function setupBoardSlides() {
-    if (slidesBound) return;
-    slidesBound = true;
-    const menu = $('#host-board-menu');
-    let toggleState = 0; /* 0 = keins, 1 = score, 2 = profile */
-    function open(id) {
-      const p = $('#' + id);
-      if (!p) return;
-      p.hidden = false;
-      p.classList.remove('closing');
-    }
-    function close(id) {
-      const p = $('#' + id);
-      if (!p) return;
-      p.classList.add('closing');
-      setTimeout(() => { p.hidden = true; p.classList.remove('closing'); }, 220);
-    }
-    if (menu) menu.addEventListener('click', () => {
-      /* Zyklus: score → profile → zu */
-      if (toggleState === 0) { open('host-slide-score'); close('host-slide-profile'); toggleState = 1; }
-      else if (toggleState === 1) { close('host-slide-score'); open('host-slide-profile'); toggleState = 2; }
-      else { close('host-slide-profile'); toggleState = 0; }
-    });
-    document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        close(btn.getAttribute('data-close'));
-        toggleState = 0;
-      });
+  function setupBoardSlidesHost() {
+    PartyArenaShared.setupBoardSlides('board-menu');
+  }
+
+  function ensureTurnNotice() { return PartyArenaShared.ensureTurnNotice(); }
+  function hideTurnNotice() { PartyArenaShared.hideTurnNotice(); }
+  function showTurnNotice(text, actions) { PartyArenaShared.showTurnNotice(text, actions); }
+
+  function renderBoardRankingHost() {
+    PartyArenaShared.renderBoardRanking({
+      containerId: 'board-ranking',
+      players: state.players,
+      withPosition: true,
+      withTotalPoints: false,
+      figureFallback: '🙂',
     });
   }
 
-  function ensureTurnNotice() {
-    if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
-    turnNoticeEl = el('div', 'turn-notice');
-    turnNoticeEl.hidden = true;
-    document.body.appendChild(turnNoticeEl);
-    return turnNoticeEl;
-  }
-
-  function hideTurnNotice() {
-    const wrap = ensureTurnNotice();
-    wrap.hidden = true;
-    wrap.innerHTML = '';
-  }
-
-  function showTurnNotice(text, actions = []) {
-    const wrap = ensureTurnNotice();
-    wrap.innerHTML = '';
-    const card = el('div', 'turn-notice-card');
-    const msg = el('div', 'turn-notice-text', escapeHtml(text || 'Du bist dran.'));
-    const btns = el('div', 'turn-notice-buttons');
-    actions.forEach(cfg => {
-      const klass = cfg.kind === 'ghost' ? 'btn btn-ghost' : 'btn btn-primary';
-      const b = el('button', klass, cfg.label || 'OK');
-      b.type = 'button';
-      b.addEventListener('click', () => {
-        if (typeof cfg.action === 'function') cfg.action();
-        hideTurnNotice();
-      });
-      btns.appendChild(b);
+  function renderHostProfileCard() {
+    PartyArenaShared.renderProfileCard({
+      containerId: 'host-board-profile',
+      player: (state.players || []).find(p => p.id === HOST_PID),
+      emptyText: 'Host spielt aktuell nicht mit.',
     });
-    card.appendChild(msg);
-    card.appendChild(btns);
-    wrap.appendChild(card);
-    wrap.hidden = false;
+  }
+
+  function updateHostBoardStats() {
+    PartyArenaShared.updateBoardStats({
+      player: (state.players || []).find(p => p.id === HOST_PID),
+      avatarId: 'host-board-avatar',
+      nameId: 'host-board-name',
+      statsId: 'host-board-me-stats',
+      defaultFigure: '🎩',
+      defaultName: state.hostProfile.name || 'Host',
+    });
+  }
+
+  function renderHostBoardTimeline() {
+    PartyArenaShared.renderBoardTimeline({
+      containerId: 'host-board-timeline',
+      history: state.boardHistory,
+      limit: -16,
+    });
   }
 
   function applyBoardCompactMode() {
@@ -406,12 +358,61 @@
     if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
     state.lapsDone = m.lapsDone || 0;
     state.lapsTotal = m.lapsTotal || 0;
+    renderBoardFromState();
+  });
+
+  Net.on('board:updateDiff', m => {
+    const diff = m && m.diff;
+    if (!diff) {
+      // Fallback auf vollständiges Update wenn kein Diff vorhanden
+      return;
+    }
+    state.mode = 'board';
+    if (Array.isArray(diff.tiles)) {
+      if (!state.boardTiles) state.boardTiles = [];
+      diff.tiles.forEach(({ index, tile }) => {
+        if (index != null) state.boardTiles[index] = tile;
+      });
+    }
+    if (diff.players) {
+      if (!state.players) state.players = [];
+      const byId = {};
+      state.players.forEach(p => { byId[p.id] = p; });
+      Object.entries(diff.players).forEach(([pid, changes]) => {
+        if (byId[pid]) {
+          Object.assign(byId[pid], changes);
+        } else if (changes && typeof changes === 'object') {
+          state.players.push(changes);
+        }
+      });
+    }
+    if (diff.owners) {
+      state.boardOwners = state.boardOwners || {};
+      Object.assign(state.boardOwners, diff.owners);
+    }
+    if (Array.isArray(diff.history) && diff.history.length) {
+      state.boardHistory = (state.boardHistory || []).concat(diff.history).slice(-20);
+    }
+    if (diff.phase != null) state.boardPhase = diff.phase;
+    if (diff.turnPlayerId !== undefined) state.turnPlayerId = diff.turnPlayerId || null;
+    if (diff.pendingPlayerId !== undefined) state.pendingPlayerId = diff.pendingPlayerId || null;
+    if (diff.lapsDone != null) state.lapsDone = diff.lapsDone;
+    if (diff.lapsTotal != null) state.lapsTotal = diff.lapsTotal;
+    if (diff.log != null) state.boardLog = diff.log;
+    if (diff.lastLuckyPlayer !== undefined) state.lastLuckyPlayer = diff.lastLuckyPlayer;
+    if (diff.itemPacks) state.itemPacks = Object.assign({}, state.itemPacks, diff.itemPacks);
+    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners, turnPlayerId: state.turnPlayerId });
+    if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
+    renderBoardFromState();
+  });
+
+  function renderBoardFromState() {
     renderBoardGrid();
     renderBoardRanking();
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
-    renderBoardPills();         /* NEU Layout C: Spieler-Pillbar */
+    renderBoardPills();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     setBoardLogText(state.boardLog);
@@ -427,7 +428,7 @@
     }
     // During board mini-games, keep the host on the active play screen.
     if (!hostGame.active) showScreen('board');
-  });
+  }
 
   Net.on('board:chaos', () => {
     FX.Sound.whoosh();
@@ -1027,7 +1028,7 @@
 
   /* ---------- Helfer ---------- */
   function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function escapeHtml(s) { return String(s).replace(/[\u0026\u003c\u003e"']/g, c => ({ '\u0026': '\u0026amp;', '\u003c': '\u0026lt;', '\u003e': '\u0026gt;', '"': '\u0026quot;', "'": '\u0026#39;' }[c])); }
   function initials(name) {
     const parts = String(name).trim().split(/\s+/);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -1035,7 +1036,6 @@
   }
 
   function renderBoardGrid() {
-    /* 2D grid removed — 3D board is the only Spielfeld now */
     if (window.Party3D && state.boardTiles && state.boardTiles.length) {
       Party3D.setBoardState({
         tiles: state.boardTiles,
@@ -1046,43 +1046,10 @@
   }
 
   function showHostBoardPrompt(text, buttons = []) {
-    const msg = text || 'Warte auf deinen Zug…';
-    /* NEU Layout C: Prompt + Buttons in die Bottom-Actionbar (hud-bottom).
-       Fallback auf alte IDs für Übergang. */
-    const promptNew = $('#board-prompt');
-    const promptOld = $('#host-board-prompt');
-    if (promptNew) promptNew.textContent = msg;
-    if (promptOld) promptOld.textContent = msg;
-    state.boardAction.text = msg;
-    state.boardAction.buttons = buttons.map(b => ({
-      label: b.label,
-      kind: b.kind || 'primary',
-      action: b.action,
-    }));
-    const panel = $('#board-actions') || $('#host-board-actions');
-    if (!panel) return;
-    panel.innerHTML = '';
-    state.boardAction.buttons.forEach(cfg => {
-      const btnClass = cfg.kind === 'ghost' ? 'btn btn-ghost' : 'btn btn-primary';
-      const b = el('button', btnClass, cfg.label);
-      b.type = 'button';
-      b.addEventListener('click', cfg.action);
-      panel.appendChild(b);
-    });
-  }
-
-  function renderHostBoardTimeline() {
-    const list = $('#host-board-timeline');
-    if (!list) return;
-    const items = (state.boardHistory || []).slice(-16).reverse();
-    if (!items.length) {
-      list.innerHTML = '<div class="board-timeline-item">Noch keine Ereignisse.</div>';
-      return;
-    }
-    list.innerHTML = '';
-    items.forEach(msg => {
-      const row = el('div', 'board-timeline-item', escapeHtml(msg));
-      list.appendChild(row);
+    PartyArenaShared.renderBoardTimeline({
+      containerId: 'host-board-timeline',
+      history: state.boardHistory,
+      limit: -16,
     });
   }
 
