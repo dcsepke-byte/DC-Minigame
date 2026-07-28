@@ -6,6 +6,8 @@
 :root {
   --bg-0: #0a0a1f;
   --bg-1: #14143a;
+  --bg-2: #1c1c52;
+  --bg-3: #26266e;
   --glass: rgba(255, 255, 255, 0.07);
   --glass-border: rgba(255, 255, 255, 0.15);
   --txt: #f2f3ff;
@@ -4119,7 +4121,7 @@ body.in-game .hud-pills { display: flex; }
   width: 100%;
   max-width: 440px;
   max-height: 85dvh;
-  background: linear-gradient(160deg, var(--bg2), var(--bg1));
+  background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 20px;
   padding: 20px;
@@ -4415,6 +4417,129 @@ body.in-game .hud-pills { display: flex; }
   margin-top: 12px;
   min-height: 18px;
 }
+
+/* ============================================================
+   SETTINGS MODAL
+   ============================================================ */
+
+.settings-modal {
+  max-width: 460px;
+}
+
+.settings-body {
+  padding: 8px 4px 12px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-section {
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+
+.settings-section h3 {
+  font-family: var(--font-display);
+  font-size: clamp(15px, 4vw, 18px);
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: var(--txt);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.settings-row:last-of-type {
+  border-bottom: none;
+}
+
+.settings-row > span {
+  font-size: 15px;
+  color: var(--txt);
+}
+
+.settings-row > span:first-child {
+  flex: 1;
+}
+
+.settings-select {
+  min-width: 130px;
+  padding: 8px 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--txt);
+  background: var(--bg-1);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-select:focus {
+  border-color: var(--accent);
+}
+
+.settings-range {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.12);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255,60,172,0.4);
+  transition: transform 0.15s;
+}
+
+.settings-range::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+}
+
+.settings-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(255,60,172,0.4);
+}
+
+.settings-range:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.settings-hint {
+  text-align: center;
+  color: var(--txt-dim);
+  font-size: 0.85em;
+  margin-top: 10px;
+}
+
+.settings-hint.success { color: var(--good); }
+.settings-hint.error { color: var(--bad); }
 
 /* ============================================================
    DAILY CHALLENGE

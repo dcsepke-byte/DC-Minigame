@@ -8,6 +8,12 @@
   const $ = s => document.querySelector(s);
   const FIGURES = ['🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
   const UI_MODES = ['compact', 'normal', 'large'];
+  const LANGS = ['de', 'en'];
+  const SETTINGS_KEY = 'pa_settings';
+  const VIB_STORAGE_KEY = 'pa_vibration';
+  let settings = loadSettings();
+  let currentLang = settings.lang || 'de';
+  let vibrationEnabled = settings.vibration !== false;
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
@@ -166,13 +172,342 @@
   }
 
   function initUiMode() {
-    let saved = 'compact';
-    try { saved = localStorage.getItem('pa_ui_mode') || 'compact'; } catch (_) {}
-    applyUiMode(saved, false);
+    const savedUi = settings.uiSize || 'compact';
+    applyUiMode(savedUi, false);
     const btn = $('#ui-size-toggle');
     if (btn) btn.addEventListener('click', cycleUiMode);
   }
 
+  function vibrate(ms) {
+    if (!vibrationEnabled) return;
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {}
+  }
+
+  /* ---------- Settings ---------- */
+  function defaultSettings() {
+    return {
+      lang: 'de',
+      music: true,
+      musicVolume: 0.5,
+      sfx: true,
+      sfxVolume: 0.7,
+      uiSize: 'compact',
+      vibration: true,
+    };
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) return { ...defaultSettings(), ...JSON.parse(raw) };
+    } catch (_) {}
+    const legacy = tryLoadLegacySettings();
+    return { ...defaultSettings(), ...legacy };
+  }
+
+  function tryLoadLegacySettings() {
+    const out = {};
+    try {
+      const old = localStorage.getItem('pa_audio_settings');
+      if (old) {
+        const a = JSON.parse(old);
+        out.music = !!a.musicEnabled;
+        out.sfx = !!a.sfxEnabled;
+        out.musicVolume = Math.max(0, Math.min(1, a.musicVolume != null ? a.musicVolume : 0.5));
+        out.sfxVolume = Math.max(0, Math.min(1, a.sfxVolume != null ? a.sfxVolume : 0.7));
+      }
+    } catch (_) {}
+    try {
+      const uim = localStorage.getItem('pa_ui_mode');
+      if (uim) out.uiSize = uim;
+    } catch (_) {}
+    try {
+      const vib = localStorage.getItem(VIB_STORAGE_KEY);
+      if (vib != null) out.vibration = vib === 'true';
+    } catch (_) {}
+    return out;
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
+    /* keep legacy audio key in sync for safety */
+    try {
+      localStorage.setItem('pa_audio_settings', JSON.stringify({
+        musicEnabled: settings.music,
+        sfxEnabled: settings.sfx,
+        musicVolume: settings.musicVolume,
+        sfxVolume: settings.sfxVolume,
+      }));
+    } catch (_) {}
+    try { localStorage.setItem('pa_ui_mode', settings.uiSize); } catch (_) {}
+    try { localStorage.setItem(VIB_STORAGE_KEY, String(settings.vibration)); } catch (_) {}
+  }
+
+  function applySettings(skipOverlayUpdate = false) {
+    applyLanguage(currentLang);
+    applyAudioFromSettings();
+    applyUiMode(settings.uiSize || 'compact', false);
+    vibrationEnabled = settings.vibration !== false;
+    if (!skipOverlayUpdate && $('#settings-overlay')) updateSettingsUI();
+  }
+
+  function applyAudioFromSettings() {
+    if (!ASL) return;
+    let s = audioSettings || ASL.createAudioSettings();
+    s = ASL.toggleMusic(s, settings.music ? !ASL.isMusicOn(s) : ASL.isMusicOn(s));
+    s = ASL.toggleSfx(s, settings.sfx ? !ASL.isSfxOn(s) : ASL.isSfxOn(s));
+    s = ASL.setMusicVolume(s, settings.musicVolume);
+    s = ASL.setSfxVolume(s, settings.sfxVolume);
+    audioSettings = s;
+    ASL.saveAudioSettings(audioSettings, localStorage);
+    if (window.FX) {
+      FX.setSoundEnabled(ASL.isMusicOn(audioSettings) || ASL.isSfxOn(audioSettings));
+      FX.setMusicOnInternal(ASL.isMusicOn(audioSettings));
+      FX.setSfxVolumeInternal(ASL.getSfxVolume(audioSettings));
+      FX.setMusicVolumeInternal(ASL.getMusicVolume(audioSettings));
+      if (ASL.isMusicOn(audioSettings)) FX.startMusic();
+      else FX.stopMusic();
+    }
+  }
+
+  function openSettings() {
+    const overlay = $('#settings-overlay');
+    if (!overlay) return;
+    overlay.hidden = false;
+    overlay.classList.add('active');
+    updateSettingsUI();
+  }
+
+  function closeSettings() {
+    const overlay = $('#settings-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    overlay.hidden = true;
+  }
+
+  function updateSettingsUI() {
+    const langSel = $('#settings-lang');
+    const musicTog = $('#settings-music');
+    const sfxTog = $('#settings-sfx');
+    const musicVol = $('#settings-music-vol');
+    const sfxVol = $('#settings-sfx-vol');
+    const uiSel = $('#settings-ui-size');
+    const vibTog = $('#settings-vibration');
+    if (langSel) langSel.value = currentLang;
+    if (musicTog) musicTog.checked = !!settings.music;
+    if (sfxTog) sfxTog.checked = !!settings.sfx;
+    if (musicVol) {
+      musicVol.value = Math.round((settings.musicVolume || 0) * 100);
+      musicVol.disabled = !settings.music;
+    }
+    if (sfxVol) {
+      sfxVol.value = Math.round((settings.sfxVolume || 0) * 100);
+      sfxVol.disabled = !settings.sfx;
+    }
+    if (uiSel) uiSel.value = settings.uiSize || 'compact';
+    if (vibTog) vibTog.checked = settings.vibration !== false;
+  }
+
+  function initSettings() {
+    applySettings(true);
+    const overlay = $('#settings-overlay');
+    const closeBtn = $('#settings-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSettings);
+    if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeSettings(); });
+
+    const langSel = $('#settings-lang');
+    if (langSel) langSel.addEventListener('change', () => {
+      currentLang = langSel.value;
+      settings.lang = currentLang;
+      saveSettings();
+      applySettings();
+      vibrate(20);
+      FX.Sound.tap && FX.Sound.tap();
+    });
+
+    const musicTog = $('#settings-music');
+    if (musicTog) musicTog.addEventListener('change', () => {
+      settings.music = musicTog.checked;
+      saveSettings();
+      applyAudioFromSettings();
+      updateSettingsUI();
+    });
+
+    const sfxTog = $('#settings-sfx');
+    if (sfxTog) sfxTog.addEventListener('change', () => {
+      settings.sfx = sfxTog.checked;
+      saveSettings();
+      applyAudioFromSettings();
+      updateSettingsUI();
+      if (settings.sfx) FX.Sound.tap && FX.Sound.tap();
+    });
+
+    const musicVol = $('#settings-music-vol');
+    if (musicVol) musicVol.addEventListener('input', () => {
+      settings.musicVolume = parseInt(musicVol.value, 10) / 100;
+      saveSettings();
+      applyAudioFromSettings();
+    });
+
+    const sfxVol = $('#settings-sfx-vol');
+    if (sfxVol) sfxVol.addEventListener('input', () => {
+      settings.sfxVolume = parseInt(sfxVol.value, 10) / 100;
+      saveSettings();
+      applyAudioFromSettings();
+      if (settings.sfx) FX.Sound.tap && FX.Sound.tap();
+    });
+
+    const uiSel = $('#settings-ui-size');
+    if (uiSel) uiSel.addEventListener('change', () => {
+      settings.uiSize = uiSel.value;
+      saveSettings();
+      applyUiMode(settings.uiSize, true);
+      vibrate(20);
+      FX.Sound.tap && FX.Sound.tap();
+    });
+
+    const vibTog = $('#settings-vibration');
+    if (vibTog) vibTog.addEventListener('change', () => {
+      settings.vibration = vibTog.checked;
+      vibrationEnabled = settings.vibration;
+      saveSettings();
+      if (vibTog.checked) vibrate(30);
+      FX.Sound.tap && FX.Sound.tap();
+    });
+
+    const resetBtn = $('#settings-reset');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      const ok = confirm(i18nText('resetConfirm') || 'Fortschritt wirklich zurücksetzen? Alle XP, Sterne und Freischaltungen gehen verloren.');
+      if (!ok) return;
+      try {
+        if (window.MetaProg && typeof MetaProg.reset === 'function') MetaProg.reset();
+      } catch (_) {}
+      try {
+        localStorage.removeItem('pa_progression');
+        localStorage.removeItem('pa_achievements');
+        localStorage.removeItem('pa_unlocks');
+        localStorage.removeItem(SETTINGS_KEY);
+        localStorage.removeItem('pa_audio_settings');
+        localStorage.removeItem('pa_ui_mode');
+        localStorage.removeItem(VIB_STORAGE_KEY);
+      } catch (_) {}
+      location.reload();
+    });
+  }
+
+  function i18nText(key) {
+    return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.de && I18N.de[key]) || key;
+  }
+
+  function applyLanguage(lang) {
+    if (!LANGS.includes(lang)) lang = 'de';
+    currentLang = lang;
+    document.documentElement.lang = lang;
+
+    const btnJoin = $('#btn-menu-join');
+    if (btnJoin) btnJoin.firstChild.textContent = i18nText('menuJoin') + ' ';
+    const btnShop = $('#btn-menu-shop');
+    if (btnShop) btnShop.firstChild.textContent = i18nText('menuShop') + ' ';
+    const btnSettings = $('#btn-menu-settings');
+    if (btnSettings) btnSettings.firstChild.textContent = i18nText('menuSettings') + ' ';
+    const backBtn = $('#btn-back-to-menu');
+    if (backBtn) backBtn.textContent = i18nText('back');
+
+    const joinTitle = document.querySelector('[data-screen="join"] .card-title');
+    if (joinTitle) joinTitle.textContent = i18nText('joinTitle');
+    const nameLabel = $('label[for="name-input"]');
+    if (nameLabel) nameLabel.textContent = i18nText('nameLabel');
+    const figureLabel = document.querySelectorAll('label.field-label')[1];
+    if (figureLabel) figureLabel.textContent = i18nText('figureLabel');
+    const codeLabel = $('label[for="code-input"]');
+    if (codeLabel) codeLabel.textContent = i18nText('codeLabel');
+    const joinBtn = $('#btn-join');
+    if (joinBtn) joinBtn.textContent = '🚀 ' + i18nText('joinBtn');
+    const hostBtn = $('#btn-host-create');
+    if (hostBtn) hostBtn.textContent = '🛠️ ' + i18nText('hostBtn');
+    const shopBtn2 = $('#btn-shop');
+    if (shopBtn2) shopBtn2.firstChild.textContent = '🛒 ' + i18nText('shopBtn') + ' ';
+
+    const lobbyWait = $('#lobby-players');
+    if (lobbyWait) {
+      const n = (board.players || []).length;
+      lobbyWait.textContent = n >= 2
+        ? i18nText('lobbyWaitingPlural').replace('{n}', n)
+        : i18nText('lobbyWaiting');
+    }
+
+    const shopTitle = document.querySelector('#shop-overlay .shop-title');
+    if (shopTitle) shopTitle.textContent = '🛒 ' + i18nText('shopTitle');
+    const shopTabs = document.querySelectorAll('.shop-tab');
+    shopTabs.forEach(t => {
+      if (t.dataset.tab === 'characters') t.textContent = i18nText('shopTabCharacters');
+      if (t.dataset.tab === 'trails') t.textContent = i18nText('shopTabTrails');
+    });
+
+    const settingsTitle = document.querySelector('#settings-overlay .shop-title');
+    if (settingsTitle) settingsTitle.textContent = '⚙️ ' + i18nText('settingsTitle');
+    const settingsSections = document.querySelectorAll('.settings-section h3');
+    settingsSections.forEach(h3 => {
+      const txt = h3.textContent || '';
+      if (txt.includes('🌐')) h3.textContent = '🌐 ' + i18nText('settingsLang');
+      else if (txt.includes('🔊')) h3.textContent = '🔊 ' + i18nText('settingsAudio');
+      else if (txt.includes('📱')) h3.textContent = '📱 ' + i18nText('settingsDisplay');
+      else if (txt.includes('👤')) h3.textContent = '👤 ' + i18nText('settingsAccount');
+    });
+  }
+
+  const I18N = {
+    de: {
+      menuJoin: '🎮 Spiel beitreten',
+      menuShop: '🛒 Shop',
+      menuSettings: '⚙️ Einstellungen',
+      back: '← Zurück',
+      joinTitle: '🎮 Beitreten',
+      nameLabel: 'Dein Name',
+      figureLabel: 'Figur wählen',
+      codeLabel: 'Raum-Code',
+      joinBtn: 'Mitspielen',
+      hostBtn: 'Raum erstellen (Host)',
+      shopBtn: 'Shop',
+      lobbyWaiting: 'Warte auf weitere Spieler…',
+      lobbyWaitingPlural: '{n} Spieler im Raum — warte auf den Start…',
+      shopTitle: 'Shop',
+      shopTabCharacters: 'Charaktere',
+      shopTabTrails: 'Trails',
+      settingsTitle: 'Einstellungen',
+      settingsLang: 'Sprache',
+      settingsAudio: 'Audio',
+      settingsDisplay: 'Anzeige',
+      settingsAccount: 'Account',
+      resetConfirm: 'Fortschritt wirklich zurücksetzen? Alle XP, Sterne und Freischaltungen gehen verloren.',
+    },
+    en: {
+      menuJoin: '🎮 Join Game',
+      menuShop: '🛒 Shop',
+      menuSettings: '⚙️ Settings',
+      back: '← Back',
+      joinTitle: '🎮 Join',
+      nameLabel: 'Your Name',
+      figureLabel: 'Choose Figure',
+      codeLabel: 'Room Code',
+      joinBtn: 'Play',
+      hostBtn: 'Create Room (Host)',
+      shopBtn: 'Shop',
+      lobbyWaiting: 'Waiting for more players…',
+      lobbyWaitingPlural: '{n} players in room — waiting for host to start…',
+      shopTitle: 'Shop',
+      shopTabCharacters: 'Characters',
+      shopTabTrails: 'Trails',
+      settingsTitle: 'Settings',
+      settingsLang: 'Language',
+      settingsAudio: 'Audio',
+      settingsDisplay: 'Display',
+      settingsAccount: 'Account',
+      resetConfirm: 'Really reset all progress? All XP, stars and unlocks will be lost.',
+    },
+  };
+
+  /* ---------- Helfer ---------- */
   function ensureTurnNotice() {
     if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
     turnNoticeEl = document.createElement('div');
@@ -228,6 +563,7 @@
   renderFigurePicker();
   initUiMode();
   initShop();
+  initSettings();
 
   /* ---------- Verbindung ---------- */
   if (location.protocol === 'file:') {
@@ -264,7 +600,7 @@
   });
   const btnMenuSettings = $('#btn-menu-settings');
   if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => {
-    openAudioSettings();
+    openSettings();
     FX.Sound.tap();
   });
   const btnBackToMenu = $('#btn-back-to-menu');
@@ -756,6 +1092,11 @@
   /* ---------- Sound / Audio Settings ---------- */
   const ASL = window.AudioSettingsLogic;
   let audioSettings = ASL ? ASL.loadAudioSettings(localStorage) : null;
+  if (audioSettings && ASL && settings) {
+    audioSettings = ASL.setMusicVolume(ASL.setSfxVolume(
+      ASL.toggleMusic(ASL.toggleSfx(audioSettings, !settings.sfx), settings.sfx),
+      settings.sfxVolume), settings.musicVolume);
+  }
 
   function applyAudioSettings() {
     if (!audioSettings || !ASL) return;
@@ -801,7 +1142,7 @@
   }
 
   if (ASL) {
-    $('#sound-toggle').addEventListener('click', openAudioSettings);
+    $('#sound-toggle').addEventListener('click', openSettings);
     const closeBtn = $('#audio-settings-close');
     if (closeBtn) closeBtn.addEventListener('click', closeAudioSettings);
     const aOverlay = $('#audio-settings-overlay');
@@ -811,12 +1152,21 @@
       audioSettings = ASL.toggleMusic(audioSettings);
       ASL.saveAudioSettings(audioSettings, localStorage);
       applyAudioSettings(); updateAudioSettingsUI();
+      /* sync new settings */
+      settings.music = ASL.isMusicOn(audioSettings);
+      settings.musicVolume = ASL.getMusicVolume(audioSettings);
+      saveSettings();
+      updateSettingsUI();
     });
     const sTog = $('#audio-sfx-toggle');
     if (sTog) sTog.addEventListener('change', () => {
       audioSettings = ASL.toggleSfx(audioSettings);
       ASL.saveAudioSettings(audioSettings, localStorage);
       applyAudioSettings(); updateAudioSettingsUI();
+      settings.sfx = ASL.isSfxOn(audioSettings);
+      settings.sfxVolume = ASL.getSfxVolume(audioSettings);
+      saveSettings();
+      updateSettingsUI();
       if (ASL.isSfxOn(audioSettings)) FX.Sound.click();
     });
     const mVol = $('#audio-music-volume');
@@ -825,6 +1175,8 @@
       audioSettings = ASL.setMusicVolume(audioSettings, v);
       ASL.saveAudioSettings(audioSettings, localStorage);
       FX.setMusicVolumeInternal(v);
+      settings.musicVolume = v;
+      saveSettings();
     });
     const sVol = $('#audio-sfx-volume');
     if (sVol) sVol.addEventListener('input', () => {
@@ -832,15 +1184,15 @@
       audioSettings = ASL.setSfxVolume(audioSettings, v);
       ASL.saveAudioSettings(audioSettings, localStorage);
       FX.setSfxVolumeInternal(v);
+      settings.sfxVolume = v;
+      saveSettings();
       if (ASL.isSfxOn(audioSettings)) FX.Sound.tap();
     });
+    /* legacy audio overlay still kept in sync */
     applyAudioSettings();
+    updateAudioSettingsUI();
   } else {
-    $('#sound-toggle').addEventListener('click', () => {
-      const on = !FX.isSoundEnabled();
-      FX.setSoundEnabled(on);
-      $('#sound-toggle').textContent = on ? '🔊' : '🔇';
-    });
+    $('#sound-toggle').addEventListener('click', openSettings);
   }
   const fsBtn = $('#fullscreen-toggle');
   if (fsBtn) {
