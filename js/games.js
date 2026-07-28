@@ -3376,8 +3376,140 @@ const Games = (() => {
   // expose for simon closure
   window._beep = _beep;
 
+  /* =========================================================
+     X) LAVA FLOOR — Überlebe auf der Plattform
+     ========================================================= */
+  function gameLavaFloor(stage, api) {
+    const TIME_MS = 25000;
+    const GRID = 5;
+    const START_DELAY = 1500;
+    let startTime = 0;
+    let finished = false;
+    let score = 0;
+
+    /* pseudo-Zufall mit Seed damit Host/Player synchron bleiben */
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+    const seed = Date.now() % 2147483647;
+    const rnd = mulberry32(seed);
+    const randInt = (min, max) => Math.floor(rnd() * (max - min + 1)) + min;
+
+    const wrap = el('div', 'lf-wrap');
+    wrap.innerHTML = `
+      <div class="lf-hud"><span id="lf-timer">25.0s</span><span id="lf-status">Warte…</span></div>
+      <div class="lf-grid" id="lf-grid"></div>`;
+    stage.appendChild(wrap);
+    const gridEl = wrap.querySelector('#lf-grid');
+    const timerEl = wrap.querySelector('#lf-timer');
+    const statusEl = wrap.querySelector('#lf-status');
+
+    const cells = [];
+    for (let i = 0; i < GRID * GRID; i++) {
+      const c = el('div', 'lf-cell');
+      c.dataset.idx = i;
+      gridEl.appendChild(c);
+      cells.push(c);
+    }
+
+    const playerPos = { x: 2, y: 2 };
+    const alive = new Set();
+    for (let i = 0; i < GRID * GRID; i++) alive.add(i);
+    alive.delete(playerPos.y * GRID + playerPos.x);
+
+    function renderPlayer() {
+      cells.forEach(c => c.classList.remove('lf-player'));
+      const idx = playerPos.y * GRID + playerPos.x;
+      if (cells[idx] && !cells[idx].classList.contains('lf-lava')) cells[idx].classList.add('lf-player');
+    }
+
+    function setLava(idx) {
+      if (idx === playerPos.y * GRID + playerPos.x) { finish(0); return; }
+      alive.delete(idx);
+      cells[idx].classList.add('lf-lava');
+      FX.Sound.bad();
+    }
+
+    function scheduleLava(elapsed) {
+      const interval = Math.max(600, 1500 - elapsed / 20);
+      api.timeout(() => {
+        if (finished) return;
+        const candidates = [...alive];
+        if (candidates.length > 0) {
+          const idx = candidates[randInt(0, candidates.length - 1)];
+          setLava(idx);
+        }
+        const now = performance.now() - startTime;
+        if (now < TIME_MS + START_DELAY) scheduleLava(now);
+      }, interval);
+    }
+
+    function move(dx, dy) {
+      if (finished) return;
+      const nx = Math.max(0, Math.min(GRID - 1, playerPos.x + dx));
+      const ny = Math.max(0, Math.min(GRID - 1, playerPos.y + dy));
+      const nidx = ny * GRID + nx;
+      if (cells[nidx].classList.contains('lf-lava')) return;
+      playerPos.x = nx; playerPos.y = ny;
+      renderPlayer();
+    }
+
+    function finish(pts) {
+      if (finished) return;
+      finished = true;
+      score = pts;
+      api.setScore(score);
+      api.finish(score);
+    }
+
+    /* Steuerung */
+    let startX = 0, startY = 0;
+    stage.addEventListener('pointerdown', e => { startX = e.clientX; startY = e.clientY; });
+    stage.addEventListener('pointerup', e => {
+      if (finished) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy)) { move(dx > 0 ? 1 : -1, 0); }
+      else if (Math.abs(dy) > 20) { move(0, dy > 0 ? 1 : -1); }
+    });
+    stage.addEventListener('keydown', e => {
+      const map = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+      if (map[e.key]) { e.preventDefault(); move(...map[e.key]); }
+    });
+
+    /* Countdown + Start */
+    statusEl.textContent = 'Lava steigt in Kürze…';
+    renderPlayer();
+    api.timeout(() => {
+      startTime = performance.now();
+      statusEl.textContent = 'Überlebe!';
+      scheduleLava(0);
+      FX.Sound.go();
+    }, START_DELAY);
+
+    api.frameLoop(() => {
+      if (finished) return false;
+      const elapsed = performance.now() - startTime;
+      if (elapsed >= TIME_MS) {
+        const survival = Math.min(TIME_MS, Math.max(0, elapsed - START_DELAY));
+        const pts = Math.round(survival / 50);
+        finish(pts);
+        return false;
+      }
+      timerEl.textContent = (Math.max(0, (TIME_MS + START_DELAY - elapsed) / 1000)).toFixed(1) + 's';
+      return true;
+    });
+  }
+
   /* ---------- Registry ---------- */
   const list = [
+    { id: 'lavafloor', name: 'Lava-Boden', icon: '🌋', desc: 'Weiche der Lava aus — die Plattform zerbröckelt unter dir.',
+      rules: 'Bewege dich schnell auf den sicheren Kacheln. Nach und nach fällt die Plattform in die Lava. Wer überlebt, bekommt Punkte — wer fällt, scheidet aus! 25 Sekunden.', play: gameLavaFloor },
     { id: 'reaction', name: 'Reaktion', icon: '⚡', desc: 'Tippe blitzschnell, sobald der Bildschirm grün wird.',
       rules: 'Warte auf <strong>GRÜN</strong> und tippe so schnell wie möglich. Tippst du zu früh, gibt es 0 Punkte. <strong>20 Sekunden</strong> — so viele Versuche wie möglich, je schneller, desto mehr Punkte!', play: gameReaction },
     { id: 'simon', name: 'Memory-Sequenz', icon: '🧠', desc: 'Merke dir die leuchtende Reihenfolge und wiederhole sie.',

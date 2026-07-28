@@ -4280,6 +4280,68 @@ body.in-game .hud-pills { display: flex; }
 }
 
 /* ============================================================
+   LAVA FLOOR MINI-SPIEL
+   ============================================================ */
+.lf-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at 50% 100%, #3d0e00 0%, #1a0505 70%);
+}
+.lf-hud {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px 12px;
+  font-family: var(--font-display);
+  font-size: clamp(18px, 5vw, 24px);
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,.6);
+}
+.lf-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 6px;
+  width: min(90vw, 360px);
+  height: min(90vw, 360px);
+  margin: auto;
+  background: rgba(0,0,0,.25);
+  padding: 8px;
+  border-radius: var(--radius-md);
+  border: 2px solid rgba(255,107,53,.35);
+  box-shadow: 0 12px 40px rgba(255,69,0,.25);
+}
+.lf-cell {
+  background: linear-gradient(135deg, #4a4a4a, #2d2d2d);
+  border-radius: 8px;
+  transition: background .25s, transform .25s, opacity .25s;
+  box-shadow: inset 0 0 12px rgba(255,255,255,.06);
+}
+.lf-cell.lf-lava {
+  background: radial-gradient(circle at 50% 30%, #ff9500, #ff2a00 60%, #5a0a00 100%);
+  transform: scale(.92);
+  box-shadow: 0 0 18px rgba(255,69,0,.55), inset 0 0 20px rgba(255,180,0,.4);
+  animation: lfLavaPulse 1.4s ease-in-out infinite;
+}
+.lf-cell.lf-player {
+  background: radial-gradient(circle at 50% 30%, #2bffb9, #00b36b);
+  box-shadow: 0 0 18px rgba(43,255,185,.6), inset 0 0 12px rgba(255,255,255,.25);
+  border-radius: 50%;
+  transform: scale(.82);
+}
+@keyframes lfLavaPulse {
+  0%,100% { transform: scale(.92); opacity: .9; }
+  50% { transform: scale(.96); opacity: 1; }
+}
+
+/* ============================================================
    AUDIO SETTINGS
    ============================================================ */
 
