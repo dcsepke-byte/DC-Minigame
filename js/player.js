@@ -507,43 +507,10 @@
     },
   };
 
-  /* ---------- Helfer ---------- */
-  function ensureTurnNotice() {
-    if (turnNoticeEl && document.body.contains(turnNoticeEl)) return turnNoticeEl;
-    turnNoticeEl = document.createElement('div');
-    turnNoticeEl.className = 'turn-notice';
-    turnNoticeEl.hidden = true;
-    document.body.appendChild(turnNoticeEl);
-    return turnNoticeEl;
-  }
-
-  function hideTurnNotice() {
-    const wrap = ensureTurnNotice();
-    wrap.hidden = true;
-    wrap.innerHTML = '';
-  }
-
-  function showTurnNotice(text, actions = []) {
-    const wrap = ensureTurnNotice();
-    wrap.innerHTML = '';
-    const card = el('div', 'turn-notice-card');
-    const msg = el('div', 'turn-notice-text', escapeHtml(text || 'Du bist dran.'));
-    const btns = el('div', 'turn-notice-buttons');
-    actions.forEach(cfg => {
-      const klass = cfg.kind === 'ghost' ? 'btn btn-ghost' : 'btn btn-primary';
-      const b = el('button', klass, cfg.label || 'OK');
-      b.type = 'button';
-      b.addEventListener('click', () => {
-        if (typeof cfg.action === 'function') cfg.action();
-        hideTurnNotice();
-      });
-      btns.appendChild(b);
-    });
-    card.appendChild(msg);
-    card.appendChild(btns);
-    wrap.appendChild(card);
-    wrap.hidden = false;
-  }
+  /* ---------- Turn-Notice (aus shared.js) ---------- */
+  function ensureTurnNotice() { return PartyArenaShared.ensureTurnNotice(); }
+  function hideTurnNotice() { PartyArenaShared.hideTurnNotice(); }
+  function showTurnNotice(text, actions) { PartyArenaShared.showTurnNotice(text, actions); }
 
   /* ---------- Code aus URL vorbefüllen ---------- */
   const params = new URLSearchParams(location.search);
@@ -1282,9 +1249,11 @@
     b.addEventListener('click', () => switchPlayerBoardPanel(b.dataset.panel || 'map'));
   });
 
-  /* ---------- Helfer ---------- */
+  /* ---------- Helfer (aus shared.js) ---------- */
+  const el = PartyArenaShared.el;
+  const escapeHtml = PartyArenaShared.escapeHtml;
+  const initials = PartyArenaShared.initials;
   function isActive(name) { return screens[name] && screens[name].classList.contains('active'); }
-  function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function setBoardStatus(text) {
     const value = text || '...';
     const chip = $('#board-status');
@@ -1308,48 +1277,24 @@
     }, lifespan);
   }
 
-  /* NEU Layout C: Spieler-Pillbar (oben-links) */
+  /* NEU Layout C: Spieler-Pillbar (oben-links) — via shared.js */
   function renderBoardPills() {
-    const wrap = $('#player-board-pills');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-    const arr = board.players || [];
-    arr.forEach(p => {
-      const isTurn = (board.phase === 'turn' && board.turnPlayerId === p.id)
-        || (board.phase === 'decision' && board.pendingPlayerId === p.id);
-      const isYou = p.id === me.id;
-      const pill = el('div', 'hud-pill' + (isTurn ? ' active' : '') + (isYou ? ' you' : ''));
-      pill.setAttribute('role', 'listitem');
-      pill.innerHTML = `
-        <span class="hud-pill-avatar" style="background:${p.color || 'linear-gradient(135deg,#7b2ff7,#00f0ff)'}">${p.figure || initials(p.name)}</span>
-        <span class="hud-pill-name">${escapeHtml(p.name)}</span>
-        <span class="hud-pill-stats">⭐${p.stars || 0} · 🪙${p.coins || 0}</span>`;
-      wrap.appendChild(pill);
+    PartyArenaShared.renderBoardPills({
+      containerId: 'player-board-pills',
+      players: board.players,
+      phase: board.phase,
+      turnPlayerId: board.turnPlayerId,
+      pendingPlayerId: board.pendingPlayerId,
+      myId: me.id,
     });
   }
 
-  /* NEU Layout C: Slide-In-Panels + Menü-Button (einmalig binden) */
+  /* NEU Layout C: Slide-In-Panels + Menü-Button (einmalig binden) — via shared.js */
   let slidesBound = false;
   function setupBoardSlides() {
     if (slidesBound) return;
     slidesBound = true;
-    const menu = $('#player-board-menu');
-    let toggleState = 0;
-    function open(id) { const p = $('#' + id); if (p) { p.hidden = false; p.classList.remove('closing'); } }
-    function close(id) { const p = $('#' + id); if (p) { p.classList.add('closing'); setTimeout(() => { p.hidden = true; p.classList.remove('closing'); }, 220); } }
-    if (menu) menu.addEventListener('click', () => {
-      if (toggleState === 0) { open('player-slide-score'); close('player-slide-profile'); toggleState = 1; }
-      else if (toggleState === 1) { close('player-slide-score'); open('player-slide-profile'); toggleState = 2; }
-      else { close('player-slide-profile'); toggleState = 0; }
-    });
-    document.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => { close(btn.getAttribute('data-close')); toggleState = 0; });
-    });
-  }
-  function initials(name) {
-    const parts = String(name).trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return String(name).trim().slice(0, 2).toUpperCase();
+    PartyArenaShared.setupBoardSlides('player-board-menu');
   }
   function animateNumber(elm, from, to, dur) {
     const start = performance.now();
@@ -1595,50 +1540,28 @@
   }
 
   function renderBoardRanking() {
-    const rank = $('#player-board-ranking');
-    if (!rank) return;
-    rank.innerHTML = '';
-    const arr = [...(board.players || [])].sort((a, b) => (b.stars || 0) - (a.stars || 0));
-    arr.forEach((p, i) => {
-      const row = el('div', 'rank-row' + (i === 0 ? ' first' : ''));
-      row.innerHTML = `
-        <span class="rank-pos">${i + 1}</span>
-        <span class="rank-avatar" style="background:${p.color}">${p.figure || '🙂'}</span>
-        <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
-        <span class="rank-stars">⭐ ${p.stars || 0} · 🪙${p.coins || 0}</span>`;
-      rank.appendChild(row);
+    PartyArenaShared.renderBoardRanking({
+      containerId: 'player-board-ranking',
+      players: board.players,
+      withPosition: true,
+      withTotalPoints: false,
+      figureFallback: '🙂',
     });
   }
 
   function renderProfileCard() {
-    const card = $('#player-info-card');
-    if (!card) return;
-    card.innerHTML = '';
-    const meRow = (board.players || []).find(p => p.id === me.id);
-    if (!meRow) {
-      card.innerHTML = '<div class="rank-row"><span class="rank-name">Noch keine Daten vorhanden</span></div>';
-      return;
-    }
-    const row = el('div', 'rank-row first');
-    row.innerHTML = `
-      <span class="rank-avatar" style="background:${meRow.color}">${meRow.figure || '🙂'}</span>
-      <span class="rank-name">${escapeHtml(meRow.name)} · Feld ${meRow.position ?? 0}</span>
-      <span class="rank-stars">⭐ ${meRow.stars || 0} · 🪙 ${meRow.coins || 0} · 🧮 ${meRow.totalPoints || 0}</span>`;
-    card.appendChild(row);
+    PartyArenaShared.renderProfileCard({
+      containerId: 'player-info-card',
+      player: (board.players || []).find(p => p.id === me.id),
+      emptyText: 'Noch keine Daten vorhanden',
+    });
   }
 
   function renderBoardTimeline() {
-    const list = $('#player-board-timeline');
-    if (!list) return;
-    const items = (board.history || []).slice(-12).reverse();
-    if (!items.length) {
-      list.innerHTML = '<div class="board-timeline-item">Noch keine Ereignisse.</div>';
-      return;
-    }
-    list.innerHTML = '';
-    items.forEach(msg => {
-      const row = el('div', 'board-timeline-item', escapeHtml(msg));
-      list.appendChild(row);
+    PartyArenaShared.renderBoardTimeline({
+      containerId: 'player-board-timeline',
+      history: board.history,
+      limit: -12,
     });
   }
 
@@ -1780,7 +1703,4 @@
     }, 1800);
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  }
 })();

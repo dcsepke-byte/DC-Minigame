@@ -332,7 +332,7 @@
     /* Hintergrundmusik starten (procedural, kein Asset) */
     if (window.FX && FX.startMusic) FX.startMusic();
     renderBoardGrid();
-    renderBoardRanking();
+    renderBoardRankingHost();
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
@@ -408,7 +408,7 @@
 
   function renderBoardFromState() {
     renderBoardGrid();
-    renderBoardRanking();
+    renderBoardRankingHost();
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
@@ -1026,14 +1026,10 @@
   window.addEventListener('resize', applyBoardCompactMode);
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(true), { once: true });
 
-  /* ---------- Helfer ---------- */
-  function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-  function escapeHtml(s) { return String(s).replace(/[\u0026\u003c\u003e"']/g, c => ({ '\u0026': '\u0026amp;', '\u003c': '\u0026lt;', '\u003e': '\u0026gt;', '"': '\u0026quot;', "'": '\u0026#39;' }[c])); }
-  function initials(name) {
-    const parts = String(name).trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return String(name).trim().slice(0, 2).toUpperCase();
-  }
+  /* ---------- Helfer (aus shared.js) ---------- */
+  const el = PartyArenaShared.el;
+  const escapeHtml = PartyArenaShared.escapeHtml;
+  const initials = PartyArenaShared.initials;
 
   function renderBoardGrid() {
     if (window.Party3D && state.boardTiles && state.boardTiles.length) {
@@ -1166,55 +1162,6 @@
     ];
     const p = map[Math.max(0, Math.min(map.length - 1, idx))];
     return { row: p[0], col: p[1] };
-  }
-
-  function renderBoardRanking() {
-    const rank = $('#board-ranking');
-    if (!rank) return;
-    rank.innerHTML = '';
-    const arr = [...state.players].sort((a, b) => (b.stars || 0) - (a.stars || 0));
-    arr.forEach((p, i) => {
-      const row = el('div', 'rank-row' + (i === 0 ? ' first' : ''));
-      row.innerHTML = `
-        <span class="rank-pos">${i + 1}</span>
-        <span class="rank-avatar" style="background:${p.color}">${p.figure || initials(p.name)}</span>
-        <span class="rank-name">${escapeHtml(p.name)} · Feld ${p.position ?? 0}</span>
-        <span class="rank-stars">${'⭐'.repeat(p.stars || 0) || '0'} · 🪙${p.coins || 0}</span>`;
-      rank.appendChild(row);
-    });
-  }
-
-  function renderHostProfileCard() {
-    const list = $('#host-board-profile');
-    if (!list) return;
-    list.innerHTML = '';
-    const me = (state.players || []).find(p => p.id === HOST_PID);
-    if (!me) {
-      list.innerHTML = '<div class="rank-row"><span class="rank-name">Host spielt aktuell nicht mit.</span></div>';
-      return;
-    }
-    const row = el('div', 'rank-row first');
-    row.innerHTML = `
-      <span class="rank-avatar" style="background:${me.color}">${me.figure || '🎩'}</span>
-      <span class="rank-name">${escapeHtml(me.name)} · Feld ${me.position ?? 0}</span>
-      <span class="rank-stars">⭐ ${me.stars || 0} · 🪙 ${me.coins || 0} · 🧮 ${me.totalPoints || 0}</span>`;
-    list.appendChild(row);
-  }
-
-  function updateHostBoardStats() {
-    const me = (state.players || []).find(p => p.id === HOST_PID);
-    const avatar = $('#host-board-avatar');
-    const name = $('#host-board-name');
-    const stats = $('#host-board-me-stats');
-    if (me) {
-      if (avatar) { avatar.textContent = me.figure || '🎩'; avatar.style.background = me.color || '#ffd34e'; }
-      if (name) name.textContent = me.name || 'Host';
-      if (stats) stats.textContent = `⭐ ${me.stars || 0} · 🪙 ${me.coins || 0} · 🧮 ${me.totalPoints || 0} Punkte`;
-    } else {
-      if (avatar) { avatar.textContent = '🎩'; avatar.style.background = '#ffd34e'; }
-      if (name) name.textContent = state.hostProfile.name || 'Host';
-      if (stats) stats.textContent = '⭐ 0 · 🪙 0 · 🧮 0 Punkte';
-    }
   }
 
   function switchHostBoardPanel(panel) {
