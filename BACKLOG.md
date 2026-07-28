@@ -86,7 +86,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - Memory-Leak-Test (laengere Sessions)
   - Cross-Browser-Test (Safari, Chrome, Firefox)
 
-- [ ] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
+- [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
 - [ ] **DIFF-BASIERTE BOARD-UPDATES** — nur geaenderte Tiles senden
 - [x] **5-STELLIGER RAUM-CODE** — oder Brute-Force-Sperre (2026-07-27)
 - [x] **RATE-LIMITING WEBSOCKET** — max 10 Msg/s pro Client, sliding-window, TDD: 15 Unit-Tests, ws_rate_limit.py, server.py Integration, rateLimit-Handler in host.js/player.js (2026-07-27)
