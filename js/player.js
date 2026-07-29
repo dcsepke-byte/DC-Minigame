@@ -103,6 +103,19 @@
   let shopOpen = false;
   let shopTab = 'characters';
 
+  /* ---------- IAP-State ---------- */
+  function loadIapState() {
+    try {
+      const raw = localStorage.getItem('pa_iap');
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return window.IapLogic ? window.IapLogic.createIapState() : { purchased: {}, premium: false };
+  }
+  function saveIapState(s) {
+    try { localStorage.setItem('pa_iap', JSON.stringify(s)); } catch (_) {}
+  }
+  let iapState = loadIapState();
+
   function updateLobbyMeta() {
     const el = $('#lobby-meta');
     if (!el || !MPL) return;
@@ -386,12 +399,34 @@
         localStorage.removeItem('pa_progression');
         localStorage.removeItem('pa_achievements');
         localStorage.removeItem('pa_unlocks');
+        localStorage.removeItem('pa_iap');
         localStorage.removeItem(SETTINGS_KEY);
         localStorage.removeItem('pa_audio_settings');
         localStorage.removeItem('pa_ui_mode');
         localStorage.removeItem(VIB_STORAGE_KEY);
       } catch (_) {}
       location.reload();
+    });
+
+    const restoreBtn = $('#settings-restore');
+    if (restoreBtn) restoreBtn.addEventListener('click', () => {
+      const IAP = window.IapLogic;
+      if (!IAP) return;
+      const hint = $('#settings-hint');
+      if (hint) { hint.textContent = 'Stelle Kaeufe wieder her...'; hint.className = 'settings-hint'; }
+      IAP.restorePurchases().then(function(ownedIds) {
+        ownedIds.forEach(function(id) {
+          IAP.markPurchased(iapState, id);
+        });
+        saveIapState(iapState);
+        if (iapState.premium) {
+          applyPremiumUnlocks('premium_unlock');
+        }
+        if (hint) { hint.textContent = ownedIds.length > 0 ? ownedIds.length + ' Kaeufe wiederhergestellt!' : 'Keine Kaeufe gefunden.'; hint.className = 'settings-hint success'; }
+        setTimeout(function() { if (hint) { hint.textContent = ''; hint.className = 'settings-hint'; } }, 3000);
+      }).catch(function() {
+        if (hint) { hint.textContent = 'Fehler beim Wiederherstellen'; hint.className = 'settings-hint error'; }
+      });
     });
   }
 
@@ -1370,6 +1405,12 @@
     const grid = $('#shop-grid');
     if (!grid) return;
     grid.innerHTML = '';
+
+    if (shopTab === 'premium') {
+      renderPremiumTab(grid);
+      return;
+    }
+
     const allItems = SVL.buildShopItems(progression, unlockState);
     const items = allItems.filter(i => shopTab === 'characters' ? i.type === 'character' : i.type === 'trail');
     items.forEach(item => {
@@ -1422,6 +1463,86 @@
       }
       grid.appendChild(card);
     });
+  }
+
+  function renderPremiumTab(grid) {
+    const IAP = window.IapLogic;
+    if (!IAP) return;
+    const products = IAP.getShopProducts(iapState);
+    products.forEach(function(item) {
+      const card = el('div', 'shop-card premium-card');
+      if (item.purchased) card.classList.add('owned');
+      const icon = el('div', 'shop-card-icon', item.icon);
+      card.appendChild(icon);
+      const name = el('div', 'shop-card-name', item.name);
+      card.appendChild(name);
+      const desc = el('div', 'shop-card-desc', item.desc);
+      card.appendChild(desc);
+      if (item.purchased) {
+        const badge = el('div', 'shop-card-badge owned', '✓');
+        card.appendChild(badge);
+        const priceEl = el('div', 'shop-card-price', 'Gekauft');
+        card.appendChild(priceEl);
+      } else {
+        const priceEl = el('div', 'shop-card-price', item.price);
+        card.appendChild(priceEl);
+        card.addEventListener('click', function() {
+          const hint = $('#shop-hint');
+          if (hint) { hint.textContent = 'Kaufe ' + item.name + '...'; hint.className = 'shop-hint'; }
+          IAP.purchase(item.id).then(function(result) {
+            if (result.success) {
+              const mark = IAP.markPurchased(iapState, item.id);
+              saveIapState(iapState);
+              if (mark.starsAwarded > 0) {
+                progression.stars = (progression.stars || 0) + mark.starsAwarded;
+                saveProgression(progression);
+              }
+              // Premium: schalte alle Unlocks frei
+              if (item.id === 'premium_unlock' || item.id === 'character_pack' || item.id === 'trail_pack' || item.id === 'starter_pack') {
+                applyPremiumUnlocks(item.id);
+              }
+              renderShop();
+              updateJoinStarCount();
+              FX.Sound.good();
+              if (hint) { hint.textContent = 'Gekauft! 🎉'; hint.className = 'shop-hint success'; }
+            } else {
+              FX.Sound.bad();
+              if (hint) { hint.textContent = result.error || 'Kauf fehlgeschlagen'; hint.className = 'shop-hint error'; }
+            }
+            setTimeout(function() { if (hint) { hint.textContent = ''; hint.className = 'shop-hint'; } }, 3000);
+          });
+        });
+      }
+      grid.appendChild(card);
+    });
+  }
+
+  function applyPremiumUnlocks(packId) {
+    if (!MPL) return;
+    var ids = [];
+    if (packId === 'premium_unlock') {
+      ids = window.IapLogic ? window.IapLogic.getPremiumUnlockIds() : [];
+    } else if (packId === 'character_pack') {
+      // 3 zufaellige nicht-owned Charaktere
+      var allChars = MPL.UNLOCKS.filter(function(u) { return u.type === 'character' && u.price > 0 && !MPL.isOwned(unlockState, u.id); });
+      for (var i = allChars.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var tmp = allChars[i]; allChars[i] = allChars[j]; allChars[j] = tmp; }
+      ids = allChars.slice(0, 3).map(function(u) { return u.id; });
+    } else if (packId === 'trail_pack') {
+      ids = ['trail_sparkle', 'trail_rainbow', 'trail_fire'];
+    } else if (packId === 'starter_pack') {
+      // 2 zufaellige Charaktere + 1 zufaelligen Trail
+      var chars = MPL.UNLOCKS.filter(function(u) { return u.type === 'character' && u.price > 0 && !MPL.isOwned(unlockState, u.id); });
+      for (var k = chars.length - 1; k > 0; k--) { var t = chars[k]; chars[k] = chars[Math.floor(Math.random() * (k + 1))]; chars[Math.floor(Math.random() * (k + 1))] = t; }
+      ids = chars.slice(0, 2).map(function(u) { return u.id; });
+      var trails = MPL.UNLOCKS.filter(function(u) { return u.type === 'trail' && u.price > 0 && !MPL.isOwned(unlockState, u.id); });
+      if (trails.length > 0) ids.push(trails[Math.floor(Math.random() * trails.length)].id);
+    }
+    ids.forEach(function(id) {
+      if (!MPL.isOwned(unlockState, id)) {
+        unlockState.owned[id] = true;
+      }
+    });
+    saveUnlockState(unlockState);
   }
 
   function initShop() {
@@ -1702,5 +1823,22 @@
       }, 220);
     }, 1800);
   }
+
+  /* ---------- IAP Init ---------- */
+  (function initIap() {
+    var IAP = window.IapLogic;
+    if (!IAP) return;
+    IAP.initStore(function() {
+      // Premium-Badge im Menu anzeigen
+      if (IAP.isPremium(iapState)) {
+        var badge = document.createElement('span');
+        badge.className = 'premium-badge';
+        badge.textContent = '👑';
+        badge.title = 'Premium';
+        var menu = document.querySelector('.menu-buttons');
+        if (menu) menu.appendChild(badge);
+      }
+    });
+  })();
 
 })();
