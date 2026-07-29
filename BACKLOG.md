@@ -66,7 +66,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 - [~] **MONETARISIERUNG** — Strategie festlegen und implementieren:
   - [x] Strategie-Dokument (store-assets/monetization.md) (2026-07-29)
-  - [ ] IAP-Integration (Capacitor Purchase Plugin)
+  - [x] IAP-Integration (Capacitor Purchase Plugin) — iap.js + iap-browser.js, Premium-Tab, Restore, 23 Unit-Tests (2026-07-29)
   - [ ] Produkt-Konfiguration in App Store Connect + Google Play Console
   - [ ] Rewarded Ads (optional, nach Launch)
 
