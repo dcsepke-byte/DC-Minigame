@@ -2180,7 +2180,7 @@ async def main():
     mimetypes.add_type("application/javascript", ".js")
     mimetypes.add_type("text/css", ".css")
     mimetypes.add_type("application/manifest+json", ".webmanifest")
-    server = await asyncio.start_server(handle_connection, HOST, PORT)
+    server = await asyncio.start_server(handle_connection, HOST, PORT, reuse_address=True)
     url = lan_url()
     print("=" * 56)
     print("  PARTY ARENA — Mehrspieler-Server läuft!")
