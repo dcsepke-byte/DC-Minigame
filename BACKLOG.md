@@ -85,7 +85,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Edge-Case-Testing (2-4 Spieler, Reconnect, Disconnect) — E2E-Bot + 4-Bot-Stress-Test (2026-07-29)
   - [x] Memory-Leak-Test (laengere Sessions) — clearInterval/clearTimeout geprueft (2026-07-29)
   - [x] Cross-Browser-CSS (Safari) — -webkit-backdrop-filter Fallbacks vorhanden (2026-07-29)
-  - [ ] Performance auf Low-End-Geraeten (2D-Fallback)
+  - [x] Performance auf Low-End-Geraeten (2D-Fallback)
   - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell
 
 - [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
