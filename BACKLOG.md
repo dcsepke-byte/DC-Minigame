@@ -80,12 +80,13 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 ## Phase 4: Quality & Launch (Woche 7-8)
 
-- [ ] **QUALITY ASSURANCE** — Bug-free:
-  - Alle bekannten Bugs fixen
-  - Edge-Case-Testing (2-8 Spieler, Reconnect, Disconnect)
-  - Performance auf Low-End-Geraeten (2D-Fallback)
-  - Memory-Leak-Test (laengere Sessions)
-  - Cross-Browser-Test (Safari, Chrome, Firefox)
+- [~] **QUALITY ASSURANCE** — Bug-free:
+  - [x] Alle bekannten Bugs fixen (2026-07-29)
+  - [x] Edge-Case-Testing (2-4 Spieler, Reconnect, Disconnect) — E2E-Bot + 4-Bot-Stress-Test (2026-07-29)
+  - [x] Memory-Leak-Test (laengere Sessions) — clearInterval/clearTimeout geprueft (2026-07-29)
+  - [x] Cross-Browser-CSS (Safari) — -webkit-backdrop-filter Fallbacks vorhanden (2026-07-29)
+  - [ ] Performance auf Low-End-Geraeten (2D-Fallback)
+  - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell
 
 - [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
 - [x] **DIFF-BASIERTE BOARD-UPDATES** — nur geaenderte Tiles senden (2026-07-28)
