@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""4-Bot Stress-Test."""
+"""4-Bot Stress-Test mit Debug."""
 import asyncio, websockets, json, random, sys
 
 HOST_WS = 'ws://localhost:3000/ws'
@@ -45,7 +45,7 @@ async def host_session(code_q):
                     kind = m.get('kind')
                     action = 'buy' if kind == 'buy' else ('duel' if kind == 'rentOrDuel' else 'skip')
                     await ws.send(json.dumps({'type':'board:decision','action':action}))
-                elif t in ('minigame:start','duel:start','game:start'):
+                elif t in ('minigame:start','duel:start','game:start','start'):
                     await asyncio.sleep(1)
                     await ws.send(json.dumps({'type':'player:finished','score':random.randint(50,150)}))
                 elif t in ('standings','roundResults','board:roundEnd','board:end'):
@@ -54,6 +54,7 @@ async def host_session(code_q):
                 elif t in ('gameOver','final'):
                     break
             except asyncio.TimeoutError:
+                print(f'[HOST] TIMEOUT after {len(types)} msgs', flush=True)
                 break
         return types
 
@@ -63,7 +64,7 @@ async def player_bot(code_q, bot_id):
     async with websockets.connect(PLAYER_WS) as ws:
         await ws.send(json.dumps({'type':'player:join','code':code,'name':f'Bot{bot_id}','figure':['🐱','🦊','🐸','🐼'][bot_id]}))
         msg = json.loads(await ws.recv())
-        print(f'[BOT{bot_id}] {msg.get("type")}')
+        print(f'[BOT{bot_id}] {msg.get("type")}', flush=True)
         types = []
         for i in range(100):
             try:
@@ -81,12 +82,13 @@ async def player_bot(code_q, bot_id):
                     kind = m.get('kind')
                     action = 'buy' if kind == 'buy' else ('duel' if kind == 'rentOrDuel' else 'skip')
                     await ws.send(json.dumps({'type':'board:decision','action':action}))
-                elif t in ('minigame:start','duel:start','game:start'):
+                elif t in ('minigame:start','duel:start','game:start','start'):
                     await asyncio.sleep(1)
                     await ws.send(json.dumps({'type':'player:finished','score':random.randint(50,150)}))
                 elif t in ('gameOver','final'):
                     break
             except asyncio.TimeoutError:
+                print(f'[BOT{bot_id}] TIMEOUT after {len(types)} msgs', flush=True)
                 break
         return types
 
