@@ -20,6 +20,23 @@
   --gold: #ffd34e;
   --silver: #d4d9e6;
   --bronze: #ff9e5e;
+  --good-dark: #00a86b;
+  --bad-dark: #b00020;
+  --good-text: #062b1d;
+  --bg-text: #11112b;
+  --gold-dark: #c79a17;
+  --gold-bright: #ffaa00;
+  --silver-dark: #9aa1b3;
+  --bronze-dark: #c4703a;
+  --white: #ffffff;
+  --white-dim: #cdd3ff;
+  --orange: #ffae00;
+  --orange-dark: #ff6a00;
+  --pink-light: #ff7bd0;
+  --cyan-dark: #00d4ff;
+  --card-bg: #fafcff;
+  --card-bg-dark: #d7defa;
+  --card-bg-alt: #d7dcf0;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   --radius: 28px;
   --radius-sm: 18px;
@@ -306,7 +323,7 @@ body.player-app .screen[data-screen="menu"] {
   font-family: var(--font-display);
   font-size: clamp(18px, 5vw, 22px);
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
   -webkit-tap-highlight-color: transparent;
@@ -320,15 +337,15 @@ body.player-app .screen[data-screen="menu"] {
   filter: brightness(1.15);
 }
 .menu-btn-play {
-  background: linear-gradient(135deg, #7b2ff7, #00f0ff);
+  background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
   box-shadow: 0 6px 28px rgba(0, 240, 255, 0.35);
 }
 .menu-btn-shop {
-  background: linear-gradient(135deg, #ff3cac, #ffd34e);
+  background: linear-gradient(135deg, var(--accent), var(--gold));
   box-shadow: 0 6px 28px rgba(255, 60, 172, 0.35);
 }
 .menu-btn-settings {
-  background: linear-gradient(135deg, #2bffb9, #00c896);
+  background: linear-gradient(135deg, var(--good), var(--good-dark));
   box-shadow: 0 6px 28px rgba(43, 255, 185, 0.3);
 }
 
@@ -591,7 +608,7 @@ body.host-mirror-player-view #host-play-card .game-stage {
   filter: drop-shadow(0 6px 24px rgba(123, 47, 247, 0.5));
 }
 .logo-word {
-  background: linear-gradient(90deg, #fff, #cdd3ff);
+  background: linear-gradient(90deg, var(--white), var(--white-dim));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -646,7 +663,7 @@ body.host-mirror-player-view #host-play-card .game-stage {
   text-overflow: ellipsis;
 }
 .meta-level .meta-stat-value {
-  background: linear-gradient(90deg, var(--gold), #ffaa00);
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -721,7 +738,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 17px;
-  color: #fff;
+  color: var(--white);
   border: none;
   border-radius: var(--radius-sm);
   padding: 14px 22px;
@@ -784,7 +801,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
   width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center;
   font-family: var(--font-display); font-weight: 800; font-size: 18px;
-  color: #11112b; flex-shrink: 0;
+  color: var(--bg-text); flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .chip-name { flex: 1; font-weight: 600; font-size: 17px; }
@@ -833,7 +850,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
 }
 .pill.active {
   background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
-  color: #fff; border-color: transparent;
+  color: var(--white); border-color: transparent;
   box-shadow: 0 6px 20px rgba(123, 47, 247, 0.4);
 }
 
@@ -857,7 +874,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
   position: absolute; top: 8px; right: 8px;
   width: 24px; height: 24px; border-radius: 50%;
   display: grid; place-items: center; font-size: 14px; font-weight: 800;
-  background: linear-gradient(135deg, var(--good), #00a86b); color: #062b1d;
+  background: linear-gradient(135deg, var(--good), var(--good-dark)); color: var(--good-text);
   box-shadow: 0 4px 12px rgba(43, 255, 185, 0.4);
 }
 .game-tile.disabled {
@@ -866,7 +883,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
 }
 .game-tile.disabled:hover { transform: none; border-color: rgba(255, 255, 255, 0.15); opacity: 0.55; }
 .game-tile.disabled .gt-badge {
-  background: rgba(255, 77, 109, 0.85); color: #fff; box-shadow: none;
+  background: rgba(255, 77, 109, 0.85); color: var(--white); box-shadow: none;
 }
 
 /* ---------- Round Intro ---------- */
@@ -906,7 +923,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
 .turn-avatar {
   width: 140px; height: 140px; border-radius: 50%;
   display: grid; place-items: center;
-  font-family: var(--font-display); font-weight: 800; font-size: 64px; color: #11112b;
+  font-family: var(--font-display); font-weight: 800; font-size: 64px; color: var(--bg-text);
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5);
   animation: pulse 1.6s ease-in-out infinite;
 }
@@ -928,7 +945,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
 .hud-avatar {
   width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center; font-family: var(--font-display);
-  font-weight: 800; color: #11112b; flex-shrink: 0;
+  font-weight: 800; color: var(--bg-text); flex-shrink: 0;
 }
 .hud-name { font-weight: 700; font-size: 17px; }
 .hud-game { font-family: var(--font-display); font-weight: 700; color: var(--txt-dim); font-size: 15px; }
@@ -1016,7 +1033,7 @@ body.player-app .screen[data-screen="play"] .game-stage {
 .result-avatar {
   width: 120px; height: 120px; border-radius: 50%;
   display: grid; place-items: center; font-family: var(--font-display);
-  font-weight: 800; font-size: 54px; color: #11112b;
+  font-weight: 800; font-size: 54px; color: var(--bg-text);
   box-shadow: 0 16px 50px rgba(0,0,0,0.5);
 }
 .result-name { font-family: var(--font-display); font-size: 40px; font-weight: 800; }
@@ -1047,7 +1064,7 @@ body.player-app .screen[data-screen="play"] .game-stage {
 .rank-avatar {
   width: 44px; height: 44px; border-radius: 50%;
   display: grid; place-items: center; font-family: var(--font-display);
-  font-weight: 800; color: #11112b; flex-shrink: 0;
+  font-weight: 800; color: var(--bg-text); flex-shrink: 0;
 }
 .rank-name { flex: 1; font-weight: 700; font-size: 18px; }
 .rank-score { font-family: var(--font-display); font-weight: 800; font-size: 24px; color: var(--accent-3); }
@@ -1067,7 +1084,7 @@ body.player-app .screen[data-screen="play"] .game-stage {
 .podium-avatar {
   width: 72px; height: 72px; border-radius: 50%;
   display: grid; place-items: center; font-family: var(--font-display);
-  font-weight: 800; font-size: 30px; color: #11112b;
+  font-weight: 800; font-size: 30px; color: var(--bg-text);
   box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 .podium-name { font-family: var(--font-display); font-weight: 700; font-size: 16px; text-align: center; }
@@ -1079,15 +1096,15 @@ body.player-app .screen[data-screen="play"] .game-stage {
   animation: podiumRise 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
 }
 @keyframes podiumRise { from { transform: scaleY(0); transform-origin: bottom; opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
-.podium-block.gold   { background: linear-gradient(180deg, var(--gold), #c79a17); height: 170px; }
-.podium-block.silver { background: linear-gradient(180deg, var(--silver), #9aa1b3); height: 120px; }
-.podium-block.bronze { background: linear-gradient(180deg, var(--bronze), #c4703a); height: 90px; }
+.podium-block.gold   { background: linear-gradient(180deg, var(--gold), var(--gold-dark)); height: 170px; }
+.podium-block.silver { background: linear-gradient(180deg, var(--silver), var(--silver-dark)); height: 120px; }
+.podium-block.bronze { background: linear-gradient(180deg, var(--bronze), var(--bronze-dark)); height: 90px; }
 .podium-crown { font-size: 40px; animation: floaty 2.5s ease-in-out infinite; }
 
 .final-winner-banner {
   font-family: var(--font-display); font-weight: 800;
   font-size: clamp(26px, 7vw, 46px);
-  background: linear-gradient(90deg, var(--gold), #fff, var(--gold));
+  background: linear-gradient(90deg, var(--gold), var(--white), var(--gold));
   background-size: 200% auto;
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   animation: shimmer 3s linear infinite;
@@ -1116,7 +1133,7 @@ body.player-app .screen[data-screen="play"] .game-stage {
   border-radius: 50%;
   border: 1px solid rgba(255, 77, 109, 0.6);
   background: rgba(255, 77, 109, 0.16);
-  color: #fff;
+  color: var(--white);
   font-size: 22px;
   cursor: pointer;
   display: none;
@@ -1250,12 +1267,12 @@ body.board-compact .board-layout {
   position: absolute; inset: 0; display: grid; place-items: center;
   cursor: pointer; transition: background 0.1s; text-align: center; padding: 20px;
 }
-.reaction-zone.wait { background: linear-gradient(135deg, #ff4d6d, #b00020); }
-.reaction-zone.go { background: linear-gradient(135deg, #2bffb9, #00a86b); }
-.reaction-zone.early { background: linear-gradient(135deg, #ffae00, #ff6a00); }
-.reaction-zone .rz-text { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 7vw, 48px); color: #fff; }
+.reaction-zone.wait { background: linear-gradient(135deg, var(--bad), var(--bad-dark)); }
+.reaction-zone.go { background: linear-gradient(135deg, var(--good), var(--good-dark)); }
+.reaction-zone.early { background: linear-gradient(135deg, var(--orange), var(--orange-dark)); }
+.reaction-zone .rz-text { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 7vw, 48px); color: var(--white); }
 .reaction-zone .rz-sub { color: rgba(255,255,255,0.85); font-size: 18px; margin-top: 8px; }
-.reaction-tries { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: #fff; font-weight: 700; z-index: 2; }
+.reaction-tries { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: var(--white); font-weight: 700; z-index: 2; }
 
 /* Simon */
 .simon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 2vw, 16px); width: min(340px, 78vw); aspect-ratio: 1; max-width: 100%; }
@@ -1309,8 +1326,8 @@ body.board-compact .board-layout {
 }
 .choice-btn:hover { background: rgba(255, 255, 255, 0.16); }
 .choice-btn:active { transform: scale(0.94); }
-.choice-btn.correct { background: linear-gradient(135deg, var(--good), #00a86b); border-color: transparent; color: #062b1d; animation: popIn 0.3s; }
-.choice-btn.wrong { background: linear-gradient(135deg, var(--bad), #b00020); border-color: transparent; color: #fff; }
+.choice-btn.correct { background: linear-gradient(135deg, var(--good), var(--good-dark)); border-color: transparent; color: var(--good-text); animation: popIn 0.3s; }
+.choice-btn.wrong { background: linear-gradient(135deg, var(--bad), var(--bad-dark)); border-color: transparent; color: var(--white); }
 
 /* Zahlen-Jagd (Schulte) */
 .seq-info { font-family: var(--font-display); font-weight: 700; font-size: clamp(16px, 4vw, 24px); margin-bottom: 12px; }
@@ -1326,7 +1343,7 @@ body.board-compact .board-layout {
 }
 .seq-cell:hover { background: rgba(255, 255, 255, 0.16); }
 .seq-cell:active { transform: scale(0.9); }
-.seq-cell.done { background: linear-gradient(135deg, var(--good), #00a86b); color: #062b1d; opacity: 0.85; }
+.seq-cell.done { background: linear-gradient(135deg, var(--good), var(--good-dark)); color: var(--good-text); opacity: 0.85; }
 
 /* Finde das Andere */
 .odd-grid { display: grid; gap: clamp(4px, 1vw, 8px); width: min(500px, 94vw); margin: 0 auto; padding: 0 4px; max-width: 100%; }
@@ -1339,8 +1356,8 @@ body.board-compact .board-layout {
 }
 .odd-cell:hover { background: rgba(255, 255, 255, 0.14); }
 .odd-cell:active { transform: scale(0.9); }
-.odd-cell.correct { background: linear-gradient(135deg, var(--good), #00a86b); animation: popIn 0.3s; }
-.odd-cell.wrong { background: linear-gradient(135deg, var(--bad), #b00020); }
+.odd-cell.correct { background: linear-gradient(135deg, var(--good), var(--good-dark)); animation: popIn 0.3s; }
+.odd-cell.wrong { background: linear-gradient(135deg, var(--bad), var(--bad-dark)); }
 
 /* Pfeil-Wirbel */
 .arrow-display {
@@ -1367,28 +1384,28 @@ body.board-compact .board-layout {
 .highlow-card {
   width: min(180px, 52vw); aspect-ratio: 3/4; margin: 6px auto 14px;
   border-radius: 22px; display: grid; place-items: center;
-  background: linear-gradient(160deg, #ffffff, #d7dcf0);
-  color: #14143a; font-family: var(--font-display); font-weight: 800;
+  background: linear-gradient(160deg, var(--white), var(--card-bg-alt));
+  color: var(--bg-1); font-family: var(--font-display); font-weight: 800;
   font-size: clamp(48px, 14vw, 100px);
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5);
 }
 .highlow-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 2vw, 14px); width: min(380px, 88vw); margin: 0 auto; max-width: 100%; }
 .hl-btn {
   padding: clamp(14px, 3.5vw, 20px) 0; border-radius: 16px; border: none; cursor: pointer;
-  font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 4vw, 22px); color: #fff;
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 4vw, 22px); color: var(--white);
   min-height: 48px; touch-action: manipulation; user-select: none;
   transition: transform 0.08s, filter 0.15s;
 }
-.hl-btn.up { background: linear-gradient(135deg, var(--good), #00a86b); }
+.hl-btn.up { background: linear-gradient(135deg, var(--good), var(--good-dark)); }
 .hl-btn.down { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
 .hl-btn:active { transform: scale(0.94); }
 
 /* Tap madness */
 .tap-button {
   width: min(240px, 62vw); aspect-ratio: 1; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ff7bd0, var(--accent), var(--accent-2));
+  background: radial-gradient(circle at 35% 30%, var(--pink-light), var(--accent), var(--accent-2));
   border: none; cursor: pointer; font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(24px, 7vw, 48px); color: #fff; user-select: none;
+  font-size: clamp(24px, 7vw, 48px); color: var(--white); user-select: none;
   min-height: 44px; touch-action: manipulation;
   box-shadow: 0 16px 50px rgba(255,60,172,0.5); transition: transform 0.05s;
 }
@@ -1400,7 +1417,7 @@ body.board-compact .board-layout {
 /* Target hunt */
 .target {
   position: absolute; border-radius: 50%; cursor: pointer;
-  background: radial-gradient(circle at 35% 30%, #fff, var(--accent-3), var(--accent-2));
+  background: radial-gradient(circle at 35% 30%, var(--white), var(--accent-3), var(--accent-2));
   box-shadow: 0 6px 20px rgba(0,240,255,0.5);
   display: grid; place-items: center; font-size: clamp(18px, 5vw, 24px);
   min-height: 36px; min-width: 36px; touch-action: manipulation;
@@ -1416,7 +1433,7 @@ body.board-compact .board-layout {
 .stroop-btn {
   padding: clamp(14px, 3.5vw, 18px) 0; border-radius: 16px; border: 2px solid rgba(255,255,255,0.2);
   font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 4vw, 22px); cursor: pointer;
-  color: #11112b; min-height: 48px; touch-action: manipulation; user-select: none;
+  color: var(--bg-text); min-height: 48px; touch-action: manipulation; user-select: none;
   transition: transform 0.08s;
 }
 .stroop-btn:active { transform: scale(0.94); }
@@ -1440,7 +1457,7 @@ body.board-compact .board-layout {
 }
 .precision-rounds { color: var(--txt-dim); margin-top: 8px; font-size: clamp(13px, 3vw, 16px); }
 .btn-stop {
-  background: linear-gradient(135deg, var(--bad), #b00020);
+  background: linear-gradient(135deg, var(--bad), var(--bad-dark));
   font-size: clamp(20px, 5vw, 26px); padding: clamp(14px, 3.5vw, 20px) clamp(30px, 8vw, 50px); border-radius: 18px;
   min-height: 48px; touch-action: manipulation; user-select: none;
   box-shadow: 0 10px 30px rgba(255,77,109,0.4);
@@ -1539,7 +1556,7 @@ body.board-compact .board-layout {
 .join-num {
   width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; font-family: var(--font-display); font-weight: 800;
-  background: linear-gradient(135deg, var(--accent-3), var(--accent-2)); color: #fff;
+  background: linear-gradient(135deg, var(--accent-3), var(--accent-2)); color: var(--white);
 }
 .join-url {
   font-family: var(--font-display); font-weight: 700; color: var(--accent-3);
@@ -1577,7 +1594,7 @@ body.board-compact .board-layout {
 .big-place {
   font-family: var(--font-display); font-weight: 800;
   font-size: clamp(80px, 26vw, 160px); line-height: 1;
-  background: linear-gradient(135deg, var(--gold), #fff, var(--gold));
+  background: linear-gradient(135deg, var(--gold), var(--white), var(--gold));
   background-size: 200% auto;
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   animation: shimmer 3s linear infinite;
@@ -1722,7 +1739,7 @@ body.board-compact .board-layout {
   line-height: 1.35;
   letter-spacing: 0.2px;
   text-align: center;
-  color: #fff;
+  color: var(--white);
   padding: 12px 18px;
 }
 
@@ -2047,7 +2064,7 @@ body.board-compact .board-layout {
   background: linear-gradient(135deg, rgba(123, 47, 247, 0.28), rgba(0, 240, 255, 0.18));
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   animation: bannerPulse 0.5s ease;
 }
@@ -2089,7 +2106,7 @@ body.board-compact .board-layout {
   display: inline-grid;
   place-items: center;
   font-weight: 700;
-  color: #11112b;
+  color: var(--bg-text);
   border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
@@ -2134,7 +2151,7 @@ body.board-compact .board-layout {
   place-items: center;
   font-size: 11px;
   font-weight: 700;
-  color: #11112b;
+  color: var(--bg-text);
   background: var(--gold);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
@@ -2179,8 +2196,8 @@ body.board-compact .board-layout {
   height: 72px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.42);
-  background: linear-gradient(160deg, #fafcff, #d7defa);
-  color: #14143a;
+  background: linear-gradient(160deg, var(--card-bg), var(--card-bg-dark));
+  color: var(--bg-1);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 36px;
@@ -2632,7 +2649,7 @@ body.in-game .hud-pills { display: flex; }
   background: rgba(10, 10, 31, 0.62);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fff;
+  color: var(--white);
   font-size: 13px;
   font-family: var(--font-display);
   font-weight: 600;
@@ -2642,7 +2659,7 @@ body.in-game .hud-pills { display: flex; }
   width: 24px; height: 24px;
   border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #7b2ff7, #00f0ff);
+  background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
   font-size: 14px;
   flex-shrink: 0;
 }
@@ -2672,7 +2689,7 @@ body.in-game .hud-pills { display: flex; }
   background: rgba(10, 10, 31, 0.62);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fff;
+  color: var(--white);
   font-size: 13px;
   font-family: var(--font-display);
   font-weight: 600;
@@ -2683,7 +2700,7 @@ body.in-game .hud-pills { display: flex; }
   background: rgba(10, 10, 31, 0.62);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #fff;
+  color: var(--white);
   font-size: 18px;
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer;
@@ -2711,7 +2728,7 @@ body.in-game .hud-pills { display: flex; }
   background: linear-gradient(135deg, rgba(123, 47, 247, 0.32), rgba(0, 240, 255, 0.22));
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  color: #fff;
+  color: var(--white);
   text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
@@ -2744,7 +2761,7 @@ body.in-game .hud-pills { display: flex; }
   font-family: var(--font-display);
   font-weight: 600;
   font-size: clamp(13px, 2.5vw, 16px);
-  color: #fff;
+  color: var(--white);
   text-align: center;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.75);
   padding: 4px 10px;
@@ -2770,7 +2787,7 @@ body.in-game .hud-pills { display: flex; }
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 }
 .hud-bottom-actions .btn.btn-primary {
-  background: linear-gradient(135deg, #7b2ff7, #00d4ff);
+  background: linear-gradient(135deg, var(--accent-2), var(--cyan-dark));
   border: none;
 }
 .hud-bottom-actions .btn.btn-primary:hover { transform: translateY(-2px) scale(1.03); }
@@ -2821,7 +2838,7 @@ body.in-game .hud-pills { display: flex; }
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #fff;
+  color: var(--white);
   font-size: 14px;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
@@ -2997,7 +3014,7 @@ body.in-game .hud-pills { display: flex; }
 }
 
 .miss-dot.used {
-  background: #ff4d6d;
+  background: var(--bad);
   box-shadow: 0 0 6px rgba(255, 77, 109, 0.6);
   transform: scale(0.85);
 }
@@ -3333,7 +3350,7 @@ body.in-game .hud-pills { display: flex; }
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .miss-dot.used {
-  background: #ff4d6d;
+  background: var(--bad);
   box-shadow: 0 0 6px rgba(255, 77, 109, 0.6);
 }
 
@@ -3373,7 +3390,7 @@ body.in-game .hud-pills { display: flex; }
 .db-timer {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(18px, 4vw, 26px);
-  color: #2bffb9;
+  color: var(--good);
   text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
   min-width: 60px; text-align: right;
 }
@@ -3501,7 +3518,7 @@ body.in-game .hud-pills { display: flex; }
 .bs-timer {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(18px, 4vw, 26px);
-  color: #2bffb9;
+  color: var(--good);
   text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
   min-width: 60px; text-align: right;
 }
@@ -3512,7 +3529,7 @@ body.in-game .hud-pills { display: flex; }
 .bs-ball {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff 0%, #ffd34e 40%, #ff6a00 100%);
+  background: radial-gradient(circle at 35% 35%, var(--white) 0%, var(--gold) 40%, var(--orange-dark) 100%);
   box-shadow: 0 0 20px rgba(255, 211, 78, 0.5), 0 4px 8px rgba(0,0,0,0.4);
   will-change: left, top;
   z-index: 6;
@@ -3669,13 +3686,13 @@ body.in-game .hud-pills { display: flex; }
   background: radial-gradient(circle, rgba(255, 50, 50, 0.2) 0%, transparent 70%);
 }
 .qd-signal.done {
-  border-color: #2bffb9;
+  border-color: var(--good);
   box-shadow: 0 0 30px rgba(43, 255, 185, 0.4);
 }
 .qd-text {
   font-family: var(--font-display); font-weight: 900;
   font-size: clamp(36px, 9vw, 64px);
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
   margin-bottom: 8px;
   z-index: 20;
@@ -3688,7 +3705,7 @@ body.in-game .hud-pills { display: flex; }
   color: #ff8888;
 }
 .qd-arena.done .qd-text {
-  color: #2bffb9;
+  color: var(--good);
 }
 @keyframes qd-flash {
   0% { transform: scale(0.5); opacity: 0; }
@@ -3741,7 +3758,7 @@ body.in-game .hud-pills { display: flex; }
 .rt-timer {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(18px, 4vw, 26px);
-  color: #2bffb9;
+  color: var(--good);
   text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
   min-width: 60px; text-align: right;
 }
@@ -3769,11 +3786,11 @@ body.in-game .hud-pills { display: flex; }
   opacity: 0.3;
 }
 .rt-zone { flex: 1; }
-.rt-zone-early { background: #ff4d6d; flex: 1.5; }
-.rt-zone-good { background: #2bffb9; flex: 1; }
-.rt-zone-perfect { background: #ffd34e; flex: 0.5; }
-.rt-zone-good2 { background: #2bffb9; flex: 1; }
-.rt-zone-late { background: #ff4d6d; flex: 1.5; }
+.rt-zone-early { background: var(--bad); flex: 1.5; }
+.rt-zone-good { background: var(--good); flex: 1; }
+.rt-zone-perfect { background: var(--gold); flex: 0.5; }
+.rt-zone-good2 { background: var(--good); flex: 1; }
+.rt-zone-late { background: var(--bad); flex: 1.5; }
 .rt-beats {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   pointer-events: none;
@@ -3862,7 +3879,7 @@ body.in-game .hud-pills { display: flex; }
 .cd-timer {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(18px, 4vw, 26px);
-  color: #2bffb9;
+  color: var(--good);
   text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
   min-width: 60px; text-align: right;
 }
@@ -3883,7 +3900,7 @@ body.in-game .hud-pills { display: flex; }
   padding: 4px 16px;
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(14px, 3vw, 18px);
-  color: #ff6a00;
+  color: var(--orange-dark);
   opacity: 0;
   transition: opacity 0.3s;
   z-index: 10;
@@ -3948,9 +3965,9 @@ body.in-game .hud-pills { display: flex; }
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(16px, 3.5vw, 24px);
 }
-.tf-score { color: #ffd34e; }
-.tf-pairs { color: #2bffb9; }
-.tf-timer { color: #fff; transition: color 0.3s; }
+.tf-score { color: var(--gold); }
+.tf-pairs { color: var(--good); }
+.tf-timer { color: var(--white); transition: color 0.3s; }
 .tf-combo {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(16px, 3.5vw, 22px);
@@ -3967,7 +3984,7 @@ body.in-game .hud-pills { display: flex; }
   border: 2px solid rgba(255,255,255,0.2);
   border-radius: 20px;
   background: rgba(255,255,255,0.08);
-  color: #fff; cursor: pointer;
+  color: var(--white); cursor: pointer;
   transition: all 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
@@ -4033,7 +4050,7 @@ body.in-game .hud-pills { display: flex; }
   border: 2px solid rgba(255,255,255,0.2);
 }
 .tf-tile.matched .tf-tile-back {
-  background: linear-gradient(135deg, #2bffb9, #00f0ff);
+  background: linear-gradient(135deg, var(--good), var(--accent-3));
   box-shadow: 0 0 20px rgba(43, 255, 185, 0.4);
   border-color: rgba(43, 255, 185, 0.6);
 }
@@ -4231,7 +4248,7 @@ body.in-game .hud-pills { display: flex; }
 }
 .shop-tab.active {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
+  color: var(--white);
   border-color: transparent;
 }
 
@@ -4302,7 +4319,7 @@ body.in-game .hud-pills { display: flex; }
 }
 .shop-card-badge.selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--white);
 }
 
 .shop-hint {
@@ -4380,7 +4397,7 @@ body.in-game .hud-pills { display: flex; }
   padding: 8px 12px 12px;
   font-family: var(--font-display);
   font-size: clamp(18px, 5vw, 24px);
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 2px 8px rgba(0,0,0,.6);
 }
 .lf-grid {
@@ -4410,7 +4427,7 @@ body.in-game .hud-pills { display: flex; }
   animation: lfLavaPulse 1.4s ease-in-out infinite;
 }
 .lf-cell.lf-player {
-  background: radial-gradient(circle at 50% 30%, #2bffb9, #00b36b);
+  background: radial-gradient(circle at 50% 30%, var(--good), var(--good-dark));
   box-shadow: 0 0 18px rgba(43,255,185,.6), inset 0 0 12px rgba(255,255,255,.25);
   border-radius: 50%;
   transform: scale(.82);
@@ -4505,7 +4522,7 @@ body.in-game .hud-pills { display: flex; }
 
 .audio-switch input:checked + .audio-slider::before {
   transform: translateX(20px);
-  background: #fff;
+  background: var(--white);
 }
 
 /* Volume Slider */
@@ -4741,8 +4758,8 @@ body.in-game .hud-pills { display: flex; }
 }
 
 .dc-streak-badge {
-  background: linear-gradient(135deg, #ff6a00, #ff3cac);
-  color: #fff;
+  background: linear-gradient(135deg, var(--orange-dark), var(--accent));
+  color: var(--white);
   font-weight: 700;
   font-size: 0.95em;
   padding: 4px 12px;
