@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "scripts": {
-    "build": "rm -rf www && mkdir -p www && cp -r index.html player.html host.html solo.html css js assets manifest.webmanifest .nojekyll 404.html www/ 2>/dev/null || true",
+    "build": "rm -rf www && mkdir -p www && cp -r index.html player.html host.html solo.html privacy.html terms.html css js assets manifest.webmanifest .nojekyll 404.html www/ 2>/dev/null || true",
     "sync": "npm run build && npx cap sync",
     "android": "npm run sync && npx cap open android",
     "ios": "npm run sync && npx cap open ios",

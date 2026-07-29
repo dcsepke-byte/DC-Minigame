@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#14143a" />
+  <title>Party Arena — Datenschutzerklärung</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css?v=20" />
+  <style>
+    .legal-page { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+    .legal-page h1 { font-family: var(--font-display); font-size: clamp(28px, 8vw, 48px); margin-bottom: 8px; }
+    .legal-page h2 { font-family: var(--font-display); font-size: 20px; margin: 32px 0 12px; color: var(--accent-3); }
+    .legal-page p, .legal-page li { font-size: 15px; line-height: 1.7; color: var(--txt-dim); margin-bottom: 12px; }
+    .legal-page ul { padding-left: 20px; margin-bottom: 16px; }
+    .legal-page .lang-switch { display: flex; gap: 12px; margin: 20px 0 32px; }
+    .legal-page .lang-btn { padding: 8px 20px; border-radius: var(--radius-xs); border: 1px solid var(--glass-border); background: var(--glass); color: var(--txt); cursor: pointer; font-family: var(--font-body); font-size: 14px; }
+    .legal-page .lang-btn.active { background: var(--accent-2); border-color: var(--accent-2); }
+    .legal-page .lang-content { display: none; }
+    .legal-page .lang-content.active { display: block; }
+    .legal-page .back-link { display: inline-block; margin-top: 40px; color: var(--accent-3); text-decoration: none; font-size: 14px; }
+    .legal-page .last-updated { font-size: 13px; color: var(--txt-dim); margin-top: 40px; opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="legal-page">
+    <h1>🔒 Datenschutzerklärung</h1>
+    <div class="lang-switch">
+      <button class="lang-btn active" onclick="switchLang('de')">Deutsch</button>
+      <button class="lang-btn" onclick="switchLang('en')">English</button>
+    </div>
+
+    <!-- DE -->
+    <div class="lang-content active" id="lang-de">
+      <h2>1. Verantwortlicher</h2>
+      <p>Danny Csepke<br>E-Mail: dcsepke@gmail.com</p>
+
+      <h2>2. Datenerhebung und -verarbeitung</h2>
+      <p>Party Arena erhebt und verarbeitet folgende Daten:</p>
+      <ul>
+        <li><strong>Spielername:</strong> Der von dir gewählte Name wird temporär für die Dauer einer Spielsitzung auf unserem Server gespeichert und nach Spielende gelöscht.</li>
+        <li><strong>Spielstatistiken (lokal):</strong> XP, Level, Sterne, Achievements und freigeschaltete Inhalte werden ausschließlich lokal auf deinem Gerät im localStorage gespeichert. Diese Daten verlassen dein Gerät nicht.</li>
+        <li><strong>Audio-Einstellungen (lokal):</strong> Deine Präferenzen für Musik- und Sound-Lautstärke werden lokal gespeichert.</li>
+        <li><strong>Verbindungsdaten:</strong> Beim Verbinden mit einem Spielserver wird deine IP-Adresse technisch bedingt übertragen. Es erfolgt kein Logging der IP-Adressen.</li>
+      </ul>
+
+      <h2>3. Zweck der Datenverarbeitung</h2>
+      <p>Die Verarbeitung erfolgt ausschließlich zur Bereitstellung des Spiels:</p>
+      <ul>
+        <li>Spielername: Zur Anzeige im Spiel für andere Spieler</li>
+        <li>Lokale Statistiken: Zur Speicherung deines Spielfortschritts</li>
+        <li>Audio-Einstellungen: Zur Wiederherstellung deiner Präferenzen</li>
+      </ul>
+
+      <h2>4. Weitergabe an Dritte</h2>
+      <p>Es erfolgt <strong>keine</strong> Weitergabe deiner Daten an Dritte. Wir nutzen keine Analyse-Tools, kein Tracking und keine Werbenetzwerke.</p>
+
+      <h2>5. Speicherdauer</h2>
+      <ul>
+        <li>Spielername: Nur für die Dauer der aktiven Spielsitzung</li>
+        <li>Lokale Daten: Bis du sie selbst löschst (Browser-Cache leeren oder "Fortschritt zurücksetzen" in den Einstellungen)</li>
+      </ul>
+
+      <h2>6. Deine Rechte</h2>
+      <p>Du hast das Recht auf Auskunft, Berichtigung und Löschung deiner Daten. Da alle personenbezogenen Daten lokal gespeichert werden, kannst du diese jederzeit selbst löschen (Einstellungen → Fortschritt zurücksetzen).</p>
+
+      <h2>7. Kinder</h2>
+      <p>Party Arena richtet sich an Spieler aller Altersgruppen. Wir erheben wissentlich keine personenbezogenen Daten von Kindern unter 13 Jahren. Alle Spielfortschrittsdaten werden lokal gespeichert.</p>
+
+      <h2>8. Änderungen</h2>
+      <p>Diese Datenschutzerklärung kann aktualisiert werden. Die aktuelle Version ist stets in der App einsehbar.</p>
+
+      <p class="last-updated">Stand: Juli 2026</p>
+    </div>
+
+    <!-- EN -->
+    <div class="lang-content" id="lang-en">
+      <h2>1. Data Controller</h2>
+      <p>Danny Csepke<br>Email: dcsepke@gmail.com</p>
+
+      <h2>2. Data Collection and Processing</h2>
+      <p>Party Arena collects and processes the following data:</p>
+      <ul>
+        <li><strong>Player Name:</strong> The name you choose is temporarily stored on our server for the duration of a game session and deleted after the game ends.</li>
+        <li><strong>Game Statistics (local):</strong> XP, level, stars, achievements, and unlocked content are stored exclusively locally on your device in localStorage. This data never leaves your device.</li>
+        <li><strong>Audio Settings (local):</strong> Your music and sound volume preferences are stored locally.</li>
+        <li><strong>Connection Data:</strong> When connecting to a game server, your IP address is transmitted for technical reasons. No IP address logging occurs.</li>
+      </ul>
+
+      <h2>3. Purpose of Data Processing</h2>
+      <p>Processing is solely for providing the game:</p>
+      <ul>
+        <li>Player Name: For display in-game to other players</li>
+        <li>Local Statistics: For saving your game progress</li>
+        <li>Audio Settings: For restoring your preferences</li>
+      </ul>
+
+      <h2>4. Third-Party Sharing</h2>
+      <p>We do <strong>not</strong> share your data with third parties. We use no analytics tools, no tracking, and no advertising networks.</p>
+
+      <h2>5. Storage Duration</h2>
+      <ul>
+        <li>Player Name: Only for the duration of the active game session</li>
+        <li>Local Data: Until you delete it yourself (clear browser cache or "Reset Progress" in settings)</li>
+      </ul>
+
+      <h2>6. Your Rights</h2>
+      <p>You have the right to access, correct, and delete your data. Since all personal data is stored locally, you can delete it at any time (Settings → Reset Progress).</p>
+
+      <h2>7. Children</h2>
+      <p>Party Arena is designed for players of all ages. We do not knowingly collect personal data from children under 13. All game progress data is stored locally.</p>
+
+      <h2>8. Changes</h2>
+      <p>This privacy policy may be updated. The current version is always available in the app.</p>
+
+      <p class="last-updated">Last updated: July 2026</p>
+    </div>
+
+    <a href="javascript:history.back()" class="back-link">← Zurück zur App</a>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      document.querySelectorAll('.lang-content').forEach(el => el.classList.remove('active'));
+      document.getElementById('lang-' + lang).classList.add('active');
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

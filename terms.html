@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#14143a" />
+  <title>Party Arena — Nutzungsbedingungen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css?v=20" />
+  <style>
+    .legal-page { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+    .legal-page h1 { font-family: var(--font-display); font-size: clamp(28px, 8vw, 48px); margin-bottom: 8px; }
+    .legal-page h2 { font-family: var(--font-display); font-size: 20px; margin: 32px 0 12px; color: var(--accent-3); }
+    .legal-page p, .legal-page li { font-size: 15px; line-height: 1.7; color: var(--txt-dim); margin-bottom: 12px; }
+    .legal-page ul { padding-left: 20px; margin-bottom: 16px; }
+    .legal-page .lang-switch { display: flex; gap: 12px; margin: 20px 0 32px; }
+    .legal-page .lang-btn { padding: 8px 20px; border-radius: var(--radius-xs); border: 1px solid var(--glass-border); background: var(--glass); color: var(--txt); cursor: pointer; font-family: var(--font-body); font-size: 14px; }
+    .legal-page .lang-btn.active { background: var(--accent-2); border-color: var(--accent-2); }
+    .legal-page .lang-content { display: none; }
+    .legal-page .lang-content.active { display: block; }
+    .legal-page .back-link { display: inline-block; margin-top: 40px; color: var(--accent-3); text-decoration: none; font-size: 14px; }
+    .legal-page .last-updated { font-size: 13px; color: var(--txt-dim); margin-top: 40px; opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="legal-page">
+    <h1>📜 Nutzungsbedingungen</h1>
+    <div class="lang-switch">
+      <button class="lang-btn active" onclick="switchLang('de')">Deutsch</button>
+      <button class="lang-btn" onclick="switchLang('en')">English</button>
+    </div>
+
+    <!-- DE -->
+    <div class="lang-content active" id="lang-de">
+      <h2>1. Allgemeines</h2>
+      <p>Diese Nutzungsbedingungen gelten für die Nutzung der App "Party Arena" (nachfolgend "App"), betrieben von Danny Csepke (nachfolgend "Betreiber"). Durch die Nutzung der App erklärst du dich mit diesen Bedingungen einverstanden.</p>
+
+      <h2>2. Leistungsbeschreibung</h2>
+      <p>Party Arena ist eine Multiplayer-Minispielsammlung. Die App ermöglicht es Nutzern, Spielsitzungen zu hosten oder daran teilzunehmen. Der Funktionsumfang kann jederzeit erweitert oder geändert werden.</p>
+
+      <h2>3. Nutzerpflichten</h2>
+      <ul>
+        <li>Du verpflichtest dich, keine anstößigen, beleidigenden oder rechtswidrigen Spielernamen zu verwenden.</li>
+        <li>Du darfst die App nicht für betrügerische oder schädliche Zwecke nutzen.</li>
+        <li>Du darfst keine technischen Maßnahmen ergreifen, die den Betrieb der App stören.</li>
+      </ul>
+
+      <h2>4. Haftungsausschluss</h2>
+      <p>Die App wird "wie besehen" (as-is) bereitgestellt. Der Betreiber übernimmt keine Gewähr für die ständige Verfügbarkeit oder Fehlerfreiheit der App. Der Betreiber haftet nicht für Schäden, die aus der Nutzung der App entstehen, soweit dies gesetzlich zulässig ist.</p>
+
+      <h2>5. Monetarisierung</h2>
+      <p>Die Basisversion der App ist kostenlos. Zukünftige In-App-Käufe oder Premium-Funktionen werden transparent kommuniziert. Es werden keine unerwarteten Kosten erhoben.</p>
+
+      <h2>6. Änderungen der Bedingungen</h2>
+      <p>Der Betreiber behält sich das Recht vor, diese Nutzungsbedingungen zu ändern. Änderungen werden in der App bekannt gegeben.</p>
+
+      <h2>7. Kündigung</h2>
+      <p>Du kannst die Nutzung der App jederzeit beenden. Der Betreiber kann den Zugang zur App sperren, wenn du gegen diese Bedingungen verstößt.</p>
+
+      <h2>8. Schlussbestimmungen</h2>
+      <p>Es gilt deutsches Recht. Sollte eine Bestimmung unwirksam sein, bleiben die übrigen Bestimmungen wirksam.</p>
+
+      <p class="last-updated">Stand: Juli 2026</p>
+    </div>
+
+    <!-- EN -->
+    <div class="lang-content" id="lang-en">
+      <h2>1. General</h2>
+      <p>These Terms of Service apply to the use of the "Party Arena" app (hereinafter "App"), operated by Danny Csepke (hereinafter "Operator"). By using the App, you agree to these terms.</p>
+
+      <h2>2. Service Description</h2>
+      <p>Party Arena is a multiplayer mini-game collection. The App allows users to host or join game sessions. The feature set may be expanded or modified at any time.</p>
+
+      <h2>3. User Obligations</h2>
+      <ul>
+        <li>You agree not to use offensive, insulting, or unlawful player names.</li>
+        <li>You may not use the App for fraudulent or harmful purposes.</li>
+        <li>You may not take technical measures that disrupt the operation of the App.</li>
+      </ul>
+
+      <h2>4. Disclaimer of Liability</h2>
+      <p>The App is provided "as-is". The Operator does not guarantee constant availability or error-free operation. The Operator is not liable for damages arising from the use of the App, to the extent permitted by law.</p>
+
+      <h2>5. Monetization</h2>
+      <p>The basic version of the App is free. Future in-app purchases or premium features will be communicated transparently. No unexpected costs will be charged.</p>
+
+      <h2>6. Changes to Terms</h2>
+      <p>The Operator reserves the right to modify these Terms of Service. Changes will be announced in the App.</p>
+
+      <h2>7. Termination</h2>
+      <p>You may stop using the App at any time. The Operator may block access to the App if you violate these terms.</p>
+
+      <h2>8. Final Provisions</h2>
+      <p>German law applies. If any provision is invalid, the remaining provisions remain effective.</p>
+
+      <p class="last-updated">Last updated: July 2026</p>
+    </div>
+
+    <a href="javascript:history.back()" class="back-link">← Zurück zur App</a>
+  </div>
+
+  <script>
+    function switchLang(lang) {
+      document.querySelectorAll('.lang-content').forEach(el => el.classList.remove('active'));
+      document.getElementById('lang-' + lang).classList.add('active');
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

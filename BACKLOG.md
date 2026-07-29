@@ -74,7 +74,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - App-Icon (1024x1024, iOS + Android)
   - Screenshots (6+ pro Geraet)
   - App-Beschreibung (DE + EN)
-  - Privacy Policy + Terms of Service
+  - [x] Privacy Policy + Terms of Service (2026-07-29)
   - Altersfreigabe (USK/PEGI)
 
 ## Phase 4: Quality & Launch (Woche 7-8)
