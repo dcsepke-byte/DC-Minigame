@@ -64,18 +64,19 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] App-Icon und Splash-Screen Assets (2026-07-28)
   - [x] Screen-Orientation Lock (landscape fuer Host, portrait fuer Player) (2026-07-28)
 
-- [ ] **MONETARISIERUNG** — Strategie festlegen und implementieren:
-  - Freemium: Basis kostenlos, Premium-Charaktere/Figuren kosten
-  - In-App-Kaeufe: Cosmetic Packs, Charakter-Freischaltungen
-  - Belohnungs-Werbung: schaue Werbung fuer Bonus-Sterne
-  - Premium-Modus: einmalige Zahlung fuer alle Inhalte
+- [~] **MONETARISIERUNG** — Strategie festlegen und implementieren:
+  - [x] Strategie-Dokument (store-assets/monetization.md) (2026-07-29)
+  - [ ] IAP-Integration (Capacitor Purchase Plugin)
+  - [ ] Produkt-Konfiguration in App Store Connect + Google Play Console
+  - [ ] Rewarded Ads (optional, nach Launch)
 
-- [ ] **APP STORE ASSETS** — Fuer Store-Listing:
-  - App-Icon (1024x1024, iOS + Android)
-  - Screenshots (6+ pro Geraet)
-  - App-Beschreibung (DE + EN)
+- [~] **APP STORE ASSETS** — Fuer Store-Listing:
+  - [x] App-Icon (1024x1024, iOS + Android) (2026-07-28)
+  - [ ] Screenshots (6+ pro Geraet) — Guide erstellt, Screenshots fehlen
+  - [x] App-Beschreibung (DE + EN) (2026-07-29)
   - [x] Privacy Policy + Terms of Service (2026-07-29)
-  - Altersfreigabe (USK/PEGI)
+  - [x] Altersfreigabe (USK/PEGI) (2026-07-29)
+  - [x] Store-Assets-Ordner mit README, Screenshot-Guide, Age-Rating (2026-07-29)
 
 ## Phase 4: Quality & Launch (Woche 7-8)
 
