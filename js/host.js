@@ -1038,6 +1038,12 @@
         players: state.players,
         owners: state.boardOwners,
       });
+    } else if (window.Board2D && state.boardTiles && state.boardTiles.length) {
+      Board2D.setBoardState({
+        tiles: state.boardTiles,
+        players: state.players,
+        owners: state.boardOwners,
+      });
     }
   }
 

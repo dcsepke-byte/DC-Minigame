@@ -2545,6 +2545,11 @@ function init() {
     if (window.FX && FX.setBg3DActive) FX.setBg3DActive(true);
   } catch (error) {
     console.error('Party3D init failed:', error);
+    /* 2D-Fallback aktivieren fuer Low-End-Geraete ohne WebGL */
+    if (window.Board2D) {
+      window.Board2D.show();
+      console.warn('[Party3D] 2D-Fallback aktiviert');
+    }
   }
 }
 

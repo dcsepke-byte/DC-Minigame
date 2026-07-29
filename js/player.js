@@ -698,6 +698,7 @@
     board.players = m.players || [];
     board.history = [];
     if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
+    else if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
     /* Hintergrundmusik starten (procedural, kein Asset) */
     if (window.FX && FX.startMusic) FX.startMusic();
     updateMyBoardStats();
@@ -768,6 +769,7 @@
 
   function renderBoardFromDiff() {
     if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
+    else if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();
@@ -1607,6 +1609,12 @@
     /* 2D grid removed — 3D board is the only Spielfeld now */
     if (window.Party3D && board && board.tiles && board.tiles.length) {
       Party3D.setBoardState({
+        tiles: board.tiles,
+        players: board.players || [],
+        owners: board.owners || {},
+      });
+    } else if (window.Board2D && board && board.tiles && board.tiles.length) {
+      Board2D.setBoardState({
         tiles: board.tiles,
         players: board.players || [],
         owners: board.owners || {},
