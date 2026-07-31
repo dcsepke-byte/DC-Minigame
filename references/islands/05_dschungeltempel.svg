@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="sky5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2e7d32"/>
+      <stop offset="100%" stop-color="#66bb6a"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="400" height="500" fill="url(#sky5)" rx="24"/>
+  <ellipse cx="200" cy="360" rx="160" ry="55" fill="#5d4037" filter="url(#shadow)"/>
+  <rect x="120" y="260" width="60" height="100" fill="#795548"/>
+  <path d="M110 260 L190 260 L150 200 Z" fill="#4e342e"/>
+  <circle cx="150" cy="220" r="20" fill="#ffd34e"/>
+  <path d="M125 300 L175 300" stroke="#ffd34e" stroke-width="4"/>
+  <path d="M130 320 L170 320" stroke="#ffd34e" stroke-width="4"/>
+  <path d="M260 360 L300 240" stroke="#2e7d32" stroke-width="6" fill="none"/>
+  <ellipse cx="285" cy="235" rx="35" ry="25" fill="#4caf50"/>
+  <path d="M260 220 Q280 190 300 220" fill="#81c784"/>
+  <path d="M80 380 Q200 360 320 380" stroke="#8d6e63" stroke-width="5" fill="none"/>
+  <rect x="20" y="420" width="360" height="60" rx="16" fill="#fff" opacity="0.9"/>
+  <text x="200" y="453" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#1a1a2e">5 · Dschungeltempel</text>
+  <text x="200" y="476" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#4a4a5a">Dschungelgruen · Gold · Braun · Ruinen + Abenteuer</text>
+</svg>

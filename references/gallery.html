@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Party Arena — Konzept-Galerie</title>
+  <style>
+    :root {
+      --bg: #0f1122;
+      --card: #1a1d33;
+      --text: #f1f3f8;
+      --muted: #9aa0b8;
+      --accent: #ffd34e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: clamp(28px, 5vw, 42px);
+      margin: 0 0 8px;
+      text-align: center;
+    }
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 40px;
+      font-size: 16px;
+    }
+    h2 {
+      font-size: 22px;
+      margin: 48px 0 20px;
+      color: var(--accent);
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      padding-bottom: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+    }
+    .card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fff;
+    }
+    .card.full img { width: 100%; }
+    .info {
+      padding: 14px 18px 18px;
+    }
+    .info h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      color: var(--text);
+    }
+    .info p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .intro {
+      max-width: 800px;
+      margin: 0 auto 40px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .intro ul {
+      padding-left: 20px;
+    }
+    .intro li {
+      margin-bottom: 6px;
+    }
+    a.back {
+      display: inline-block;
+      margin-bottom: 30px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a.back:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <a class="back" href="../.hermes/plans/2026-07-31_party-arena-concept-review.md">← Zum Review-Dokument</a>
+  <h1>Party Arena — Konzept-Galerie</h1>
+  <p class="subtitle">Review-Grundlagen: Charaktere, Inseln, Weltübersicht, 3D-Modell-Referenzen</p>
+
+  <div class="intro">
+    <strong>Vorab:</strong> Diese Galerie enthält vektorbasierte Farbreferenzen (SVG). Das sind keine finalen 3D-Renderings. Sie dienen dazu, Farben, Proportionen, Silhouetten und den visuellen Stil abzustimmen, bevor 3D-Modelle in Three.js oder Blender gebaut werden.
+  </div>
+
+  <h2>🌍 Weltübersicht</h2>
+  <div class="grid">
+    <div class="card full">
+      <img src="islands/weltuebersicht.svg" alt="Weltübersicht Party Arena">
+      <div class="info">
+        <h3>Aethonia — schwebende Inseln</h3>
+        <p>7 Biome, verbunden durch Festival-Routen. Start am Festival-Platz, Ziel: Sternenzitadelle.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>🏝️ Inseln / Biome</h2>
+  <div class="grid">
+    <div class="card"><img src="islands/01_sonnenstrand.svg" alt="Sonnenstrand"><div class="info"><h3>1 · Sonnenstrand</h3><p>Urlaub + Wasser. Türkis · Sandgelb · Korallenrot.</p></div></div>
+    <div class="card"><img src="islands/02_zuckerwald.svg" alt="Zuckerwald"><div class="info"><h3>2 · Zuckerwald</h3><p>Süßigkeiten-Paradies. Rosa · Schokobraun · Mintgrün.</p></div></div>
+    <div class="card"><img src="islands/03_wolkenwerk.svg" alt="Wolkenwerk"><div class="info"><h3>3 · Wolkenwerk</h3><p>Schwebende Inseln. Hellblau · Weiß · Regenbogen.</p></div></div>
+    <div class="card"><img src="islands/04_frostgipfel.svg" alt="Frostgipfel"><div class="info"><h3>4 · Frostgipfel</h3><p>Eis + Schnee. Eisblau · Weiß · Violett.</p></div></div>
+    <div class="card"><img src="islands/05_dschungeltempel.svg" alt="Dschungeltempel"><div class="info"><h3>5 · Dschungeltempel</h3><p>Ruinen + Abenteuer. Dschungelgrün · Gold · Braun.</p></div></div>
+    <div class="card"><img src="islands/06_mechanikstadt.svg" alt="Mechanik-Stadt"><div class="info"><h3>6 · Mechanik-Stadt</h3><p>Spielzeug-Technik. Silber · Orange · Gelb.</p></div></div>
+    <div class="card"><img src="islands/07_sternenzitadelle.svg" alt="Sternenzitadelle"><div class="info"><h3>7 · Sternenzitadelle</h3><p>Finale + Endgame. Gold · Tiefblau · Magenta.</p></div></div>
+  </div>
+
+  <h2>🎭 Spielbare Charaktere (Arenians)</h2>
+  <div class="grid">
+    <div class="card"><img src="characters/brix.svg" alt="Brix"></div>
+    <div class="card"><img src="characters/nixie.svg" alt="Nixie"></div>
+    <div class="card"><img src="characters/pip.svg" alt="Pip"></div>
+    <div class="card"><img src="characters/koko.svg" alt="Koko"></div>
+    <div class="card"><img src="characters/tiko.svg" alt="Tiko"></div>
+    <div class="card"><img src="characters/bolt.svg" alt="Bolt"></div>
+    <div class="card"><img src="characters/bloom.svg" alt="Bloom"></div>
+    <div class="card"><img src="characters/momo.svg" alt="Momo"></div>
+  </div>
+
+  <h2>🛠️ 3D-Modell-Referenzen</h2>
+  <div class="intro">
+    <ul>
+      <li><strong>Charakter-Basis:</strong> Körper = abgerundete Kapsel, Kopf = größere Kugel, Augen = flache Kugeln, Arme/Beine = abgerundete Zylinder, Hände/Füße = vergrößerte Kugeln.</li>
+      <li><strong>Material:</strong> Einfarbig, glänzend/leicht wachsig, keine Texturen nötig.</li>
+      <li><strong>Welt-Basis:</strong> Inseln = flache Zylinder, Bäume = Kapsel-Stamm + Kugel-Krone, Häuser = abgerundete Würfel mit Halbkugel-Dächern, Wasser = flache transparente Scheibe.</li>
+      <li><strong>Web-App Umsetzung:</strong> Three.js Primitive: SphereGeometry, CapsuleGeometry, RoundedBoxGeometry (via drei/ drei-stdlib), CylinderGeometry, TorusGeometry für Zahnräder.</li>
+      <li><strong>UE5 Phase 3:</strong> Blender → FBX/OBJ → Unreal, geriggte Skeleton-Meshes, Cartoon-Shader, Post-Process Bloom.</li>
+    </ul>
+  </div>
+
+  <footer style="text-align:center; color: var(--muted); margin-top: 60px; font-size: 13px;">
+    Party Arena Konzept-Galerie · 2026-07-31 · für Review-Zwecke
+  </footer>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4fd1ff"/>
+      <stop offset="100%" stop-color="#b3ecff"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe082"/>
+      <stop offset="100%" stop-color="#f5c542"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00c9ff"/>
+      <stop offset="100%" stop-color="#00f0ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <rect width="400" height="500" fill="url(#sky)" rx="24"/>
+  <circle cx="340" cy="80" r="45" fill="#ffd34e" opacity="0.9"/>
+  <path d="M-20 380 Q200 350 420 380 L420 520 L-20 520 Z" fill="url(#water)"/>
+  <ellipse cx="200" cy="360" rx="160" ry="55" fill="url(#sand)" filter="url(#shadow)"/>
+  <path d="M230 290 L245 240 L260 290" stroke="#8b5a2b" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M228 250 Q255 220 282 250" fill="#2ecc71"/>
+  <path d="M235 265 Q260 235 285 265" fill="#27ae60"/>
+  <path d="M120 320 L180 320 L180 350 L120 350 Z" fill="#a0522d"/>
+  <path d="M110 320 L195 320 L152 280 Z" fill="#ff6a6a"/>
+  <path d="M150 330 Q160 310 170 330" fill="#ff4757" opacity="0.5"/>
+  <circle cx="280" cy="330" r="18" fill="#ff6a6a"/>
+  <circle cx="290" cy="320" r="12" fill="#ff9f43"/>
+  <circle cx="300" cy="340" r="10" fill="#ff6b81"/>
+  <path d="M85 380 Q200 370 315 380" stroke="#e8b341" stroke-width="4" fill="none"/>
+  <rect x="20" y="420" width="360" height="60" rx="16" fill="#fff" opacity="0.9"/>
+  <text x="200" y="453" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#1a1a2e">1 · Sonnenstrand</text>
+  <text x="200" y="476" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#4a4a5a">Tuerkis · Sandgelb · Korallenrot · Urlaub + Wasser</text>
+</svg>

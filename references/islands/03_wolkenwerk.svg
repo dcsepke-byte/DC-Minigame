@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a8d8ff"/>
+      <stop offset="100%" stop-color="#e8f4ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="400" height="500" fill="url(#sky3)" rx="24"/>
+  <ellipse cx="90" cy="100" rx="60" ry="35" fill="#fff" opacity="0.8"/>
+  <ellipse cx="320" cy="140" rx="50" ry="28" fill="#fff" opacity="0.7"/>
+  <ellipse cx="200" cy="380" rx="150" ry="45" fill="#81d4fa" filter="url(#shadow)"/>
+  <ellipse cx="200" cy="370" rx="140" ry="40" fill="#b3e5fc" filter="url(#shadow)"/>
+  <line x1="160" y1="370" x2="160" y2="250" stroke="#e0e0e0" stroke-width="4"/>
+  <circle cx="160" cy="240" r="25" fill="#fff" stroke="#e0e0e0" stroke-width="3"/>
+  <circle cx="160" cy="240" r="12" fill="none" stroke="#ff6a6a" stroke-width="2"/>
+  <path d="M160 240 L160 222" stroke="#e0e0e0" stroke-width="3"/>
+  <path d="M160 240 L173 250" stroke="#e0e0e0" stroke-width="3"/>
+  <path d="M245 300 Q270 250 260 220 Q250 200 235 220" fill="none" stroke="#ff4757" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="230" cy="230" r="8" fill="#ff4757"/>
+  <circle cx="255" cy="270" r="8" fill="#ff4757"/>
+  <circle cx="245" cy="310" r="8" fill="#ff4757"/>
+  <rect x="20" y="420" width="360" height="60" rx="16" fill="#fff" opacity="0.9"/>
+  <text x="200" y="453" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#1a1a2e">3 · Wolkenwerk</text>
+  <text x="200" y="476" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#4a4a5a">Hellblau · Weiss · Regenbogen · Schwebende Himmel</text>
+</svg>

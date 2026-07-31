@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" width="900" height="700">
+  <defs>
+    <linearGradient id="weltSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1b3a"/>
+      <stop offset="100%" stop-color="#4a4e8c"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="900" height="700" fill="url(#weltSky)" rx="24"/>
+  <circle cx="750" cy="100" r="50" fill="#ffd34e" opacity="0.9"/>
+  <circle cx="120" cy="150" r="3" fill="#fff" opacity="0.7"/>
+  <circle cx="850" cy="250" r="2" fill="#fff" opacity="0.5"/>
+  <circle cx="180" cy="80" r="2" fill="#fff" opacity="0.6"/>
+  <circle cx="650" cy="60" r="3" fill="#fff" opacity="0.8"/>
+  <g opacity="0.4">
+    <path d="M200 250 Q350 220 500 250" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="8,8"/>
+    <path d="M500 250 Q620 320 700 400" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="8,8"/>
+    <path d="M700 400 Q750 500 700 600" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="8,8"/>
+    <path d="M500 250 Q400 320 280 380" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="8,8"/>
+    <path d="M280 380 Q200 450 320 550" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="8,8"/>
+    <path d="M280 380 Q420 420 520 500" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="8,8"/>
+  </g>
+  <g transform="translate(150,220)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#ffe082" stroke="#f5c542" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">1 · Sonnenstrand</text>
+  </g>
+  <g transform="translate(500,230)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#ffb3d9" stroke="#e91e63" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">2 · Zuckerwald</text>
+  </g>
+  <g transform="translate(720,390)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#b3e5fc" stroke="#4fc3f7" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">3 · Wolkenwerk</text>
+  </g>
+  <g transform="translate(320,380)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#e1f5fe" stroke="#29b6f6" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">4 · Frostgipfel</text>
+  </g>
+  <g transform="translate(330,560)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#81c784" stroke="#2e7d32" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">5 · Dschungeltempel</text>
+  </g>
+  <g transform="translate(530,510)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#cfd8dc" stroke="#607d8b" stroke-width="2"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">6 · Mechanik-Stadt</text>
+  </g>
+  <g transform="translate(710,600)">
+    <ellipse cx="0" cy="0" rx="55" ry="25" fill="#ffe082" stroke="#ff8f00" stroke-width="2" filter="url(#glow)"/>
+    <text x="0" y="5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#1a1a2e">7 · Sternenzitadelle</text>
+  </g>
+  <g transform="translate(450,620)">
+    <polygon points="0,-25 22,20 -22,20" fill="#ffd34e" filter="url(#glow)"/>
+    <circle cx="0" cy="-8" r="12" fill="#fff" opacity="0.8"/>
+    <text x="0" y="45" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#ffd34e">START · PartyArena Festival</text>
+  </g>
+  <rect x="20" y="20" width="860" height="660" rx="24" fill="none" stroke="#ffd34e" stroke-width="3" opacity="0.3"/>
+</svg>
