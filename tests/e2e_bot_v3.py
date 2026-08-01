@@ -63,9 +63,11 @@ async def player_bot(code_q):
     code = await code_q.get()
     await asyncio.sleep(0.5)
     async with websockets.connect(PLAYER_WS) as ws:
-        await ws.send(json.dumps({'type':'player:join','code':code,'name':'Bot','figure':'🐱'}))
+        await ws.send(json.dumps({'type':'player:join','code':code,'name':'Bot','figure':'🐼','characterId':'koko'}))
         msg = json.loads(await ws.recv())
         print(f'[PLAYER] {msg.get("type")}')
+        if msg.get('characterId'):
+            print(f'[PLAYER] characterId empfangen: {msg.get("characterId")}')
         types = []
         for i in range(50):
             try:
