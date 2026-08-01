@@ -44,6 +44,21 @@ const MAT_DEFAULTS = {
 export function buildPawnParts(opts = {}) {
   const index = opts.index ?? 0;
   const phase = index * 0.7;
+  const kind = opts.kind || 'pawn';
+
+  /* Charakter-spezifische Formvarianten (arch-3): Silhouette pro Typ */
+  const VARIANTS = {
+    golem:    { head: 'box',    headSize: [0.17, 0.17, 0.17], body: 'box',  bodySize: [0.22, 0.24, 0.22], antenna: false },
+    axolotl:  { head: 'sphere', headSize: [0.20, 18, 14],     body: 'sphere', bodySize: [0.20, 16, 12],   antenna: false, fins: true },
+    squirrel: { head: 'sphere', headSize: [0.15, 16, 12],     body: 'sphere', bodySize: [0.18, 16, 12],   antenna: false, tail: true },
+    panda:    { head: 'sphere', headSize: [0.19, 18, 14],     body: 'sphere', bodySize: [0.22, 16, 12],   antenna: false, ears: true },
+    bird:     { head: 'sphere', headSize: [0.15, 16, 12],     body: 'sphere', bodySize: [0.19, 16, 12],   antenna: false, beak: true, wings: true },
+    robot:    { head: 'box',    headSize: [0.16, 0.16, 0.16], body: 'box',    bodySize: [0.22, 0.24, 0.20], antenna: true, visor: true },
+    cactus:   { head: 'sphere', headSize: [0.16, 16, 12],     body: 'capsule', bodySize: [0.16, 0.16, 0.30], antenna: false, flower: true },
+    raccoon:  { head: 'sphere', headSize: [0.18, 18, 14],     body: 'sphere', bodySize: [0.20, 16, 12],   antenna: false, mask: true, tail: true },
+    pawn:     { head: 'sphere', headSize: [0.16, 16, 12],     body: 'sphere', bodySize: [0.20, 16, 12],   antenna: true },
+  };
+  const v = VARIANTS[kind] || VARIANTS.pawn;
 
   const parts = [
     {
@@ -75,9 +90,9 @@ export function buildPawnParts(opts = {}) {
     },
     {
       name: 'body',
-      geometry: 'sphere',
-      size: [0.20, 16, 12],
-      position: [0, 0.42, 0],
+      geometry: v.body,
+      size: v.bodySize,
+      position: v.body === 'capsule' ? [0, 0.48, 0] : [0, 0.42, 0],
       colorMode: 'primary',
       material: { ...MAT_DEFAULTS.primary },
       phase,
@@ -104,8 +119,8 @@ export function buildPawnParts(opts = {}) {
     },
     {
       name: 'head',
-      geometry: 'sphere',
-      size: [0.16, 16, 12],
+      geometry: v.head,
+      size: v.headSize,
       position: [0, 0.68, 0],
       colorMode: 'primary',
       material: { ...MAT_DEFAULTS.primary },
@@ -129,16 +144,63 @@ export function buildPawnParts(opts = {}) {
       material: { ...MAT_DEFAULTS.eye },
       phase,
     },
-    {
-      name: 'antenna',
-      geometry: 'cylinder',
-      size: [0.015, 0.015, 0.10],
-      position: [0, 0.86, 0],
-      colorMode: 'accent',
-      material: { ...MAT_DEFAULTS.accent },
-      phase,
-    },
   ];
+
+  /* Charakter-Extras (tail/wings/ears/beak/visor/flower/mask/fins) */
+  if (v.tail) {
+    parts.push({
+      name: 'tail', geometry: 'capsule', size: [0.04, 0.16], position: [-0.20, 0.36, 0],
+      colorMode: 'primary', material: { ...MAT_DEFAULTS.primary }, phase,
+    });
+  }
+  if (v.wings) {
+    parts.push(
+      { name: 'wingL', geometry: 'capsule', size: [0.03, 0.12], position: [-0.22, 0.50, -0.02], rotation: [0, 0, 0.5], colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase },
+      { name: 'wingR', geometry: 'capsule', size: [0.03, 0.12], position: [0.22, 0.50, -0.02], rotation: [0, 0, -0.5], colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase }
+    );
+  }
+  if (v.ears) {
+    parts.push(
+      { name: 'earL', geometry: 'sphere', size: [0.05, 8, 6], position: [-0.13, 0.80, 0], colorMode: 'dark', material: { ...MAT_DEFAULTS.dark }, phase },
+      { name: 'earR', geometry: 'sphere', size: [0.05, 8, 6], position: [0.13, 0.80, 0], colorMode: 'dark', material: { ...MAT_DEFAULTS.dark }, phase }
+    );
+  }
+  if (v.beak) {
+    parts.push({
+      name: 'beak', geometry: 'cone', size: [0.035, 0.08, 6], position: [0, 0.66, 0.16], rotation: [Math.PI / 2, 0, 0],
+      colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase,
+    });
+  }
+  if (v.visor) {
+    parts.push({
+      name: 'visor', geometry: 'box', size: [0.15, 0.05, 0.03], position: [0, 0.70, 0.13],
+      colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase,
+    });
+  }
+  if (v.flower) {
+    parts.push({
+      name: 'flower', geometry: 'sphere', size: [0.05, 8, 6], position: [0, 0.80, 0],
+      colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase,
+    });
+  }
+  if (v.mask) {
+    parts.push({
+      name: 'mask', geometry: 'box', size: [0.16, 0.04, 0.02], position: [0, 0.70, 0.14],
+      colorMode: 'dark', material: { ...MAT_DEFAULTS.dark }, phase,
+    });
+  }
+  if (v.fins) {
+    parts.push(
+      { name: 'finL', geometry: 'capsule', size: [0.03, 0.10], position: [-0.18, 0.52, 0], rotation: [0, 0, 0.4], colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase },
+      { name: 'finR', geometry: 'capsule', size: [0.03, 0.10], position: [0.18, 0.52, 0], rotation: [0, 0, -0.4], colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase }
+    );
+  }
+  if (v.antenna) {
+    parts.push({
+      name: 'antenna', geometry: 'cylinder', size: [0.015, 0.015, 0.10], position: [0, 0.86, 0],
+      colorMode: 'accent', material: { ...MAT_DEFAULTS.accent }, phase,
+    });
+  }
 
   return parts;
 }

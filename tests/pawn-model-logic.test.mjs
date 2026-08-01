@@ -257,3 +257,69 @@ test('buildPawnParts: unterschiedliche Farben aendern nicht die Geometrie', () =
     assert.deepEqual(partsRed[i].position, partsBlue[i].position);
   }
 });
+
+/* ---------- Charakter-Varianten (arch-3) ---------- */
+
+test('buildPawnParts: golem hat Box-Kopf und Box-Koerper', () => {
+  const parts = buildPawnParts({ kind: 'golem', index: 0 });
+  const head = getPartByName(parts, 'head');
+  const body = getPartByName(parts, 'body');
+  assert.equal(head.geometry, 'box');
+  assert.equal(body.geometry, 'box');
+});
+
+test('buildPawnParts: golem hat keine Antenne', () => {
+  const parts = buildPawnParts({ kind: 'golem', index: 0 });
+  assert.equal(getPartByName(parts, 'antenna'), null);
+});
+
+test('buildPawnParts: bird hat Schnabel und Fluegel', () => {
+  const parts = buildPawnParts({ kind: 'bird', index: 0 });
+  assert.equal(getPartByName(parts, 'beak').geometry, 'cone');
+  assert.ok(getPartByName(parts, 'wingL'));
+  assert.ok(getPartByName(parts, 'wingR'));
+});
+
+test('buildPawnParts: robot hat Visier und Antenne', () => {
+  const parts = buildPawnParts({ kind: 'robot', index: 0 });
+  assert.ok(getPartByName(parts, 'visor'));
+  assert.ok(getPartByName(parts, 'antenna'));
+  assert.equal(getPartByName(parts, 'head').geometry, 'box');
+});
+
+test('buildPawnParts: panda hat Ohren', () => {
+  const parts = buildPawnParts({ kind: 'panda', index: 0 });
+  assert.ok(getPartByName(parts, 'earL'));
+  assert.ok(getPartByName(parts, 'earR'));
+});
+
+test('buildPawnParts: squirrel hat Schwanz', () => {
+  const parts = buildPawnParts({ kind: 'squirrel', index: 0 });
+  assert.ok(getPartByName(parts, 'tail'));
+});
+
+test('buildPawnParts: cactus hat Blume und capsule-Koerper', () => {
+  const parts = buildPawnParts({ kind: 'cactus', index: 0 });
+  assert.ok(getPartByName(parts, 'flower'));
+  assert.equal(getPartByName(parts, 'body').geometry, 'capsule');
+});
+
+test('buildPawnParts: raccoon hat Maske und Schwanz', () => {
+  const parts = buildPawnParts({ kind: 'raccoon', index: 0 });
+  assert.ok(getPartByName(parts, 'mask'));
+  assert.ok(getPartByName(parts, 'tail'));
+});
+
+test('buildPawnParts: axolotl hat Flossen und groesseren Kopf', () => {
+  const parts = buildPawnParts({ kind: 'axolotl', index: 0 });
+  assert.ok(getPartByName(parts, 'finL'));
+  assert.ok(getPartByName(parts, 'finR'));
+  const head = getPartByName(parts, 'head');
+  assert.ok(head.size[0] >= 0.19, 'Axolotl-Kopf sollte groesser sein');
+});
+
+test('buildPawnParts: unbekannter kind faellt auf Standard zurueck', () => {
+  const parts = buildPawnParts({ kind: 'does-not-exist', index: 0 });
+  assert.ok(Array.isArray(parts));
+  assert.ok(parts.length >= 9);
+});

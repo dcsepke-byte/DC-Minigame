@@ -278,9 +278,24 @@ function pawn(player, index, totalAtTile) {
   group.scale.setScalar(PS);
   const baseColor = player.color || palette[index % palette.length];
 
+  /* AssetLoader-Integration (arch-3): Charakter-Farbe aus Registry, falls verfuegbar.
+     Spielfigur-ID kommt vom Player (player.characterId) oder Host-Figur. */
+  let charDef = null;
+  try {
+    if (window.AssetLoader && window.AssetLoader.getRegistry) {
+      const rid = (player.characterId || '').toLowerCase();
+      const reg = window.AssetLoader.getRegistry();
+      if (rid && reg[rid]) charDef = reg[rid];
+    }
+  } catch (e) { /* Registry nicht kritisch */ }
+
   /* Charakter-Modell aus pawn-model-logic laden und in THREE-Meshes umwandeln */
   const PML = window.PawnModelLogic;
-  const parts = PML ? PML.buildPawnParts({ color: baseColor, index: index }) : null;
+  const parts = PML ? PML.buildPawnParts({
+    color: (charDef && charDef.color) || baseColor,
+    index: index,
+    kind: charDef ? charDef.kind : undefined,
+  }) : null;
 
   /* Farbe pro colorMode festlegen */
   function colorForMode(mode) {
@@ -297,6 +312,8 @@ function pawn(player, index, totalAtTile) {
     if (part.geometry === 'sphere') return new THREE.SphereGeometry(s[0], s[1] || 12, s[2] || 8);
     if (part.geometry === 'cylinder') return new THREE.CylinderGeometry(s[0], s[1], s[2], 10);
     if (part.geometry === 'capsule') return new THREE.CapsuleGeometry(s[0], s[1], 6, 12);
+    if (part.geometry === 'box') return new THREE.BoxGeometry(s[0], s[1], s[2]);
+    if (part.geometry === 'cone') return new THREE.ConeGeometry(s[0], s[1], s[2] || 8);
     return new THREE.SphereGeometry(s[0], 12, 8);
   }
 
