@@ -612,13 +612,33 @@ BIOME_GENERATORS.clouds = [
 
 /**
  * Erzeugt alle Decor-Specs fuer ein Biom.
+ * Neue Insel-Biome (Spielwelt-Konzept: Aethonia) werden auf passende
+ * bestehende Generator-Sets gemappt, damit sie eigene Deko haben.
  * @param {string} biome - Biom-Name
  * @param {{x:number, z:number}} center - Regionsmittelpunkt
  * @param {function} rng - Seeded RNG (mulberry32)
  * @returns {Array<{type:string, x:number, z:number, y:number, ...}>}
  */
+const BIOME_MAP = {
+  /* Sonnenstrand: Strand + Palmen + Oasen */
+  beach: 'desert',
+  /* Zuckerwald: suesse Haeuser + Wald */
+  candy: 'forest',
+  /* Wolkenwerk: schwebende Inseln */
+  sky: 'clouds',
+  /* Frostgipfel: Eis */
+  ice: 'ice',
+  /* Dschungeltempel: dichte Vegetation */
+  jungle: 'forest',
+  /* Mechanik-Stadt: kristalline Technik */
+  tech: 'mountain',
+  /* Sternenzitadelle: schwebend + Kristalle */
+  finale: 'clouds',
+};
+
 export function generateDecorSpecs(biome, center, rng) {
-  const generators = BIOME_GENERATORS[biome] || BIOME_GENERATORS.village;
+  const target = BIOME_MAP[biome] || biome;
+  const generators = BIOME_GENERATORS[target] || BIOME_GENERATORS.village;
   const all = [];
   generators.forEach((g) => {
     const specs = g.gen(center, rng);

@@ -101,21 +101,22 @@ function clearGroup(group) {
 
 /* ---------------- Landkarten-Pfad ----------------
    Kleeblatt-Topologie: 8 Biome je als Lappen eines Achten/Kleeblatts.
-   Hauptpfad 160 Felder → 8 Segmente à 20 Felder, je Segment = 1 Biom.
+   Hauptpfad 160 Felder → 8 Segmente à 20 Felder, je Segment = 1 Insel-Biom
+   (Spielwelt-Konzept: Aethonia, 7 Inseln + Finale).
    Pro Biom ein Side-Path (10 Felder) der als Ausbuchtung nach außen ragt.
    BRANCH_STARTS muss mit server.py übereinstimmen (8 Branches). */
 const MAP_REGIONS = [
-  { name: 'Startdorf',  color: '#7cb342', accent: '#aed581', biome: 'village'  },
-  { name: 'Sternwüste', color: '#ffd54f', accent: '#ff8f00', biome: 'desert'   },
-  { name: 'Itemwald',   color: '#2e7d32', accent: '#66bb6a', biome: 'forest'   },
-  { name: 'Eventberg',  color: '#90a4ae', accent: '#546e7a', biome: 'mountain' },
-  { name: 'Sumpf',      color: '#6a8e23', accent: '#8bc34a', biome: 'swamp'    },
-  { name: 'Eisland',    color: '#b3e5fc', accent: '#4fc3f7', biome: 'ice'      },
-  { name: 'Vulkanland', color: '#ff6f00', accent: '#bf360c', biome: 'volcano'  },
-  { name: 'Wolkenreich',color: '#e1bee7', accent: '#ce93d8', biome: 'clouds'   },
+  { name: 'Sonnenstrand',   color: '#ffe082', accent: '#ff8a65', biome: 'beach'   },
+  { name: 'Zuckerwald',     color: '#f8bbd0', accent: '#f06292', biome: 'candy'   },
+  { name: 'Wolkenwerk',     color: '#b3e5fc', accent: '#4fc3f7', biome: 'sky'     },
+  { name: 'Frostgipfel',    color: '#e1f5fe', accent: '#29b6f6', biome: 'ice'     },
+  { name: 'Dschungeltempel',color: '#81c784', accent: '#fdd835', biome: 'jungle'  },
+  { name: 'Mechanik-Stadt', color: '#cfd8dc', accent: '#ff9800', biome: 'tech'    },
+  { name: 'Sternenzitadelle',color: '#ffe082',accent: '#7b2ff7', biome: 'finale'  },
+  { name: 'Sternenzitadelle 2',color: '#fff176', accent: '#ff3cac', biome: 'finale' },
 ];
 /* Biome-Farben für jeden Hauptpfad-Abschnitt (idx // 20). */
-const BIOME_BY_INDEX = ['village','desert','forest','mountain','swamp','ice','volcano','clouds'];
+const BIOME_BY_INDEX = ['beach','candy','sky','ice','jungle','tech','finale','finale'];
 
 /* Etappe 2.5: Graph-bewusstes Kleeblatt-Layout.
    Hauptpfad (idx < 160): 8-Lappen-Kleeblatt — je Biom ein Lappen der nach außen beult.
@@ -130,15 +131,15 @@ const BRANCH_REJOIN_3D = [20, 40, 60, 80, 100, 120, 140, 0];  // (bstart+10)%160
    Jedes Segment ist ein Lappen: Basis bei radiusBase, beult nach außen zur Segmentmitte.
    Höhe variiert pro Biom (Berg hoch, Sumpf tief, Wolken schwebend). */
 function biomeHeightOffset(biome, t) {
-  /* Biom-spezifische Höhenprofile — geben dem Board 3D-Tiefe. */
-  if (biome === 'mountain') return 1.2 + Math.sin(t * Math.PI) * 0.8;       // Berg: hoch
-  if (biome === 'clouds')   return 1.8 + Math.sin(t * Math.PI) * 0.6;       // Wolken: schwebend hoch
-  if (biome === 'volcano')  return 0.6 + Math.sin(t * Math.PI) * 0.5;       // Vulkan: mittel
-  if (biome === 'ice')      return 0.4 + Math.sin(t * Math.PI) * 0.4;       // Eis: leicht erhöht
-  if (biome === 'swamp')    return -0.3 - Math.sin(t * Math.PI) * 0.3;      // Sumpf: tief
-  if (biome === 'forest')   return 0.2 + Math.sin(t * Math.PI) * 0.3;       // Wald: leicht hügelig
-  if (biome === 'desert')   return 0.0 + Math.sin(t * Math.PI) * 0.2;       // Wüste: flach
-  return 0.1 + Math.sin(t * Math.PI) * 0.15;                                // Dorf: sanft
+  /* Insel-Höhenprofile (Spielwelt-Konzept: Aethonia). */
+  if (biome === 'sky')      return 1.8 + Math.sin(t * Math.PI) * 0.6;       // Wolkenwerk: schwebend hoch
+  if (biome === 'finale')   return 1.4 + Math.sin(t * Math.PI) * 0.5;       // Sternenzitadelle: erhöht
+  if (biome === 'jungle')   return 0.6 + Math.sin(t * Math.PI) * 0.5;       // Dschungeltempel: Tempelberg
+  if (biome === 'tech')     return 0.4 + Math.sin(t * Math.PI) * 0.4;       // Mechanik-Stadt: mittel
+  if (biome === 'ice')      return 0.4 + Math.sin(t * Math.PI) * 0.4;       // Frostgipfel: leicht erhöht
+  if (biome === 'candy')    return 0.2 + Math.sin(t * Math.PI) * 0.3;       // Zuckerwald: hügelig
+  if (biome === 'beach')    return 0.0 + Math.sin(t * Math.PI) * 0.2;       // Sonnenstrand: flach
+  return 0.1 + Math.sin(t * Math.PI) * 0.15;                                // Standard: sanft
 }
 
 /* Etappe 2.5 Landschaft: Terrain-Heightmap-Funktion (Modul-global).
@@ -156,13 +157,14 @@ function terrainHeight(x, z) {
   /* Biom-spezifische Höhen: Segment-Winkel bestimmt Biom. */
   const ang = Math.atan2(z, x);
   const seg = Math.floor(((ang / (Math.PI * 2)) + 0.5) * 8 + 8) % 8;
-  const biome = BIOME_BY_INDEX[seg] || 'village';
+  const biome = BIOME_BY_INDEX[seg] || 'beach';
   let biomeLift = 0;
-  if (biome === 'mountain') biomeLift = 1.2;
-  else if (biome === 'clouds') biomeLift = 2.0;
-  else if (biome === 'volcano') biomeLift = 0.8;
+  if (biome === 'sky') biomeLift = 2.0;
+  else if (biome === 'finale') biomeLift = 1.6;
+  else if (biome === 'jungle') biomeLift = 0.8;
+  else if (biome === 'tech') biomeLift = 0.6;
   else if (biome === 'ice') biomeLift = 0.5;
-  else if (biome === 'swamp') biomeLift = -0.4;
+  else if (biome === 'candy') biomeLift = 0.3;
   /* Sanftes Radialprofil pro Biom (bei Bulge-Mitte segT=0.5 am höchsten). */
   biomeLift *= Math.sin(Math.max(0, Math.min(1, (r - 6) / 10)) * Math.PI);
   return central + ring * 0.7 + noise + biomeLift;

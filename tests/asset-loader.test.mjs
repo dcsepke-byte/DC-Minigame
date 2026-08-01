@@ -31,8 +31,8 @@ test('asset-loader.js seedet 8 Charaktere + 7 Inseln + default', () => {
   for (const n of names) {
     assert.match(src, new RegExp(`R\\.register\\('${n}'`));
   }
-  for (let i = 1; i <= 7; i++) {
-    assert.match(src, new RegExp(`R\\.register\\('island-${i}'`));
+  for (const island of ['01_sonnenstrand', '02_zuckerwald', '03_wolkenwerk', '04_frostgipfel', '05_dschungeltempel', '06_mechanikstadt', '07_sternenzitadelle']) {
+    assert.match(src, new RegExp(`R\\.register\\('${island}'`));
   }
   assert.match(src, /R\.register\('default'/);
 });

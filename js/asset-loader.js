@@ -38,16 +38,33 @@ const AssetLoader = (() => {
   }
 
   /* ---------- 3D laden (GLTF/GLB) — mit Fallback ---------- */
-  async function loadGLTF(url) {
-    // GLTFLoader nur nutzen, wenn Three.js verfügbar ist
-    const THREE = window.THREE;
-    if (THREE && THREE.GLTFLoader) {
-      return new Promise((resolve, reject) => {
-        const loader = new THREE.GLTFLoader();
-        loader.load(url, resolve, undefined, reject);
-      });
+  let _gltfLoaderPromise = null;
+  function getGLTFLoader() {
+    if (!_gltfLoaderPromise) {
+      _gltfLoaderPromise = (async () => {
+        try {
+          // Three.js lädt per Import-Map (scene3d.js ist Modul)
+          const mod = await import('three/addons/loaders/GLTFLoader.js');
+          return mod.GLTFLoader || null;
+        } catch (e) {
+          // Fallback: global verfügbarer Loader (window.THREE.GLTFLoader)
+          const THREE = window.THREE;
+          if (THREE && THREE.GLTFLoader) return THREE.GLTFLoader;
+          return null;
+        }
+      })();
     }
-    throw new Error('GLTFLoader nicht verfügbar');
+    return _gltfLoaderPromise;
+  }
+
+  async function loadGLTF(url) {
+    const GLTFLoader = await getGLTFLoader();
+    if (!GLTFLoader) throw new Error('GLTFLoader nicht verfügbar');
+    const THREE = window.THREE || (await import('three'));
+    return new Promise((resolve, reject) => {
+      const loader = new GLTFLoader();
+      loader.load(url, resolve, undefined, reject);
+    });
   }
 
   /* ---------- Haupt-Loader ---------- */
@@ -85,16 +102,18 @@ const AssetLoader = (() => {
 
   /* ---------- Insel laden ---------- */
   async function loadIsland(id) {
+    const def = registry[id] || null;
     const candidates = [
+      `blender-assets/islands/${id}.glb`,
       `assets/islands/${id}.glb`,
       `assets/islands/${id}.svg`,
       `assets/islands/${id}.png`,
     ];
     for (const c of candidates) {
       const result = await load(c, { fallback: null });
-      if (result.type !== 'fallback') return Object.assign({ id }, result);
+      if (result.type !== 'fallback') return Object.assign({ id }, result, def ? { def } : {});
     }
-    return { id, type: 'primitive' };
+    return Object.assign({ id, type: 'primitive' }, def ? { def } : {});
   }
 
   /* ---------- Exports ---------- */
@@ -118,12 +137,12 @@ if (typeof window !== 'undefined') window.AssetLoader = AssetLoader;
   R.register('momo', { name: 'Momo', kind: 'raccoon', color: '#ff3cac', home: 'frostgipfel' });
   R.register('default', { name: 'Standard', kind: 'pawn', color: '#ffffff' });
 
-  // Inseln (Biome)
-  R.register('island-1', { name: 'Sonnenstrand', biome: 'beach', color: '#ffe082' });
-  R.register('island-2', { name: 'Zuckerwald', biome: 'candy', color: '#ffb3d9' });
-  R.register('island-3', { name: 'Wolkenwerk', biome: 'sky', color: '#b3e5fc' });
-  R.register('island-4', { name: 'Frostgipfel', biome: 'ice', color: '#e1f5fe' });
-  R.register('island-5', { name: 'Dschungeltempel', biome: 'jungle', color: '#81c784' });
-  R.register('island-6', { name: 'Mechanik-Stadt', biome: 'tech', color: '#cfd8dc' });
-  R.register('island-7', { name: 'Sternenzitadelle', biome: 'finale', color: '#ffe082' });
+  // Inseln (Biome) — Dateinamen passen zu blender-assets/islands/
+  R.register('01_sonnenstrand', { name: 'Sonnenstrand', biome: 'beach', color: '#ffe082' });
+  R.register('02_zuckerwald', { name: 'Zuckerwald', biome: 'candy', color: '#ffb3d9' });
+  R.register('03_wolkenwerk', { name: 'Wolkenwerk', biome: 'sky', color: '#b3e5fc' });
+  R.register('04_frostgipfel', { name: 'Frostgipfel', biome: 'ice', color: '#e1f5fe' });
+  R.register('05_dschungeltempel', { name: 'Dschungeltempel', biome: 'jungle', color: '#81c784' });
+  R.register('06_mechanikstadt', { name: 'Mechanik-Stadt', biome: 'tech', color: '#cfd8dc' });
+  R.register('07_sternenzitadelle', { name: 'Sternenzitadelle', biome: 'finale', color: '#ffe082' });
 })();
