@@ -5,6 +5,12 @@
   'use strict';
 
   const $ = s => document.querySelector(s);
+
+  /* Shared Helfer (vor allen Funktionsdefinitionen verfuegbar, sonst TDZ-Bug) */
+  const el = PartyArenaShared.el;
+  const escapeHtml = PartyArenaShared.escapeHtml;
+  const initials = PartyArenaShared.initials;
+
   const HOST_PID = '__host__';
   const HOST_FIGURES = ['🎩', '🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
   const screens = {};
@@ -91,7 +97,7 @@
     if (panel) panel.textContent = value;
     const banner = $('#board-banner');
     if (banner) banner.textContent = value;
-    pushBoardToast(value);
+    if (window.PartyArenaShared) PartyArenaShared.pushBoardToast(value);
   }
 
   /* NEU Layout C: Spieler-Pillbar (oben-links) */
@@ -336,8 +342,8 @@
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
-    renderBoardPills();           /* NEU Layout C: Spieler-Pillbar initial */
-    setupBoardSlides();           /* NEU Layout C: Slide-In-Panels + Menü-Button einmalig binden */
+    renderBoardPillsHost();       /* NEU Layout C: Spieler-Pillbar initial */
+    setupBoardSlidesHost();       /* NEU Layout C: Slide-In-Panels + Menü-Button einmalig binden */
     showHostBoardPrompt('Warte auf deinen Zug…');
     hideTurnNotice();
     showScreen('board');
@@ -412,7 +418,7 @@
     renderHostProfileCard();
     updateHostBoardStats();
     renderHostBoardTimeline();
-    renderBoardPills();
+    renderBoardPillsHost();
     const lap = $('#board-lap');
     if (lap) lap.textContent = `Runde ${state.lapsDone} / ${state.lapsTotal}`;
     setBoardLogText(state.boardLog);
@@ -1058,10 +1064,6 @@
   document.addEventListener('pointerdown', () => FX.setSoundEnabled(true), { once: true });
 
   /* ---------- Helfer (aus shared.js) ---------- */
-  const el = PartyArenaShared.el;
-  const escapeHtml = PartyArenaShared.escapeHtml;
-  const initials = PartyArenaShared.initials;
-
   function renderBoardGrid() {
     if (window.Party3D && state.boardTiles && state.boardTiles.length) {
       Party3D.setBoardState({

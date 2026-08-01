@@ -20,6 +20,16 @@
   let settings = loadSettings();
   let currentLang = settings.lang || 'de';
   let vibrationEnabled = settings.vibration !== false;
+
+  /* ---------- Sound / Audio Settings (vor Init verfuegbar, sonst TDZ-Bug) ---------- */
+  const ASL = window.AudioSettingsLogic;
+  let audioSettings = ASL ? ASL.loadAudioSettings(localStorage) : null;
+  if (audioSettings && ASL && settings) {
+    audioSettings = ASL.setMusicVolume(ASL.setSfxVolume(
+      ASL.toggleMusic(ASL.toggleSfx(audioSettings, !settings.sfx), settings.sfx),
+      settings.sfxVolume), settings.musicVolume);
+  }
+
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function showScreen(name) {
@@ -1144,14 +1154,6 @@
   }
 
   /* ---------- Sound / Audio Settings ---------- */
-  const ASL = window.AudioSettingsLogic;
-  let audioSettings = ASL ? ASL.loadAudioSettings(localStorage) : null;
-  if (audioSettings && ASL && settings) {
-    audioSettings = ASL.setMusicVolume(ASL.setSfxVolume(
-      ASL.toggleMusic(ASL.toggleSfx(audioSettings, !settings.sfx), settings.sfx),
-      settings.sfxVolume), settings.musicVolume);
-  }
-
   function applyAudioSettings() {
     if (!audioSettings || !ASL) return;
     FX.setSoundEnabled(ASL.isMusicOn(audioSettings) || ASL.isSfxOn(audioSettings));
