@@ -87,7 +87,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Memory-Leak-Test (laengere Sessions) — clearInterval/clearTimeout geprueft (2026-07-29)
   - [x] Cross-Browser-CSS (Safari) — -webkit-backdrop-filter Fallbacks vorhanden (2026-07-29)
   - [x] Performance auf Low-End-Geraeten (2D-Fallback)
-  - [ ] Host-Minigame-Flow im Board-Modus flaky (Befund 2026-08-01): Ready-Screen erscheint 2-5 Min nach roundIntro, gelegentlich doppelter Ready-Screen, Runde springt dann nicht zum Final. Vermutlich #host-play-card vs. Player-Mirror (setHostPlayerMirrorMode). Siehe party-arena-wiki/concepts/store-screenshots-automation.md
+  - [x] Host-Minigame-Flow im Board-Modus flaky — Root Cause: Server-Routing (`room.mode == "board"` exakt ignorierte `board-party`) -> `player:finished` ging in Classic-Pfad, Runde hing ohne Final. Fix: `is_board_mode()` Helfer + 10 TDD-Unit-Tests, E2E-Bot PASS (2026-08-01)
   - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell
 
 - [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
