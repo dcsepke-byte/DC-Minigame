@@ -18,6 +18,16 @@ const Games = (() => {
   function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
+  /* ---------- Minispiel-Vertrag (arch-2): Session-Adapter ----------
+     Wickelt eine bestehende play-Funktion in die Session-State-Machine
+     (start->countdown->gameplay->winner->reward->exit). Fallback auf die
+     originale Funktion, falls das Adapter-Script nicht geladen ist. */
+  function sessionWrap(playFn, id) {
+    const A = window.MinigameSession;
+    if (!A || typeof A.wrapPlay !== 'function') return playFn;
+    return A.wrapPlay(playFn, { id });
+  }
+
   /* =========================================================
      1) REAKTION — Tippe sobald grün
      ========================================================= */
@@ -3511,7 +3521,8 @@ const Games = (() => {
     { id: 'lavafloor', name: 'Lava-Boden', icon: '🌋', desc: 'Weiche der Lava aus — die Plattform zerbröckelt unter dir.',
       rules: 'Bewege dich schnell auf den sicheren Kacheln. Nach und nach fällt die Plattform in die Lava. Wer überlebt, bekommt Punkte — wer fällt, scheidet aus! 25 Sekunden.', play: gameLavaFloor },
     { id: 'reaction', name: 'Reaktion', icon: '⚡', desc: 'Tippe blitzschnell, sobald der Bildschirm grün wird.',
-      rules: 'Warte auf <strong>GRÜN</strong> und tippe so schnell wie möglich. Tippst du zu früh, gibt es 0 Punkte. <strong>20 Sekunden</strong> — so viele Versuche wie möglich, je schneller, desto mehr Punkte!', play: gameReaction },
+      rules: 'Warte auf <strong>GRÜN</strong> und tippe so schnell wie möglich. Tippst du zu früh, gibt es 0 Punkte. <strong>20 Sekunden</strong> — so viele Versuche wie möglich, je schneller, desto mehr Punkte!',
+      play: sessionWrap(gameReaction, 'reaction') },
     { id: 'simon', name: 'Memory-Sequenz', icon: '🧠', desc: 'Merke dir die leuchtende Reihenfolge und wiederhole sie.',
       rules: 'Schau dir die Sequenz an und tippe sie nach. Jede Runde wird sie <strong>länger</strong>. Jedes geschaffte Level bringt <strong>100 Punkte</strong>.', play: gameSimon },
     { id: 'math', name: 'Blitz-Rechnen', icon: '🔢', desc: 'Wähle das richtige Ergebnis aus mehreren Zahlen.',

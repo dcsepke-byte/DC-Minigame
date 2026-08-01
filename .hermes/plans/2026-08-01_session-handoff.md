@@ -1,24 +1,26 @@
 # Session Handoff — Party Arena
 
-**Datum:** 2026-08-01 (Cron-Job Session)
+**Datum:** 2026-08-01 (Cron-Job Session, arch-2 Schritt 1)
 **Branch:** main
 **Arbeitsverzeichnis:** /opt/data/DC-Minigame
 
 ## Stand
 
-- Working Tree war clean (HEAD b18b506), E2E-Bot erneut verifiziert: **PASS: True**
-- **arch-1 Minispiel-Vertrag umgesetzt:** `js/minigame-contract.js` (State-Machine fuer Lebenszyklus start->countdown->gameplay->timer->winner->reward->exit), 16 Unit-Tests gruen, Wiki-Doku `party-arena-wiki/concepts/minigame-contract.md`
-- BACKLOG aktualisiert (arch-1 als erledigt markiert)
+- **arch-2 Schritt 1 umgesetzt:** Session-Adapter `js/minigame-session.js` (ESM, browser-frei) + `js/minigame-session-browser.js` (IIFE, `window.MinigameSession`).
+- Bestehende `play(stage, api)`-Spiele laufen jetzt durch die Session-State-Machine: start->countdown->gameplay->winner->reward->exit. setScore/finish durch Guards, Exception-Safety (finish(0) statt Haenger).
+- **Reaktion** als erstes Spiel umgestellt (`sessionWrap(gameReaction, 'reaction')` in games.js, Helfer mit Fallback).
+- Scripts: `minigame-session-browser.js?v=1` vor `games.js?v=16` in index/player/host.html eingebunden (player.html: shop/iap-Scripts unangetastet gelassen).
+- Tests: 11 Unit + 5 Paritaet (ESM vs IIFE), alle 32 (inkl. Contract) gruen. node --check ok. E2E-Bot PASS: True.
+- Wiki: concepts/minigame-contract.md aktualisiert. BACKLOG: arch-2 als in_progress mit Schritt 1 erledigt.
 
 ## Aktive Todo-Liste
 
-1. **clean-3** Restliche Phase-1/2 Backlog-Items abschliessen oder dokumentieren — in_progress (arch-1 abgeschlossen; restliche offene Items sind Blocker: App-Store-Connect-Konfiguration, Cross-Browser-Test manuell)
-2. **clean-4** E2E-Bot + Browser-Smoke-Test — DONE (PASS: True am 2026-08-01)
-3. **clean-5** Saubere Version pushen + Statusbericht — in_progress (Commit+Push dieser Session)
-4. **arch-2** Code modularisieren — pending (naechster Schritt: bestehende games.js-Spiele auf den Vertrag umstellen)
-5. **arch-3** Asset-Loader bauen — pending
-6. **games-1** 8 hochwertige Minispiele finalisieren — pending
-7. **visual-1** Welt + Charaktere nach und nach austauschen — pending
+1. **clean-3** Restliche Phase-1/2 Backlog-Items abschliessen oder dokumentieren — in_progress (offene Items sind Blocker: App-Store-Connect, Cross-Browser manuell)
+2. **clean-5** Saubere Version pushen + Statusbericht — in_progress (Commit+Push dieser Session)
+3. **arch-2** Code modularisieren — in_progress (Schritt 1 done; Schritt 2: weitere Spiele auf sessionWrap umstellen)
+4. **arch-3** Asset-Loader bauen — pending
+5. **games-1** 8 hochwertige Minispiele finalisieren — pending
+6. **visual-1** Welt + Charaktere nach und nach austauschen — pending
 
 ## Technische Hinweise
 
@@ -26,9 +28,10 @@
 - E2E-Bot: `PYTHONPATH=/opt/data/lazy-packages python3 tests/e2e_bot_v3.py ws://localhost:3000 --name "E2E_Bot" --host-mode`
 - Lokaler Server: `PORT=3000 python3 server.py`
 - Danny ist in Thailand und kann `localhost` nicht oeffnen; Verifikation laeuft lokal, Ergebnis per Nachricht
-- Kein `delegate_task`-Tool in dieser Session verfuegbar — Code-Review als Selbst-Check (16 Tests decken alle Pfade)
+- Kein `delegate_task`-Tool verfuegbar — Code-Review als Selbst-Check (16+16 Tests decken die Pfade)
 
 ## Lern-Entscheidungen aus dieser Session
 
-- Minispiel-Vertrag als reines Logik-Modul ohne DOM (gleiche Konvention wie game-mix-logic.js) — browser-frei testbar mit `node --test`.
-- arch-2 startet NICHT mit einem kompletten Refactor von games.js, sondern mit der Umstellung einzelner Spiele auf die Session-State-Machine (eine Domain nach der anderen, Skill 15).
+- Adapter-Konvention: ESM-Logik + IIFE-Browser-Version + Paritaetstest (wie game-mix-logic).
+- `sessionWrap(playFn, id)` Helfer in games.js mit Fallback auf Original-play — Spiele einzeln umstellen ohne Risiko.
+- Exception im Spiel: Adapter schluckt und macht finish(0) — player.js wuerde sonst doppelt finishGame(0) senden.
