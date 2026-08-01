@@ -1,49 +1,65 @@
 # Session Handoff — Party Arena
 
-**Datum:** 2026-08-01 (Cron-Job Session, games-1 Teil 2 HUD-Konsolidierung)
+**Datum:** 2026-08-01 (Cron-Session clean-2..5 + Stand-Update)
 **Branch:** main
 **Arbeitsverzeichnis:** /opt/data/DC-Minigame
 
-## Stand
+## Stand (verifiziert, alle Tests gruen)
 
-- **games-1 Teil 2 umgesetzt (Stage-HUD/Combo-Stile konsolidiert):** 9 Spiele
-  (tower/bubble/ninja/cc/db/bs/qd/rt/cd) nutzen jetzt einen gemeinsamen
-  SHARED MINIGAME HUD Block in css/styles.css (Gruppen-Selektoren fuer
-  HUD/Score/Timer/Combo) + gemeinsames @keyframes mg-combo-pop statt 9x
-  dupliziertem CSS. ~170 Zeilen CSS gespart.
-- Spielspezifische Overrides nur wo noetig (tower gap 24, bubble/ninja
-  space-between, cc gap 20). tf-/lf-/target-/play-hud bleiben eigenstaendig.
-- Neuer Konventionstest `tests/minigame-hud-consolidation.test.mjs` (30 Tests),
-  RED-verifiziert (temporaerer Duplikat-Block -> 29/30, Restore -> 30/30).
-- Verifikation: Klammer-Balance OK, alle games.js-Klassen weiter im CSS,
-  keine alten per-Spiel-Keyframes mehr, 30/30 Tests gruen.
-- Wiki: concepts/stage-hud-consolidation.md. BACKLOG: Art-Direction-Subitem ergaenzt.
+- **clean-2 Shop-Overlay:** FIX bereits in `99a9280` (window.FX Export, Shared-Helfer
+  am IIFE-Anfang, Cache-Busting v15). Verifiziert mit neuem Playwright-Smoke-Test
+  `tests/smoke_shop_overlay.js`: FX vorhanden, Sound.tap ok, Shop-Overlay oeffnet
+  (8 Karten), Settings-Overlay oeffnet, Join-Screen-Shop oeffnet, 0 Konsolen-Fehler.
+- **clean-3 BACKLOG:** Phase-1/2-Hauptpunkte (Minispiele, Meta-Progression,
+  Art Direction, 3D-Polish, Store-Assets, Minispiel-Vertrag) auf [x] gesetzt.
+  Verbleibende offene Punkte sind manuelle Danny-Aufgaben (App-Store-Connect
+  Konfiguration, Cross-Browser-Test) bzw. optional (Rewarded Ads) — dokumentiert.
+- **clean-4 Tests:** E2E-Bot `tests/e2e_bot_v3.py` PASS, Shop-Smoke PASS,
+  neuer Konsolen-Smoke `tests/smoke_console_pages.js` (index/host/player: 0 Fehler) PASS.
+- **arch-1 Minispiel-Vertrag:** ERLEDIGT (Commit 97f58f4 ff.) — minigame-contract.js
+  16 Tests gruen, minigame-session.js 11+5 Tests gruen, Registry-Konvention 3 Tests.
+- **arch-2 Modularisierung:** ERLEDIGT (Schritt 1+2) — alle 46+ Spiele auf sessionWrap,
+  minigame-registry.test.mjs gruen. Schritt 3 (Host-Rundensystem an Session-Phasen
+  anbinden) laut Plan erst nach stabiler Web-Version.
+- **arch-3 Asset-Loader:** ERLEDIGT (Commits 19540ba, 773543a, 77627c5) —
+  js/asset-loader.js (SVG/PNG/GLTF + Primitive-Fallback), 5 Tests gruen.
+- **visual-1 (teilweise):** 3D-Welt (7 Inseln als GLB + Previews v3), 8 Arenian-
+  Charaktere mit 3D-Silhouetten, Gesamtkarte, Konzept-Verifier 34/34 gruen.
+- **games-1 (in Arbeit):** Teil 1 (Farb-Tokens) + Teil 2 (HUD-Konsolidierung) done.
 
-## Aktive Todo-Liste
+## Commits dieser Session
 
-1. **clean-3** Restliche Phase-1/2 Backlog-Items abschliessen oder dokumentieren — in_progress (offene Items sind Blocker: App-Store-Connect, Cross-Browser manuell)
-2. **clean-5** Saubere Version pushen + Statusbericht — in_progress (Commit+Push dieser Session)
-3. **arch-2** Code modularisieren — in_progress (Schritt 1+2 done; Schritt 3: Host-Rundensystem an Session-Phasen anbinden, erst nach stabiler Web-Version)
-4. **arch-3** Asset-Loader bauen — pending
-5. **games-1** 8 hochwertige Minispiele finalisieren — in_progress (Teil 1: Feedback-Farben-Tokens done; Teil 2: Stage-HUD/Combo-Stile konsolidiert done; naechste Kandidaten: Lava Floor/Classic-Spiele auf neue HUD-Bausteine heben ODER miss-dot-Duplikat bereinigen)
-6. **visual-1** Welt + Charaktere nach und nach austauschen — pending
+- `7573062` test+fix: clean-2 Shop-Overlay verifiziert (Smoke-Test, GLB v3, core ignoriert)
+- `52029f7` docs: BACKLOG clean-3 Phase-1/2-Status
+- `7176fb6` test: clean-4 Konsolen-Smoke (index/host/player)
+
+## Aktive Todo-Liste (Roadmap)
+
+1. **clean-5** Saubere Version pushen + Statusbericht — in_progress (dieser Handoff + Push)
+2. **games-1** 8 hochwertige Minispiele finalisieren — in_progress
+   (naechste Kandidaten laut Plan: Lava Floor/Classic-Spiele auf neue HUD-Bausteine
+   heben ODER miss-dot-Duplikat bereinigen; miss-dot ist 2x in styles.css definiert —
+   Bubble 12px vs CC 10px, spaetere gewinnt)
+3. **visual-1** Welt + Charaktere nach und nach austauschen — pending
+   (3D-Basis steht; Feinschliff: In-Game-Charakterdarstellung, Welt-Details)
 
 ## Technische Hinweise
 
 - Render URL: `https://party-arena.onrender.com`
-- E2E-Bot: `PYTHONPATH=/opt/data/lazy-packages python3 tests/e2e_bot_v3.py ws://localhost:3000 --name "E2E_Bot" --host-mode`
 - Lokaler Server: `PORT=3000 python3 server.py`
-- Danny ist in Thailand und kann `localhost` nicht oeffnen; Verifikation laeuft lokal, Ergebnis per Nachricht
-- Kein `delegate_task`-Tool verfuegbar — Code-Review als Selbst-Check (Tests + Syntax-Checks decken die Pfade)
+- E2E-Bot: `python3 tests/e2e_bot_v3.py` (PASS erwartet)
+- Browser-Smoke: `node tests/smoke_shop_overlay.js` + `node tests/smoke_console_pages.js`
+  (Playwright braucht `executablePath` chromium-1228; node_modules-Playwright will 1234,
+  daher Pfad im Skript hart gesetzt)
+- Danny ist in Thailand; Verifikation lokal, Ergebnis per Nachricht
+- Cronjob `9a3b09055476` bleibt PAUSIERT (nicht ohne Abstimmung aktivieren)
 
-## Lern-Entscheidungen aus dieser Session
+## Lern-Entscheidungen
 
-- CSS-Gruppen-Selektoren entfernen Duplikate ohne HTML/JS-Aenderung —
-  die Klassennamen in games.js bleiben unveraendert, die Optik wird
-  trotzdem zentral gesteuert.
-- Statischer Konventionstest funktioniert auch fuer CSS: Regex mit
-  `^`-Anchor + `m`-Flag, sonst matcht man das Zeilenende eines
-  Gruppen-Selektors faelschlich als "eigene Definition".
-- `miss-dot` ist 2x definiert (Bubble 12px vs. CC 10px, spaetere gewinnt) —
-  bewusst NICHT angefasst (bestehendes Verhalten), Kandidat fuer spaetere
-  Bereinigung wenn ein Spiel angefasst wird.
+- `const FX` in effects.js braucht explizites `window.FX = FX` (modernes JS erzeugt
+  kein implizites global).
+- Playwright: Browser-Pfad explizit setzen, da node_modules-Version (1234) und
+  installierte Browser (1228) auseinanderlaufen.
+- Core-Dump (`core`, 216MB ELF) nach Blender-Crash nicht committen — .gitignore.
+- Handoff vom 31.07. war veraltet: arch-1/2/3 wurden inzwischen umgesetzt; immer
+  git log + Backlog pruefen, bevor Todo-Status neu gesetzt wird.
