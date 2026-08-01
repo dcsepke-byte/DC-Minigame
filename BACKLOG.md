@@ -82,6 +82,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 - [~] **QUALITY ASSURANCE** — Bug-free:
   - [x] Alle bekannten Bugs fixen (2026-07-29)
+  - [x] Shop-Overlay-TDZ-Fix — Shared-Helfer (el/escapeHtml/initials) an IIFE-Anfang verschoben, window.FX explizit exportiert, Cache-Busting v15/v17, E2E-Bot PASS + 30 Shop-Unit-Tests gruen (2026-08-01)
   - [x] Edge-Case-Testing (2-4 Spieler, Reconnect, Disconnect) — E2E-Bot + 4-Bot-Stress-Test (2026-07-29)
   - [x] Memory-Leak-Test (laengere Sessions) — clearInterval/clearTimeout geprueft (2026-07-29)
   - [x] Cross-Browser-CSS (Safari) — -webkit-backdrop-filter Fallbacks vorhanden (2026-07-29)
