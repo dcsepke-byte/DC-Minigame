@@ -118,6 +118,11 @@ rooms = {}        # code -> Room
 loop = None       # asyncio event loop (gesetzt in main)
 
 
+def is_board_mode(mode):
+    """True wenn der Modus ein Board-Spiel ist (board oder board-party)."""
+    return mode in ("board", "board-party")
+
+
 # ============================================================
 #  WebSocket Low-Level
 # ============================================================
@@ -2009,13 +2014,13 @@ def handle_message(client, msg):
         room.board_decision(pid, msg.get("action"))
     elif t == "player:score" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
-        if room.mode == "board":
+        if is_board_mode(room.mode):
             room.board_player_score(pid, msg.get("score", 0))
         else:
             room.player_score(pid, msg.get("score", 0))
     elif t == "player:finished" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
-        if room.mode == "board":
+        if is_board_mode(room.mode):
             room.board_player_finished(pid, msg.get("score", 0))
         else:
             room.player_finished(pid, msg.get("score", 0))
