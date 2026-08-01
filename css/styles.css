@@ -886,6 +886,33 @@ body.player-app .meta-xp-text { font-size: 10px; }
   background: rgba(255, 77, 109, 0.85); color: var(--white); box-shadow: none;
 }
 
+/* ---------- Games Mix Gruppen (Action/Classic) ---------- */
+.games-mix-header {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 10px; padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+}
+.games-mix-header:first-child { margin-top: 0; }
+.games-mix-label {
+  font-family: var(--font-display);
+  font-weight: 800; font-size: 15px; letter-spacing: 0.4px;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.games-mix-toggle {
+  font-size: 12px; font-weight: 700;
+  padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  color: var(--white);
+  transition: background 0.2s, border-color 0.2s;
+}
+.games-mix-toggle:hover { background: rgba(255, 255, 255, 0.16); border-color: var(--accent-3); }
+.games-mix-group { display: contents; }
+
 /* ---------- Round Intro ---------- */
 .round-intro-content, .player-turn-content, .player-result-content,
 .round-result-content, .standings-content, .final-content {

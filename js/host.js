@@ -823,18 +823,49 @@
     b.addEventListener('click', () => switchHostBoardPanel(b.dataset.panel || 'map'));
   });
 
-  // Spiele-Auswahl
+  // Spiele-Auswahl — gruppiert nach Mix (Action Mix / Classic Mix)
   (function renderGamesPreview() {
     const grid = $('#games-grid');
-    Games.list.forEach(g => {
-      const t = el('div', 'game-tile');
-      t.dataset.id = g.id;
-      t.innerHTML = `<span class="gt-badge">✓</span>
-        <span class="gt-icon">${g.icon}</span>
-        <div class="gt-name">${g.name}</div>
-        <div class="gt-desc">${g.desc}</div>`;
-      t.addEventListener('click', () => toggleGame(g.id, t));
-      grid.appendChild(t);
+    const GML = window.GameMixLogic || {
+      MIXES: ['classic'],
+      groupGamesByMix: (l) => ({ action: [], classic: l }),
+      getMixLabel: () => 'Classic Mix',
+    };
+    const groups = GML.groupGamesByMix(Games.list);
+    GML.MIXES.forEach(mix => {
+      const games = groups[mix];
+      if (!games.length) return;
+      const header = el('div', 'games-mix-header');
+      header.innerHTML = `<span class="games-mix-label">${GML.getMixLabel(mix)}</span>
+        <button type="button" class="games-mix-toggle" data-mix="${mix}">Alle an</button>`;
+      grid.appendChild(header);
+      const wrap = el('div', 'games-mix-group');
+      games.forEach(g => {
+        const t = el('div', 'game-tile');
+        t.dataset.id = g.id;
+        t.innerHTML = `<span class="gt-badge">✓</span>
+          <span class="gt-icon">${g.icon}</span>
+          <div class="gt-name">${g.name}</div>
+          <div class="gt-desc">${g.desc}</div>`;
+        t.addEventListener('click', () => toggleGame(g.id, t));
+        wrap.appendChild(t);
+      });
+      grid.appendChild(wrap);
+      header.querySelector('.games-mix-toggle').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const anyEnabled = games.some(g => !state.disabledGames.has(g.id));
+        games.forEach(g => {
+          if (anyEnabled) state.disabledGames.add(g.id);
+          else state.disabledGames.delete(g.id);
+        });
+        wrap.querySelectorAll('.game-tile').forEach(t => {
+          const off = state.disabledGames.has(t.dataset.id);
+          t.classList.toggle('disabled', off);
+          t.querySelector('.gt-badge').textContent = off ? '✕' : '✓';
+        });
+        e.currentTarget.textContent = anyEnabled ? 'Alle an' : 'Alle aus';
+        FX.Sound.tap(); updateGamesHint(); updateStartButton();
+      });
     });
     updateGamesHint();
   })();

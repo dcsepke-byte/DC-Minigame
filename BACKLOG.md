@@ -19,7 +19,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Rhythm Tap** — Im Takt tippen, Combo-Multiplikator, BPM-basierte Beats, Perfect/Good/Early/Late (2026-07-22)
   - [x] **Coin Dash** — Muenzen sammeln, Gegner ausweichen, Power-Ups nutzen (2026-07-22)
   - [x] **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit (2026-07-22)
-  - Alte simple Spiele behalten als "Classic Mix", neue als "Action Mix"
+  - [x] **Classic Mix / Action Mix** — Spiele-Auswahl im Host gruppiert (Action Mix = 10 neue Spiele, Classic Mix = alte simple Spiele), Mix-Header mit "Alle an/aus"-Toggle pro Gruppe, TDD: 10 Unit-Tests + 5 Paritaetstests (2026-08-01)
 
 - [~] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
   - [x] **XP & Level-System** — XP aus Minispielen (sqrt-basiert, diminishing returns), progressive Level-Kurve (1.5x), Level-Up gibt Sterne (2026-07-22)
