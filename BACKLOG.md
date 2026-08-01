@@ -37,7 +37,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 - [x] **ART DIRECTION** — Konsistenter visueller Stil:
   - [x] Einheitliche Farbpalette und Design-Sprache — 16 neue semantische CSS-Variablen, alle Hauptfarben tokenisiert (2026-07-29)
   - [x] UI-Redesign: moderne, runde Karten statt flacher Boxen — Cards (28px radius), Buttons (18px), Game-Tiles, Player-Chips, Play-HUD, Game-Stage, Rank-Rows, Intro-Rules, Pills, Step-Buttons, Input-Felder alle mit konsistenten Border-Radii (--radius: 28px, --radius-sm: 18px, --radius-xs: 14px), Premium-Glow (--card-glow), verbesserte Hover-Effekte, Fokus-Ring bei Inputs (2026-07-28)
-  - Animationen: Uebergange zwischen Screens, Popup-Effekte
+  - [x] **Optische Konsistenz: Feedback-Farben auf Design-Tokens** — Alle FX.toast/showCombo/showFeedback/style.color-Aufrufe in games.js nutzen jetzt var(--good)/var(--bad)/var(--gold) statt harter Hex-Codes (Canvas-fillStyle + Spielfarben-Paletten bleiben bewusst hart), neuer statischer Konventionstest tests/minigame-color-tokens.test.mjs (4 Tests), node --check OK (2026-08-01)
   - [x] Screen Transitions — richtungsbehaftete Screen-Wechsel (forward/backward/lateral) mit CSS-Animationen + Popup-Effekt-System (scale-in, bounce-in, fade-in, slide-up), TDD: 46 Unit-Tests + 28 Paritaetstests (2026-07-23)
   - Loading Screen mit Animation (2026-07-22)
   - [x] Lobby-Redesign — Meta-Bar mit Level, XP-Bar (animiert), Sterne, Spiele-Anzahl, Achievement-Zaehler, Glassmorphism-Styling, TDD: 28 Unit-Tests + 15 Paritaetstests (2026-07-23)

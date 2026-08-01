@@ -68,7 +68,7 @@ const Games = (() => {
         const ms = performance.now() - goTime;
         const pts = Math.max(0, Math.round((600 - ms) / 2));
         score += pts; api.setScore(score);
-        FX.Sound.good(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.good(); FX.toast(stage, `+${pts}`, 'var(--good)');
         zone.innerHTML = `<div><div class="rz-text">${Math.round(ms)} ms</div><div class="rz-sub">+${pts} Punkte</div></div>`;
         state = 'idle'; runs++; updateTracker();
         api.timeout(nextTry, 1100);
@@ -213,14 +213,14 @@ const Games = (() => {
         streak++;
         const pts = 10 + Math.min(streak, 10) * 2;
         score += pts; api.setScore(score);
-        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, 'var(--good)');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
         btn.classList.add('correct');
         api.timeout(newQ, 280);
       } else {
         streak = 0; streakEl.textContent = '';
         endTime -= 2000;
-        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', '#ff4d6d');
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', 'var(--bad)');
         btn.classList.add('wrong');
         btn.disabled = true;
       }
@@ -299,10 +299,10 @@ const Games = (() => {
         alive = false; t.remove();
         if (isBomb) {
           score = Math.max(0, score - 50);
-          FX.Sound.explode(); FX.shake(stage); FX.toast(stage, '−50', '#ff4d6d');
+          FX.Sound.explode(); FX.shake(stage); FX.toast(stage, '−50', 'var(--bad)');
         } else {
           const pts = Math.round(150 - size);
-          score += pts; FX.Sound.good(); FX.toast(stage, `+${pts}`, '#2bffb9');
+          score += pts; FX.Sound.good(); FX.toast(stage, `+${pts}`, 'var(--good)');
           FX.burst(rect.left + parseFloat(t.style.left) + size / 2, rect.top + parseFloat(t.style.top) + size / 2, 12, 7);
         }
         scoreEl.textContent = score + ' Pkt'; api.setScore(score);
@@ -361,13 +361,13 @@ const Games = (() => {
         streak++;
         const pts = 15 + Math.min(streak, 8) * 3;
         score += pts; api.setScore(score);
-        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, 'var(--good)');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
         newWord();
       } else {
         streak = 0; streakEl.textContent = '';
         endTime -= 1500;
-        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', '#ff4d6d');
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', 'var(--bad)');
       }
     }
 
@@ -424,9 +424,9 @@ const Games = (() => {
       const accuracy = 1 - dist / half;             // 1 = perfekt
       const pts = Math.max(0, Math.round(accuracy * 250));
       score += pts; api.setScore(score);
-      if (accuracy > 0.92) { FX.Sound.star(); FX.toast(stage, `PERFEKT +${pts}`, '#ffd34e'); FX.burst(window.innerWidth/2, window.innerHeight*0.5, 30, 10); }
-      else if (pts > 0) { FX.Sound.good(); FX.toast(stage, `+${pts}`, '#2bffb9'); }
-      else { FX.Sound.bad(); FX.shake(stage); FX.toast(stage, 'Daneben', '#ff4d6d'); }
+      if (accuracy > 0.92) { FX.Sound.star(); FX.toast(stage, `PERFEKT +${pts}`, 'var(--gold)'); FX.burst(window.innerWidth/2, window.innerHeight*0.5, 30, 10); }
+      else if (pts > 0) { FX.Sound.good(); FX.toast(stage, `+${pts}`, 'var(--good)'); }
+      else { FX.Sound.bad(); FX.shake(stage); FX.toast(stage, 'Daneben', 'var(--bad)'); }
       if (performance.now() >= endAt) { info.textContent = 'Zeit!'; api.timeout(() => api.finish(score), 600); }
       else api.timeout(startRound, 900);
     });
@@ -507,7 +507,7 @@ const Games = (() => {
       if (input === code) {
         const pts = level * 60;
         score += pts; api.setScore(score);
-        FX.Sound.good(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.good(); FX.toast(stage, `+${pts}`, 'var(--good)');
         if (level >= maxLevel) { info.textContent = 'Entschärft! 🎉'; api.timeout(() => api.finish(score), 800); return; }
         level++;
         api.timeout(showCode, 800);
@@ -561,7 +561,7 @@ const Games = (() => {
         next++;
         if (next > gridSize * gridSize) {
           score += 50; api.setScore(score);
-          FX.Sound.good(); FX.toast(stage, 'Feld voll +50', '#2bffb9');
+          FX.Sound.good(); FX.toast(stage, 'Feld voll +50', 'var(--good)');
           FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 24, 10);
           gridSize = Math.min(gridSize + 1, 6);
           build();
@@ -569,7 +569,7 @@ const Games = (() => {
           info.innerHTML = `Finde die <strong>${next}</strong>`;
         }
       } else {
-        endTime -= 1500; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', '#ff4d6d');
+        endTime -= 1500; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', 'var(--bad)');
       }
     }
 
@@ -625,14 +625,14 @@ const Games = (() => {
         locked = true; streak++;
         const pts = 15 + Math.min(streak, 8) * 3;
         score += pts; api.setScore(score);
-        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, 'var(--good)');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
         c.classList.add('correct');
         if (streak % 2 === 0) gridN = Math.min(gridN + 1, 7);
         api.timeout(build, 220);
       } else {
         streak = 0; streakEl.textContent = '';
-        endTime -= 2000; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', '#ff4d6d');
+        endTime -= 2000; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', 'var(--bad)');
         c.classList.add('wrong'); c.disabled = true;
       }
     }
@@ -706,7 +706,7 @@ const Games = (() => {
         const pts = 18 + Math.min(10, streak) * 2;
         score += pts; api.setScore(score);
         btn.classList.add('correct');
-        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, 'var(--good)');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
         api.timeout(nextRound, 260);
       } else {
@@ -714,7 +714,7 @@ const Games = (() => {
         endTime -= 1800;
         btn.classList.add('wrong');
         btn.disabled = true;
-        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.8s', '#ff4d6d');
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.8s', 'var(--bad)');
       }
     }
 
@@ -825,12 +825,12 @@ const Games = (() => {
         streak++;
         const pts = 10 + Math.min(streak, 10) * 2;
         score += pts; api.setScore(score);
-        FX.Sound.tap(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.tap(); FX.toast(stage, `+${pts}`, 'var(--good)');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
         newArrow();
       } else {
         streak = 0; streakEl.textContent = '';
-        endTime -= 1500; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', '#ff4d6d');
+        endTime -= 1500; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.5s', 'var(--bad)');
       }
     }
 
@@ -879,11 +879,11 @@ const Games = (() => {
         streak++;
         const pts = 12 + Math.min(streak, 10) * 3;
         score += pts; api.setScore(score);
-        FX.Sound.correct(); FX.toast(stage, `+${pts}`, '#2bffb9');
+        FX.Sound.correct(); FX.toast(stage, `+${pts}`, 'var(--good)');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
       } else {
         streak = 0; streakEl.textContent = '';
-        endTime -= 2000; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', '#ff4d6d');
+        endTime -= 2000; FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−2s', 'var(--bad)');
       }
       currentNum = nextNum;
       api.timeout(() => { card.classList.remove('flash-good', 'flash-bad'); locked = false; }, 450);
@@ -1073,12 +1073,12 @@ const Games = (() => {
         api.setScore(correctCount);
         btn.classList.add('correct');
         streakEl.textContent = streak > 1 ? `🔥 ${streak}x Combo` : '';
-        FX.Sound.correct(); FX.toast(stage, '+1 richtig', '#2bffb9');
+        FX.Sound.correct(); FX.toast(stage, '+1 richtig', 'var(--good)');
       } else {
         streak = 0;
         streakEl.textContent = '';
         btn.classList.add('wrong');
-        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, 'Falsch', '#ff4d6d');
+        FX.Sound.bad(); FX.shake(stage); FX.toast(stage, 'Falsch', 'var(--bad)');
       }
 
       questionIndex++;
@@ -1479,10 +1479,10 @@ const Games = (() => {
               score += 24;
               api.setScore(score);
               FX.Sound.correct();
-              FX.toast(stage, '+24', '#2bffb9');
+              FX.toast(stage, '+24', 'var(--good)');
             } else {
               endTime -= 1800;
-              FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.8s', '#ff4d6d');
+              FX.Sound.bad(); FX.shake(stage); FX.toast(stage, '−1.8s', 'var(--bad)');
             }
             round();
           }, { once: true });
@@ -1607,7 +1607,7 @@ const Games = (() => {
         /* Game Over */
         FX.Sound.explode();
         FX.shake(stage);
-        FX.toast(stage, 'Verfehlt!', '#ff4d6d');
+        FX.toast(stage, 'Verfehlt!', 'var(--bad)');
         finished = true;
         api.timeout(() => { api.finish(state.score); }, 900);
         return;
@@ -1626,14 +1626,14 @@ const Games = (() => {
       /* Feedback */
       if (result.perfect) {
         FX.Sound.star();
-        FX.toast(stage, 'PERFEKT! +100', '#ffd34e');
+        FX.toast(stage, 'PERFEKT! +100', 'var(--gold)');
         FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 24, 9);
       } else if (Math.abs(result.offset) <= PERFECT_TOL) {
         FX.Sound.good();
-        FX.toast(stage, '+' + result.score, '#2bffb9');
+        FX.toast(stage, '+' + result.score, 'var(--good)');
       } else {
         FX.Sound.tap();
-        FX.toast(stage, '+' + result.score, '#2bffb9');
+        FX.toast(stage, '+' + result.score, 'var(--good)');
       }
 
       /* Kamera nach oben bewegen wenn Turm hoch wird */
@@ -1799,13 +1799,13 @@ const Games = (() => {
         api.setScore(state.score);
         scoreEl.textContent = state.score;
         if (state.combo >= 3) {
-          showCombo('COMBO x' + state.combo + '!', '#ffd34e');
+          showCombo('COMBO x' + state.combo + '!', 'var(--gold)');
           FX.Sound.star();
         }
       } else if (result.missed) {
         FX.Sound.bad();
         FX.shake(stage);
-        showCombo('Falsche Farbe!', '#ff4d6d');
+        showCombo('Falsche Farbe!', 'var(--bad)');
         updateMissesUI();
         if (state.gameOver) {
           finished = true;
@@ -1890,7 +1890,7 @@ const Games = (() => {
         for (const ev of events) {
           if (ev.type === 'escaped' && ev.bubble.color === state.playerColor) {
             updateMissesUI();
-            showCombo('Verpasst!', '#ff4d6d');
+            showCombo('Verpasst!', 'var(--bad)');
             FX.Sound.bad();
           }
         }
@@ -2036,7 +2036,7 @@ const Games = (() => {
           FX.Sound.explode();
           FX.shake(stage);
           div.classList.add('exploded');
-          showCombo('BOOM!', '#ff4d6d');
+          showCombo('BOOM!', 'var(--bad)');
           updateMissesUI();
           finished = true;
           api.timeout(() => { api.finish(L.getScore(state)); }, 1000);
@@ -2044,11 +2044,11 @@ const Games = (() => {
           /* Frucht → Splash + Punkte */
           div.classList.add('slashed');
           FX.Sound.good();
-          FX.toast(stage, '+' + result.points, '#2bffb9');
+          FX.toast(stage, '+' + result.points, 'var(--good)');
           scoreEl.textContent = L.getScore(state);
           api.setScore(L.getScore(state));
           if (result.combo >= 3) {
-            showCombo('COMBO x' + result.combo + '!', '#ffd34e');
+            showCombo('COMBO x' + result.combo + '!', 'var(--gold)');
             FX.Sound.star();
             FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 20, 8);
           }
@@ -2118,7 +2118,7 @@ const Games = (() => {
         for (const ev of events) {
           if (ev.type === 'escaped' && !ev.object.isBomb) {
             updateMissesUI();
-            showCombo('Verpasst!', '#ff4d6d');
+            showCombo('Verpasst!', 'var(--bad)');
             FX.Sound.bad();
           }
         }
@@ -2382,20 +2382,20 @@ const Games = (() => {
               api.setScore(score);
               FX.Sound.good();
               if (L.getCombo(state) >= 3) {
-                showCombo('COMBO x' + L.getCombo(state) + '!', '#ffd34e');
+                showCombo('COMBO x' + L.getCombo(state) + '!', 'var(--gold)');
                 FX.Sound.star();
                 FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 20, 8);
               }
             } else {
               FX.Sound.bad();
               FX.shake(stage);
-              showCombo('Falsch!', '#ff4d6d');
+              showCombo('Falsch!', 'var(--bad)');
               updateMissesUI();
             }
           } else if (ev.type === 'escaped') {
             if (ev.object.color === state.playerColor) {
               updateMissesUI();
-              showCombo('Verpasst!', '#ff4d6d');
+              showCombo('Verpasst!', 'var(--bad)');
               FX.Sound.bad();
             }
           }
@@ -2629,7 +2629,7 @@ const Games = (() => {
             hitAnimation(ev.ball);
             FX.Sound.explode();
             FX.shake(stage);
-            showCombo('TREFFER!', '#ff4d6d');
+            showCombo('TREFFER!', 'var(--bad)');
             updateHeartsUI();
           } else if (ev.type === 'closecall') {
             const p = L.getPlayer(state);
@@ -2640,7 +2640,7 @@ const Games = (() => {
             const bonus = L.computeCloseCallBonus(d, p.radius, ev.ball.radius, state.closeCallTolerance);
             if (bonus > 0) {
               closeCallScore += bonus;
-              showCombo('CLOSE! +' + bonus, '#ffd34e');
+              showCombo('CLOSE! +' + bonus, 'var(--gold)');
               FX.Sound.star();
             }
           }
@@ -2878,7 +2878,7 @@ const Games = (() => {
             ballEl.classList.add('miss-anim');
             FX.Sound.explode();
             FX.shake(stage);
-            showCombo('MISS!', '#ff4d6d');
+            showCombo('MISS!', 'var(--bad)');
             updateLivesUI();
             api.timeout(() => {
               ballEl.classList.remove('miss-anim');
@@ -3020,7 +3020,7 @@ const Games = (() => {
       if (state.combo > 0) {
         const mult = L.getComboMultiplier(state.combo);
         comboEl.textContent = `Combo: ${state.combo} (${mult}x)`;
-        comboEl.style.color = mult >= 3 ? '#ffd34e' : mult >= 2 ? '#ff6a00' : '#2bffb9';
+        comboEl.style.color = mult >= 3 ? 'var(--gold)' : mult >= 2 ? '#ff6a00' : 'var(--good)';
       } else {
         comboEl.textContent = 'Combo: 0';
         comboEl.style.color = 'rgba(255,255,255,0.5)';
@@ -3063,7 +3063,7 @@ const Games = (() => {
       if (finished) return;
       if (performance.now() - gameStart < START_DELAY - 200) {
         /* Zu frueh vor erstem Beat */
-        showFeedback('Warte!', '#ff4d6d');
+        showFeedback('Warte!', 'var(--bad)');
         FX.Sound.bad();
         return;
       }
@@ -3073,17 +3073,17 @@ const Games = (() => {
 
       /* Visuelles Feedback */
       if (result.timing === 'perfect') {
-        showFeedback('PERFECT! +' + result.points, '#ffd34e');
+        showFeedback('PERFECT! +' + result.points, 'var(--gold)');
         FX.Sound.star();
         FX.burst(window.innerWidth / 2, window.innerHeight * 0.5, 16, 8);
       } else if (result.timing === 'good') {
-        showFeedback('GOOD! +' + result.points, '#2bffb9');
+        showFeedback('GOOD! +' + result.points, 'var(--good)');
         FX.Sound.good();
       } else if (result.timing === 'early') {
         showFeedback('ZU FRUEH!', '#ff9e5e');
         FX.Sound.bad();
       } else if (result.timing === 'late') {
-        showFeedback('ZU SPAET!', '#ff4d6d');
+        showFeedback('ZU SPAET!', 'var(--bad)');
         FX.Sound.bad();
         FX.shake(stage);
         updateLives();
@@ -3132,7 +3132,7 @@ const Games = (() => {
           finished = true;
           FX.Sound.explode();
           FX.shake(stage);
-          showFeedback('GAME OVER', '#ff4d6d');
+          showFeedback('GAME OVER', 'var(--bad)');
           scoreEl.textContent = state.score;
           api.setScore(state.score);
           api.timeout(() => api.finish(state.score), 1000);
@@ -3156,7 +3156,7 @@ const Games = (() => {
       instructEl.style.opacity = '0';
     }, START_DELAY - 500);
     api.timeout(() => {
-      showFeedback('LOS!', '#2bffb9');
+      showFeedback('LOS!', 'var(--good)');
       FX.Sound.go();
     }, START_DELAY);
   }
@@ -3319,7 +3319,7 @@ const Games = (() => {
         setScene('done');
         FX.Sound.good();
         const pts = L.computeReactionScore(L.getReactionTime(state));
-        FX.toast(stage, '+' + pts, '#2bffb9');
+        FX.toast(stage, '+' + pts, 'var(--good)');
         updateHUD();
         endRound();
         return;
@@ -3705,7 +3705,7 @@ const Games = (() => {
       if (state.combo > 0) {
         const mult = L.getComboMultiplier(state.combo);
         comboEl.textContent = `Combo: ${state.combo} (${mult}x)`;
-        comboEl.style.color = mult >= 3 ? '#ffd34e' : mult >= 2 ? '#ff6a00' : '#2bffb9';
+        comboEl.style.color = mult >= 3 ? 'var(--gold)' : mult >= 2 ? '#ff6a00' : 'var(--good)';
       } else {
         comboEl.textContent = 'Combo: 0';
         comboEl.style.color = 'rgba(255,255,255,0.5)';
@@ -3928,17 +3928,17 @@ const Games = (() => {
       for (const ev of events) {
         if (ev.type === 'coin') {
           FX.Sound.star();
-          showFeedback('+' + ev.value, '#ffd34e');
+          showFeedback('+' + ev.value, 'var(--gold)');
         } else if (ev.type === 'hit') {
           FX.Sound.bad();
           FX.shake(stage);
-          showFeedback('TREFFER!', '#ff4d6d');
+          showFeedback('TREFFER!', 'var(--bad)');
           updateLives();
           if (L.isGameOver(state)) {
             finished = true;
             FX.Sound.explode();
             FX.shake(stage);
-            showFeedback('GAME OVER', '#ff4d6d');
+            showFeedback('GAME OVER', 'var(--bad)');
             scoreEl.textContent = state.score;
             api.setScore(state.score);
             api.timeout(() => api.finish(state.score), 1000);
@@ -3974,7 +3974,7 @@ const Games = (() => {
       instructEl.style.opacity = '0';
     }, 2500);
     api.timeout(() => {
-      showFeedback('LOS!', '#2bffb9');
+      showFeedback('LOS!', 'var(--good)');
       FX.Sound.go();
     }, 500);
 
@@ -4092,7 +4092,7 @@ const Games = (() => {
       pairsEl.textContent = state.pairsFound + '/' + state.totalPairs;
       if (state.combo > 1) {
         comboEl.textContent = 'Combo x' + state.combo + '!';
-        comboEl.style.color = state.combo >= 4 ? '#ffd34e' : state.combo >= 2 ? '#ff6a00' : '#2bffb9';
+        comboEl.style.color = state.combo >= 4 ? 'var(--gold)' : state.combo >= 2 ? '#ff6a00' : 'var(--good)';
       } else {
         comboEl.textContent = '';
       }
@@ -4142,14 +4142,14 @@ const Games = (() => {
           if (matchResult.matched) {
             FX.Sound.star();
             FX.burst(window.innerWidth / 2, window.innerHeight / 2, 14, 6);
-            showFeedback('Paar! +' + matchResult.points, '#2bffb9');
+            showFeedback('Paar! +' + matchResult.points, 'var(--good)');
             if (state.combo >= 3) {
-              showFeedback('COMBO x' + state.combo + '! +' + matchResult.points, '#ffd34e');
+              showFeedback('COMBO x' + state.combo + '! +' + matchResult.points, 'var(--gold)');
               FX.burst(window.innerWidth / 2, window.innerHeight / 2, 20, 10);
             }
           } else {
             FX.Sound.bad();
-            showFeedback('Kein Paar', '#ff4d6d');
+            showFeedback('Kein Paar', 'var(--bad)');
           }
           updateAllVisuals();
           updateHUD();
@@ -4163,7 +4163,7 @@ const Games = (() => {
             scoreEl.textContent = final;
             api.setScore(final);
             const bonus = final - baseScore;
-            showFeedback('ALLE PAARE! +' + bonus + ' Zeitbonus', '#ffd34e');
+            showFeedback('ALLE PAARE! +' + bonus + ' Zeitbonus', 'var(--gold)');
             FX.Sound.win();
             FX.burst(window.innerWidth / 2, window.innerHeight / 2, 30, 12);
             api.timeout(() => api.finish(final), 1500);
@@ -4245,9 +4245,9 @@ const Games = (() => {
         finished = true;
         const final = L.getFinalScore(state, elapsed, START_DELAY);
         if (L.isComplete(state)) {
-          showFeedback('Fertig! ' + final + ' Punkte', '#ffd34e');
+          showFeedback('Fertig! ' + final + ' Punkte', 'var(--gold)');
         } else {
-          showFeedback('Zeit abgelaufen!', '#ff4d6d');
+          showFeedback('Zeit abgelaufen!', 'var(--bad)');
           FX.Sound.bad();
           FX.shake(stage);
         }
@@ -4277,7 +4277,7 @@ const Games = (() => {
       if (L.isFrozen(state, elapsed)) {
         timerEl.style.color = '#00f0ff';
       } else {
-        timerEl.style.color = remaining < 10 ? '#ff4d6d' : '';
+        timerEl.style.color = remaining < 10 ? 'var(--bad)' : '';
       }
 
       return true;
@@ -4289,7 +4289,7 @@ const Games = (() => {
       instructEl.style.opacity = '0';
     }, START_DELAY - 500);
     api.timeout(() => {
-      showFeedback('LOS!', '#2bffb9');
+      showFeedback('LOS!', 'var(--good)');
       FX.Sound.go();
     }, START_DELAY);
   }
