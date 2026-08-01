@@ -12,7 +12,18 @@
   const initials = PartyArenaShared.initials;
 
   const HOST_PID = '__host__';
-  const HOST_FIGURES = ['🎩', '🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
+  /* Arenian-Charaktere (Spielwelt-Konzept Aethonia) */
+  const HOST_ARENIANS = [
+    { id: 'brix',  emoji: '🧱', name: 'Brix',  home: 'Mechanik-Stadt' },
+    { id: 'nixie', emoji: '🐟', name: 'Nixie', home: 'Sonnenstrand' },
+    { id: 'pip',   emoji: '🐿️', name: 'Pip',   home: 'Wolkenwerk' },
+    { id: 'koko',  emoji: '🐼', name: 'Koko',  home: 'Zuckerwald' },
+    { id: 'tiko',  emoji: '🐦', name: 'Tiko',  home: 'Dschungeltempel' },
+    { id: 'bolt',  emoji: '🤖', name: 'Bolt',  home: 'Mechanik-Stadt' },
+    { id: 'bloom', emoji: '🌵', name: 'Bloom', home: 'Dschungeltempel' },
+    { id: 'momo',  emoji: '🦝', name: 'Momo',  home: 'Frostgipfel' },
+  ];
+  const HOST_FIGURES = HOST_ARENIANS.map(a => a.emoji);
   const screens = {};
   document.querySelectorAll('.screen').forEach(s => screens[s.dataset.screen] = s);
   function syncHostGameFixed() {
@@ -1225,11 +1236,14 @@
     const picker = $('#host-figure-picker');
     if (!picker) return;
     picker.innerHTML = '';
-    HOST_FIGURES.forEach(f => {
-      const b = el('button', 'figure-pill' + (state.hostProfile.figure === f ? ' active' : ''), f);
+    HOST_ARENIANS.forEach(a => {
+      const b = el('button', 'figure-pill' + (state.hostProfile.figure === a.emoji ? ' active' : ''));
       b.type = 'button';
+      b.title = a.name + ' · ' + a.home;
+      b.innerHTML = `<span class="figure-emoji">${a.emoji}</span><span class="figure-name">${a.name}</span>`;
       b.addEventListener('click', () => {
-        state.hostProfile.figure = f;
+        state.hostProfile.figure = a.emoji;
+        state.hostProfile.characterId = a.id;
         renderHostFigurePicker();
         applyHostProfile(true);
         FX.Sound.tap();
@@ -1249,6 +1263,7 @@
       type: 'host:setProfile',
       name: state.hostProfile.name,
       figure: state.hostProfile.figure,
+      characterId: state.hostProfile.characterId,
     });
   }
 

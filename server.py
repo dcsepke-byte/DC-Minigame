@@ -283,7 +283,8 @@ class Room:
         self.host_participates = True
         self.host_pid = "__host__"
         self.host_name = "Host"
-        self.host_figure = "🎩"
+        self.host_figure = "🧱"
+        self.host_character_id = "brix"
 
     def cancel_host_reconnect_timeout(self):
         if self.host_reconnect_handle:
@@ -371,6 +372,7 @@ class Room:
                     "totalPoints": 0,
                     "position": 0,
                     "figure": self.host_figure,
+                    "characterId": getattr(self, 'host_character_id', ''),
                     "client": None,
                     "connected": self.host is not None,
                 }
@@ -379,6 +381,7 @@ class Room:
                 p = self.players[self.host_pid]
                 p["name"] = self.host_name
                 p["figure"] = self.host_figure
+                p["characterId"] = getattr(self, 'host_character_id', '')
                 p["connected"] = self.host is not None
                 p["client"] = None
         else:
@@ -386,7 +389,7 @@ class Room:
                 self.players.pop(self.host_pid, None)
                 self.order = [pid for pid in self.order if pid != self.host_pid]
 
-    def set_host_profile(self, name, figure):
+    def set_host_profile(self, name, figure, character_id=None):
         if self.state != "lobby":
             return
         clean_name = (name or "").strip()[:14]
@@ -395,6 +398,8 @@ class Room:
         clean_figure = (figure or "").strip()[:2]
         if clean_figure:
             self.host_figure = clean_figure
+        if character_id:
+            self.host_character_id = (character_id or "").strip()[:20]
         self._ensure_host_player()
         self.send_lobby()
 
@@ -409,6 +414,7 @@ class Room:
                 "stars": p["stars"], "coins": p.get("coins", 0),
                 "totalPoints": p["totalPoints"],
                 "figure": p.get("figure", "🙂"),
+                "characterId": p.get("characterId", ""),
                 "position": p.get("position", 0),
                 "connected": p["connected"],
             })
@@ -446,7 +452,7 @@ class Room:
         self.send_lobby()
 
     # ---- Spieler-Verwaltung ----
-    def add_player(self, client, name, pid=None, figure=None, reconnect_token=None):
+    def add_player(self, client, name, pid=None, figure=None, reconnect_token=None, character_id=None):
         # Reconnect per Token (robuster als nur pid)
         if reconnect_token:
             for existing_pid, existing in self.players.items():
@@ -462,6 +468,8 @@ class Room:
             p = self.players[pid]
             if figure:
                 p["figure"] = figure
+            if character_id:
+                p["characterId"] = character_id
             p["client"] = client
             p["connected"] = True
             client.role = "player"
@@ -469,6 +477,7 @@ class Room:
             client.pid = pid
             client.send({"type": "joined", "playerId": pid, "name": p["name"],
                          "color": p["color"], "figure": p.get("figure", "🙂"),
+                         "characterId": p.get("characterId", ""),
                          "code": self.code, "state": self.state,
                          "reconnectToken": p.get("reconnectToken", "")})
             self.send_lobby()
@@ -519,9 +528,10 @@ class Room:
         new_pid = uuid.uuid4().hex[:8]
         color = PALETTE[len(self.order) % len(PALETTE)]
         figure = (figure or "").strip()[:2] or BOARD_FIGURES[len(self.order) % len(BOARD_FIGURES)]
+        character_id = (character_id or "").strip()[:20]
         self.players[new_pid] = {
             "name": name, "color": color, "stars": 0, "coins": 0, "totalPoints": 0,
-            "position": 0, "figure": figure,
+            "position": 0, "figure": figure, "characterId": character_id,
             "reconnectToken": uuid.uuid4().hex,
             "client": client, "connected": True,
         }
@@ -530,7 +540,7 @@ class Room:
         client.room = self
         client.pid = new_pid
         client.send({"type": "joined", "playerId": new_pid, "name": name,
-                     "color": color, "figure": figure,
+                     "color": color, "figure": figure, "characterId": character_id,
                      "code": self.code, "state": self.state,
                      "reconnectToken": self.players[new_pid]["reconnectToken"]})
         self.send_lobby()
@@ -1956,7 +1966,7 @@ def handle_message(client, msg):
     if t == "host:setProfile":
         room = client.room
         if room and client.role == "host":
-            room.set_host_profile(msg.get("name"), msg.get("figure"))
+            room.set_host_profile(msg.get("name"), msg.get("figure"), msg.get("characterId"))
         return
 
     if t == "player:join":
@@ -1972,7 +1982,7 @@ def handle_message(client, msg):
         if not room:
             client.send({"type": "joinError", "message": "Raum-Code nicht gefunden."})
             return
-        room.add_player(client, msg.get("name"), msg.get("playerId"), msg.get("figure"), msg.get("reconnectToken"))
+        room.add_player(client, msg.get("name"), msg.get("playerId"), msg.get("figure"), msg.get("reconnectToken"), msg.get("characterId"))
         # Erfolgreicher Join -> Fehlversuche loeschen
         clear_join_failures(client.ip)
         return

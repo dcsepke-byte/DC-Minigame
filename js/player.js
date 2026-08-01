@@ -12,7 +12,18 @@
   const escapeHtml = PartyArenaShared.escapeHtml;
   const initials = PartyArenaShared.initials;
 
-  const FIGURES = ['🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
+  /* Arenian-Charaktere (Spielwelt-Konzept Aethonia) */
+  const ARENIANS = [
+    { id: 'brix',  emoji: '🧱', name: 'Brix',  color: '#ff6a00', home: 'Mechanik-Stadt' },
+    { id: 'nixie', emoji: '🐟', name: 'Nixie', color: '#00f0ff', home: 'Sonnenstrand' },
+    { id: 'pip',   emoji: '🐿️', name: 'Pip',   color: '#ffd34e', home: 'Wolkenwerk' },
+    { id: 'koko',  emoji: '🐼', name: 'Koko',  color: '#ff4d6d', home: 'Zuckerwald' },
+    { id: 'tiko',  emoji: '🐦', name: 'Tiko',  color: '#2bffb9', home: 'Dschungeltempel' },
+    { id: 'bolt',  emoji: '🤖', name: 'Bolt',  color: '#3a86ff', home: 'Mechanik-Stadt' },
+    { id: 'bloom', emoji: '🌵', name: 'Bloom', color: '#7b2ff7', home: 'Dschungeltempel' },
+    { id: 'momo',  emoji: '🦝', name: 'Momo',  color: '#ff3cac', home: 'Frostgipfel' },
+  ];
+  const FIGURES = ARENIANS.map(a => a.emoji);
   const UI_MODES = ['compact', 'normal', 'large'];
   const LANGS = ['de', 'en'];
   const SETTINGS_KEY = 'pa_settings';
@@ -577,6 +588,12 @@
     const savedCharId = localStorage.getItem('pa_char_id');
     if (savedFigure) me.figure = savedFigure;
     if (savedCharId) selectedCharId = savedCharId;
+    const savedArenian = localStorage.getItem('pa_character_id');
+    if (savedArenian) me.characterId = savedArenian;
+    else {
+      const fi = ARENIANS.findIndex(a => a.emoji === me.figure);
+      if (fi >= 0) me.characterId = ARENIANS[fi].id;
+    }
   } catch (_) {}
   renderFigurePicker();
   initUiMode();
@@ -639,7 +656,7 @@
     let token = '';
     try { pid = localStorage.getItem('pa_pid_' + code); } catch (_) {}
     try { token = localStorage.getItem('pa_ptok_' + code) || ''; } catch (_) {}
-    Net.send({ type: 'player:join', name, code, playerId: pid, reconnectToken: token, figure: me.figure });
+    Net.send({ type: 'player:join', name, code, playerId: pid, reconnectToken: token, figure: me.figure, characterId: me.characterId });
     FX.Sound.click();
   }
   function showJoinError(msg) {
@@ -1354,22 +1371,26 @@
     picker.innerHTML = '';
     const SVL = window.ShopViewLogic;
     const ownedIds = SVL ? SVL.getOwnedCharacterIds(unlockState) : null;
-    FIGURES.forEach((f, idx) => {
-      const charId = 'char_' + ['rocket','cat','fox','frog','panda','unicorn','robot','octopus'][idx];
+    ARENIANS.forEach((a, idx) => {
+      const charId = 'char_' + a.id;
       const isOwned = ownedIds ? ownedIds.includes(charId) : true;
-      const isSelected = me.figure === f;
+      const isSelected = me.figure === a.emoji;
       const cls = 'figure-pill' + (isSelected ? ' active' : '') + (!isOwned ? ' locked' : '');
-      const b = el('button', cls, f);
+      const b = el('button', cls);
       b.type = 'button';
+      b.title = a.name + ' · ' + a.home;
+      b.innerHTML = `<span class="figure-emoji">${a.emoji}</span><span class="figure-name">${a.name}</span>`;
       if (!isOwned) {
         b.disabled = true;
         b.title = 'Im Shop freischalten';
       } else {
         b.addEventListener('click', () => {
-          me.figure = f;
+          me.figure = a.emoji;
+          me.characterId = a.id;
           selectedCharId = charId;
-          try { localStorage.setItem('pa_figure', f); } catch (_) {}
+          try { localStorage.setItem('pa_figure', a.emoji); } catch (_) {}
           try { localStorage.setItem('pa_char_id', charId); } catch (_) {}
+          try { localStorage.setItem('pa_character_id', a.id); } catch (_) {}
           renderFigurePicker();
           FX.Sound.tap();
         });

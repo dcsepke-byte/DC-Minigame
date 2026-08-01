@@ -629,6 +629,46 @@ body.host-mirror-player-view #host-play-card .game-stage {
   text-transform: uppercase;
 }
 
+/* ---------- Welt-Inselband (Konzept Aethonia) ---------- */
+.world-island-band {
+  display: flex;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 14px);
+  margin: 14px auto 6px;
+  max-width: 640px;
+  flex-wrap: wrap;
+}
+.island-chip {
+  width: clamp(40px, 9vw, 64px);
+  height: clamp(40px, 9vw, 64px);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(18px, 4vw, 30px);
+  background: color-mix(in srgb, var(--ic) 25%, var(--bg-2));
+  border: 2px solid color-mix(in srgb, var(--ic) 70%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ic) 35%, transparent);
+  position: relative;
+  animation: islandFloat 5s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.4s);
+}
+.island-chip:nth-child(1) { --i: 0; }
+.island-chip:nth-child(2) { --i: 1; }
+.island-chip:nth-child(3) { --i: 2; }
+.island-chip:nth-child(4) { --i: 3; }
+.island-chip:nth-child(5) { --i: 4; }
+.island-chip:nth-child(6) { --i: 5; }
+.island-chip:nth-child(7) { --i: 6; }
+.island-chip::after {
+  content: attr(style);
+  display: none;
+}
+@keyframes islandFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
 /* ---------- Lobby Meta-Bar ---------- */
 .lobby-meta-bar {
   width: 100%;
