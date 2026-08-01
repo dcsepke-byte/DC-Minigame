@@ -1,32 +1,80 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.12"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.14"/>
     </filter>
     <radialGradient id="grad" cx="50%" cy="40%" r="70%">
       <stop offset="0%" stop-color="white" stop-opacity="0.35"/>
       <stop offset="100%" stop-color="white" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="rock" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff8a4d"/>
+      <stop offset="100%" stop-color="#d45a1a"/>
+    </linearGradient>
   </defs>
+
+  <!-- Background scene -->
   <rect width="400" height="500" fill="#fff7ed" rx="24"/>
+  <circle cx="200" cy="120" r="90" fill="#ffe8d6"/>
+  <path d="M20 380 L80 320 L140 350 L210 310 L280 360 L380 330 L380 500 L20 500 Z" fill="#f5d0b0"/>
+  <path d="M-20 420 Q80 390 200 410 Q320 390 420 420 L420 520 L-20 520 Z" fill="#e8b48c"/>
+
+  <!-- Brix -->
   <g transform="translate(0,20)">
-    <ellipse cx="200" cy="385" rx="90" ry="20" fill="#000000" opacity="0.08"/>
-    <ellipse cx="160" cy="360" rx="32" ry="20" fill="#ff6a00" filter="url(#shadow)"/>
-    <ellipse cx="240" cy="360" rx="32" ry="20" fill="#ff6a00" filter="url(#shadow)"/>
-    <circle cx="200" cy="150" r="78" fill="#ff6a00" filter="url(#shadow)"/>
-    <path d="M128 170 Q80 230 130 280 Q200 310 270 280 Q320 230 272 170 Z" fill="#ff6a00" filter="url(#shadow)"/>
-    <path d="M140 230 L150 255 L165 235" stroke="#5a2a00" stroke-width="4" fill="none" opacity="0.5" stroke-linecap="round"/>
-    <circle cx="110" cy="275" r="26" fill="#ff6a00" filter="url(#shadow)"/>
-    <circle cx="290" cy="275" r="26" fill="#ff6a00" filter="url(#shadow)"/>
-    <ellipse cx="170" cy="145" rx="16" ry="22" fill="white"/>
-    <ellipse cx="230" cy="145" rx="16" ry="22" fill="white"/>
-    <circle cx="172" cy="149" r="8" fill="#1a1a2e"/>
-    <circle cx="232" cy="149" r="8" fill="#1a1a2e"/>
-    <circle cx="170" cy="142" r="4" fill="white" opacity="0.9"/>
-    <path d="M182 188 Q200 205 218 188" stroke="#1a1a2e" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <circle cx="200" cy="150" r="78" fill="url(#grad)" pointer-events="none"/>
+    <ellipse cx="200" cy="385" rx="95" ry="22" fill="#000000" opacity="0.1"/>
+
+    <!-- Legs -->
+    <rect x="145" y="300" width="42" height="75" rx="18" fill="url(#rock)" filter="url(#shadow)"/>
+    <rect x="213" y="300" width="42" height="75" rx="18" fill="url(#rock)" filter="url(#shadow)"/>
+    <ellipse cx="166" cy="378" rx="28" ry="16" fill="#b85a28"/>
+    <ellipse cx="234" cy="378" rx="28" ry="16" fill="#b85a28"/>
+
+    <!-- Body -->
+    <rect x="132" y="190" width="136" height="130" rx="46" fill="url(#rock)" filter="url(#shadow)"/>
+    <path d="M132 240 Q200 265 268 240" stroke="#b85a28" stroke-width="4" fill="none" opacity="0.5"/>
+    <path d="M150 205 L175 230 L200 210 L225 230 L250 205" stroke="#a3481a" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- Arms -->
+    <rect x="80" y="210" width="46" height="90" rx="22" fill="url(#rock)" transform="rotate(15 103 255)" filter="url(#shadow)"/>
+    <rect x="274" y="210" width="46" height="90" rx="22" fill="url(#rock)" transform="rotate(-15 297 255)" filter="url(#shadow)"/>
+    <ellipse cx="92" cy="300" rx="22" ry="18" fill="#b85a28"/>
+    <ellipse cx="308" cy="300" rx="22" ry="18" fill="#b85a28"/>
+
+    <!-- Head -->
+    <rect x="138" y="80" width="124" height="124" rx="38" fill="url(#rock)" filter="url(#shadow)"/>
+    <path d="M138 120 L262 120" stroke="#b85a28" stroke-width="3" opacity="0.6"/>
+    <path d="M138 150 L262 150" stroke="#b85a28" stroke-width="3" opacity="0.6"/>
+
+    <!-- Eyes -->
+    <ellipse cx="178" cy="125" rx="16" ry="20" fill="white"/>
+    <ellipse cx="222" cy="125" rx="16" ry="20" fill="white"/>
+    <circle cx="178" cy="128" r="9" fill="#2a2a3a"/>
+    <circle cx="222" cy="128" r="9" fill="#2a2a3a"/>
+    <circle cx="176" cy="123" r="4" fill="white" opacity="0.9"/>
+    <circle cx="220" cy="123" r="4" fill="white" opacity="0.9"/>
+
+    <!-- Eyebrows -->
+    <rect x="162" y="100" width="32" height="8" rx="4" fill="#5a2a00" transform="rotate(-5 178 104)"/>
+    <rect x="206" y="100" width="32" height="8" rx="4" fill="#5a2a00" transform="rotate(5 222 104)"/>
+
+    <!-- Mouth -->
+    <path d="M182 168 Q200 178 218 168" stroke="#5a2a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- Cracks -->
+    <path d="M150 90 L160 105" stroke="#8b4513" stroke-width="2"/>
+    <path d="M240 95 L230 115" stroke="#8b4513" stroke-width="2"/>
+    <path d="M245 180 L255 195" stroke="#8b4513" stroke-width="2"/>
+
+    <!-- Hardhat -->
+    <path d="M125 95 Q200 55 275 95" fill="#ffca28"/>
+    <rect x="120" y="90" width="160" height="12" rx="6" fill="#ffb300"/>
+
+    <!-- Shine -->
+    <rect x="138" y="80" width="124" height="124" rx="38" fill="url(#grad)" pointer-events="none"/
   </g>
-  <rect x="20" y="420" width="360" height="60" rx="16" fill="#ff6a00" opacity="0.12"/>
-  <text x="200" y="453" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#1a1a2e">Brix · Stein-Golem</text>
-  <text x="200" y="476" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#4a4a5a">Mechanik-Stadt · mutig, ehrlich, tollpatschig</text>
+
+  <!-- Label -->
+  <rect x="20" y="430" width="360" height="60" rx="16" fill="#ff6a00" opacity="0.15"/>
+  <text x="200" y="463" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="700" fill="#1a1a2e">Brix · Stein-Golem</text>
+  <text x="200" y="486" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#4a4a5a">Mechanik-Stadt · mutig, ehrlich, tollpatschig</text>
 </svg>

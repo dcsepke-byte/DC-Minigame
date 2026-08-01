@@ -6,6 +6,12 @@
   'use strict';
 
   const $ = s => document.querySelector(s);
+
+  /* Shared Helfer (vor allen Funktionsdefinitionen verfuegbar machen) */
+  const el = PartyArenaShared.el;
+  const escapeHtml = PartyArenaShared.escapeHtml;
+  const initials = PartyArenaShared.initials;
+
   const FIGURES = ['🚀', '🐱', '🦊', '🐸', '🐼', '🦄', '🤖', '🐙'];
   const UI_MODES = ['compact', 'normal', 'large'];
   const LANGS = ['de', 'en'];
@@ -1287,9 +1293,6 @@
   });
 
   /* ---------- Helfer (aus shared.js) ---------- */
-  const el = PartyArenaShared.el;
-  const escapeHtml = PartyArenaShared.escapeHtml;
-  const initials = PartyArenaShared.initials;
   function isActive(name) { return screens[name] && screens[name].classList.contains('active'); }
   function setBoardStatus(text) {
     const value = text || '...';
@@ -1848,5 +1851,4 @@
       }
     });
   })();
-
 })();

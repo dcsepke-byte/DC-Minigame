@@ -395,3 +395,4 @@ const FX = (() => {
     confettiAt: burst
   };
 })();
+window.FX = FX;

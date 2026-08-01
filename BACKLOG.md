@@ -34,8 +34,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 ## Phase 2: Visual & Audio Polish (Woche 3-4)
 
-- [~] **ART DIRECTION** — Konsistenter visueller Stil:
-  - Einheitliche Farbpalette und Design-Sprache
+- [x] **ART DIRECTION** — Konsistenter visueller Stil:
+  - [x] Einheitliche Farbpalette und Design-Sprache — 16 neue semantische CSS-Variablen, alle Hauptfarben tokenisiert (2026-07-29)
   - [x] UI-Redesign: moderne, runde Karten statt flacher Boxen — Cards (28px radius), Buttons (18px), Game-Tiles, Player-Chips, Play-HUD, Game-Stage, Rank-Rows, Intro-Rules, Pills, Step-Buttons, Input-Felder alle mit konsistenten Border-Radii (--radius: 28px, --radius-sm: 18px, --radius-xs: 14px), Premium-Glow (--card-glow), verbesserte Hover-Effekte, Fokus-Ring bei Inputs (2026-07-28)
   - Animationen: Uebergange zwischen Screens, Popup-Effekte
   - [x] Screen Transitions — richtungsbehaftete Screen-Wechsel (forward/backward/lateral) mit CSS-Animationen + Popup-Effekt-System (scale-in, bounce-in, fade-in, slide-up), TDD: 46 Unit-Tests + 28 Paritaetstests (2026-07-23)
