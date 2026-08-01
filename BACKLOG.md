@@ -8,7 +8,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 ## Phase 1: Gameplay Foundation (Woche 1-2)
 
-- [~] **NEUE MINISPIELE** — Aktuelle Spiele sind zu simpel (nur Reaktion/Memory/Tap), werden schnell langweilig. Neue Spiele mit Tiefe, Strategie, Skill-Ceiling und "One More Try"-Suchtpotenzial entwickeln. Ideen:
+- [x] **NEUE MINISPIELE** — Aktuelle Spiele sind zu simpel (nur Reaktion/Memory/Tap), werden schnell langweilig. Neue Spiele mit Tiefe, Strategie, Skill-Ceiling und "One More Try"-Suchtpotenzial entwickeln. Ideen:
   - [x] **Tower Stack** — Bausteine stapeln, Timing-basiert, immer schmaler werdend (wie Stack/Ketchapp) (2026-07-21)
   - [x] **Bubble Pop** — Bunte Blasen steigen auf, nur eigene Farbe poppen, Kettenreaktion-Bonus (2026-07-21)
   - [x] **Ninja Slash** — Objekte fliegen rein (Fruit-Ninja-Style), treffen, Bomben meiden (2026-07-21)
@@ -21,14 +21,14 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Tile Flip** — Memory-Puzzle mit Boostern, gegen die Zeit (2026-07-22)
   - [x] **Classic Mix / Action Mix** — Spiele-Auswahl im Host gruppiert (Action Mix = 10 neue Spiele, Classic Mix = alte simple Spiele), Mix-Header mit "Alle an/aus"-Toggle pro Gruppe, TDD: 10 Unit-Tests + 5 Paritaetstests (2026-08-01)
 
-- [~] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
+- [x] **META-PROGRESSION SYSTEM** — Kern fuer Suchtpotenzial:
   - [x] **XP & Level-System** — XP aus Minispielen (sqrt-basiert, diminishing returns), progressive Level-Kurve (1.5x), Level-Up gibt Sterne (2026-07-22)
   - [x] **Sternen-Waehrung** — Sterne aus Platzierung (1.=5, 2.=3, 3.=2, 4.+=1) und Level-Up, gespeichert in localStorage (2026-07-22)
   - [x] **Achievement-System** — 10 Achievements: first_game, veteran_10/50, level_5/10/25, star_collector_50/200, high_scorer, dedicated (2026-07-22)
   - [x] **Unlock-Shop Logik** — 8 Charaktere + 3 Trails, Default-Rakete kostenlos, Sterne als Waehrung (2026-07-22)
   - [x] **Lobby-Anzeige** — Level, XP-Bar, Sterne, Spiele-Anzahl, Achievement-Zaeler in der Lobby (2026-07-22)
   - [x] **Daily Challenge** — taegliches Minispiel mit Bonus (2026-07-22)
-  - [x] **Unlock-Shop UI** — Charakter-Auswahl im Browser (Logik fertig, UI fehlt) (2026-07-22)
+  - [x] **Unlock-Shop UI** — Charakter-Auswahl im Browser, Shop-Overlay mit 3 Tabs (Charaktere/Trails/Premium), Kaufen/Auswaehlen, Browser-Smoke-Test PASS (2026-07-22/2026-08-01)
 
 - [x] **ONBOARDING / TUTORIAL** — Erste-Session-Erlebnis mit TDD entwickelt: getestete Spiellogik (22 Unit-Tests + 15 Paritaetstests), 5 Tutorial-Schritte (Welcome, Spieler hinzufuegen, Spiele auswaehlen, Spiel starten, Daily Challenge), Glassmorphism-Overlay mit Progress-Bar, Target-Highlighting mit Pfeil und Pulsing-Glow, Schritt-Dots, Skip-Funktion, localStorage-Persistenz (2026-07-22)
 
@@ -40,7 +40,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] **Optische Konsistenz: Feedback-Farben auf Design-Tokens** — Alle FX.toast/showCombo/showFeedback/style.color-Aufrufe in games.js nutzen jetzt var(--good)/var(--bad)/var(--gold) statt harter Hex-Codes (Canvas-fillStyle + Spielfarben-Paletten bleiben bewusst hart), neuer statischer Konventionstest tests/minigame-color-tokens.test.mjs (4 Tests), node --check OK (2026-08-01)
   - [x] **Optische Konsistenz: Stage-HUD/Combo-Stile konsolidiert** — 9 Spiele (tower/bubble/ninja/cc/db/bs/qd/rt/cd) nutzen jetzt einen gemeinsamen SHARED MINIGAME HUD Block (Gruppen-Selektoren fuer HUD/Score/Timer/Combo) + ein gemeinsames @keyframes mg-combo-pop statt 9x dupliziertem CSS, spielspezifische Overrides nur wo noetig (tf-/lf-/target-/play-hud bleiben eigenstaendig), neuer Konventionstest tests/minigame-hud-consolidation.test.mjs (30 Tests, RED-verifiziert), ~170 Zeilen CSS gespart (2026-08-01)
   - [x] Screen Transitions — richtungsbehaftete Screen-Wechsel (forward/backward/lateral) mit CSS-Animationen + Popup-Effekt-System (scale-in, bounce-in, fade-in, slide-up), TDD: 46 Unit-Tests + 28 Paritaetstests (2026-07-23)
-  - Loading Screen mit Animation (2026-07-22)
+  - [x] Loading Screen mit Animation — js/loading-screen-ui.js + Logic, TDD: Loading-Screen-Tests gruen, in index/host/player integriert (2026-07-22/2026-08-01)
   - [x] Lobby-Redesign — Meta-Bar mit Level, XP-Bar (animiert), Sterne, Spiele-Anzahl, Achievement-Zaehler, Glassmorphism-Styling, TDD: 28 Unit-Tests + 15 Paritaetstests (2026-07-23)
 
 - [x] **SOUND DESIGN** — Professionelle Audio:
@@ -49,7 +49,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Jingle fuer Sieg/Niederlage — fanfare() und celebrate() (2026-07-22)
   - [x] Audio-Settings (Musik/SFX getrennt, Lautstaerkeregler) — TDD: 27 Unit-Tests + 14 Paritaetstests, Toggle-Switches + Volume-Slider in index.html/host.html/player.html, localStorage-Persistenz (2026-07-22)
 
-- [~] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
+- [x] **3D-POLISH** — Weiterentwicklung der 3D-Szene:
   - [x] Pawns als erkennbare Charakter-Modelle — Koerper, Kopf, Arme, Beine, Augen, Antenne (10 Teile), TDD: 26 Unit-Tests + 7 Paritaetstests, pawn-model-logic.js + browser IIFE, scene3d.js Integration (2026-07-23)
   - [x] Tile-Texturen mit Normal Maps fuer Tiefe — TDD: 84 Unit-Tests, prozedurale Normal-Map via Sobel-Operator, in scene3d.js integriert (2026-07-28)
   - [x] Bessere Biom-Deko (mehr Variation, weniger Primitive) — TDD: 24 Unit-Tests + 20 Paritaetstests, spec-basiertes System (biome-decor-logic.js + browser IIFE), 45 Deko-Typen (10 neu: Zaun/Laterne/Skelett/Oasenpalme/Baumstamm/Farn/Steinmaennchen/Seerosenblatt/Polarstern/Glutfunken/Wolkenbruecke), scene3d.js Integration (2026-07-23)
@@ -71,7 +71,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [ ] Produkt-Konfiguration in App Store Connect + Google Play Console — MANUELL durch Danny (braucht Apple/Google-Developer-Accounts, 2026-08-01 dokumentiert)
   - [ ] Rewarded Ads — OPTIONAL, nach Launch (2026-08-01 dokumentiert)
 
-- [~] **APP STORE ASSETS** — Fuer Store-Listing:
+- [x] **APP STORE ASSETS** — Fuer Store-Listing:
   - [x] App-Icon (1024x1024, iOS + Android) (2026-07-28)
   - [x] Screenshots (6+ pro Geraet) — Playwright-Automation (scripts/take-screenshots.js + tests/screenshot_bot.py), 6 Shots x 2 Plattformen (ios-6.7 1290x2796 + android 1080x1920): Main-Menu, Board-Party, Ninja Slash, Tower Stack, Results, Shop; CDP-Screenshot gegen rAF-Timeout, Board-Session mit Python-Bot, deterministischer --game Mode (2026-08-01)
   - [x] App-Beschreibung (DE + EN) (2026-07-29)
@@ -92,7 +92,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell durch Danny, wenn er vom Gerät Zugriff hat (2026-08-01 dokumentiert)
 
 - [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
-- [~] **MINISPIEL-VERTRAG (arch-1/arch-2)** — verbindlicher Lebenszyklus als State-Machine (start -> countdown -> gameplay -> timer -> winner -> reward -> exit), nur Vorwaerts-Uebergaenge, setScore/finish-Guards, validateMinigame() Mindestvertrag (id/name/play), reines Logik-Modul js/minigame-contract.js, 16 Unit-Tests, Wiki-Doku (2026-08-01)
+- [x] **MINISPIEL-VERTRAG (arch-1/arch-2)** — verbindlicher Lebenszyklus als State-Machine (start -> countdown -> gameplay -> timer -> winner -> reward -> exit), nur Vorwaerts-Uebergaenge, setScore/finish-Guards, validateMinigame() Mindestvertrag (id/name/play), reines Logik-Modul js/minigame-contract.js, 16 Unit-Tests, Wiki-Doku (2026-08-01)
   - [x] arch-1: Vertrag selbst (createMinigameSession + validateMinigame) (2026-08-01)
   - [x] arch-2 Schritt 1: Session-Adapter js/minigame-session.js (browser-frei) + js/minigame-session-browser.js (IIFE) — bestehende play(stage,api)-Spiele laufen durch die Session-State-Machine (start->countdown->gameplay->winner->reward->exit), setScore/finish durch Guards, Exception-Safety (finish(0) statt Haenger), 11 Unit-Tests + 5 Paritaetstests, E2E-Bot PASS; Reaktion als erstes Spiel umgestellt (2026-08-01)
   - [x] arch-2 Schritt 2: **Alle 46 Spiele auf sessionWrap umgestellt** — Registry durchgaengig `play: sessionWrap(gameX, 'xid')`, neuer Konventions-Test tests/minigame-registry.test.mjs (3 Tests), 1040 Tests gruen, E2E-Bot PASS (2026-08-01)
