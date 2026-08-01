@@ -32,16 +32,23 @@
 - `7573062` test+fix: clean-2 Shop-Overlay verifiziert (Smoke-Test, GLB v3, core ignoriert)
 - `52029f7` docs: BACKLOG clean-3 Phase-1/2-Status
 - `7176fb6` test: clean-4 Konsolen-Smoke (index/host/player)
+- `1cf3775` docs: clean-5 Handoff aktualisiert (Stand arch-1/2/3 erledigt)
+- `86f008a` refactor: games-1 miss-dot-Duplikat bereinigt (eine Definition statt 2)
+- `18a3e72` test: visual-1 3D-Smoke (WebGL aktiv, AssetLoader-Registry 16, Party3D ok)
 
 ## Aktive Todo-Liste (Roadmap)
 
-1. **clean-5** Saubere Version pushen + Statusbericht — in_progress (dieser Handoff + Push)
+1. **clean-5** Saubere Version pushen + Statusbericht — ERLEDIGT (Commit 1cf3775 + Push)
 2. **games-1** 8 hochwertige Minispiele finalisieren — in_progress
-   (naechste Kandidaten laut Plan: Lava Floor/Classic-Spiele auf neue HUD-Bausteine
-   heben ODER miss-dot-Duplikat bereinigen; miss-dot ist 2x in styles.css definiert —
-   Bubble 12px vs CC 10px, spaetere gewinnt)
+   (Teil 1 Farb-Tokens done, Teil 2 HUD-Konsolidierung done, miss-dot-Duplikat
+   bereinigt 86f008a. Verbleibender Kandidat laut Plan: Lava Floor/Classic-Spiele
+   auf neue HUD-Bausteine heben — RISKANT, da tf-/lf-/target-/play-hud laut
+   Lern-Entscheidung bewusst eigenstaendig bleiben; visuelle Aenderung ohne
+   Danny-Review, daher naechste Session mit Danny abstimmen)
 3. **visual-1** Welt + Charaktere nach und nach austauschen — pending
-   (3D-Basis steht; Feinschliff: In-Game-Charakterdarstellung, Welt-Details)
+   (3D-Basis steht: 7 Inseln GLB + Previews, 8 Arenian-Charaktere 3D, Gesamtkarte.
+   Neuer 3D-Smoke-Test verifiziert WebGL + AssetLoader-Registry 16 Eintraege.
+   Feinschliff offen: In-Game-Charakterdarstellung verfeinern, Welt-Details)
 
 ## Technische Hinweise
 
