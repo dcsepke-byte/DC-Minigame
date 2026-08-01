@@ -3096,20 +3096,6 @@ body.in-game .hud-pills { display: flex; }
   flex-shrink: 0;
 }
 
-.miss-dot {
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: rgba(43, 255, 185, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s;
-}
-
-.miss-dot.used {
-  background: var(--bad);
-  box-shadow: 0 0 6px rgba(255, 77, 109, 0.6);
-  transform: scale(0.85);
-}
-
 .bubble-canvas {
   position: absolute; inset: 0;
   overflow: hidden;
@@ -3348,10 +3334,12 @@ body.in-game .hud-pills { display: flex; }
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
 }
 .miss-dot.used {
   background: var(--bad);
   box-shadow: 0 0 6px rgba(255, 77, 109, 0.6);
+  transform: scale(0.85);
 }
 
 /* ============================================================

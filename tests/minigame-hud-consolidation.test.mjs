@@ -65,3 +65,20 @@ test('Combo .show-Klassen zeigen auf mg-combo-pop', () => {
   const allInOne = matches.every((m) => m.includes('mg-combo-pop'));
   assert.ok(allInOne, 'Combo .show nutzt nicht mg-combo-pop: ' + matches.map((m) => m.slice(0, 60)).join(' | '));
 });
+
+test('miss-dot nur 1x definiert (Duplikat bereinigt)', () => {
+  /* miss-dot war 2x definiert (Bubble 12px vs. CC 10px, spaetere gewann).
+     Konsolidiert: EIN Block mit display/width/height/background/border/transition. */
+  const blockRe = /^\s*\.miss-dot\s*\{/gm;
+  const matches = [...css.matchAll(blockRe)];
+  assert.equal(matches.length, 1, 'miss-dot muss genau 1x definiert sein, gefunden: ' + matches.length);
+  const block = matches[0][0];
+  assert.ok(block.includes('.miss-dot'), 'miss-dot-Block fehlt');
+  const full = css.slice(matches[0].index, css.indexOf('}', matches[0].index));
+  assert.ok(full.includes('transition: all 0.3s'), 'transition aus alter Bubble-Definition fehlt');
+  const usedRe = /^\s*\.miss-dot\.used\s*\{/gm;
+  const used = [...css.matchAll(usedRe)];
+  assert.equal(used.length, 1, 'miss-dot.used muss genau 1x definiert sein');
+  const usedFull = css.slice(used[0].index, css.indexOf('}', used[0].index));
+  assert.ok(usedFull.includes('transform: scale(0.85)'), 'transform aus alter Bubble-Definition fehlt');
+});
