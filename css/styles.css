@@ -2903,17 +2903,57 @@ body.in-game .hud-pills { display: flex; }
   overflow: hidden;
 }
 
-.tower-hud {
+/* ============================================================
+   SHARED MINIGAME HUD — einheitliche Stage-HUD/Combo-Stile
+   Alle Spiele nutzen dieselben HUD/Score/Timer/Combo-Bausteine
+   (games-1 Teil 2: Duplikate konsolidiert)
+   ============================================================ */
+.tower-hud, .bubble-hud, .ninja-hud, .cc-hud, .db-hud, .bs-hud, .qd-hud, .rt-hud, .cd-hud {
   position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; gap: 24px;
+  display: flex; justify-content: center; align-items: center;
+  gap: 16px;
   z-index: 10;
 }
-.tower-score {
+.tower-hud { gap: 24px; }
+.bubble-hud, .ninja-hud { justify-content: space-between; padding: 0 16px; gap: 12px; }
+.cc-hud { gap: 20px; }
+
+.tower-score, .bubble-score, .ninja-score, .cc-score, .db-score, .bs-score, .qd-score, .rt-score, .cd-score {
   font-family: var(--font-display); font-weight: 800;
   font-size: clamp(22px, 5vw, 32px);
   color: var(--gold);
   text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
+  flex-shrink: 0;
 }
+
+.db-timer, .bs-timer, .rt-timer, .cd-timer {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(18px, 4vw, 26px);
+  color: var(--good);
+  text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
+  min-width: 60px; text-align: right;
+}
+
+.bubble-combo, .ninja-combo, .cc-combo, .db-combo, .bs-combo {
+  position: absolute; top: 38%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(28px, 7vw, 48px);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+.bubble-combo.show, .ninja-combo.show, .cc-combo.show, .db-combo.show, .bs-combo.show {
+  animation: mg-combo-pop 1.2s ease-out forwards;
+}
+@keyframes mg-combo-pop {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
+}
+
 .tower-level {
   font-family: var(--font-display); font-weight: 600;
   font-size: clamp(16px, 4vw, 22px);
@@ -2971,22 +3011,6 @@ body.in-game .hud-pills { display: flex; }
 .bubble-wrap {
   position: absolute; inset: 0;
   overflow: hidden;
-}
-
-.bubble-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px;
-  z-index: 10;
-  gap: 12px;
-}
-
-.bubble-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-  flex-shrink: 0;
 }
 
 .bubble-target {
@@ -3081,28 +3105,6 @@ body.in-game .hud-pills { display: flex; }
   100% { transform: scale(0); opacity: 0; }
 }
 
-.bubble-combo {
-  position: absolute; top: 38%; left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(28px, 7vw, 48px);
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
-}
-
-.bubble-combo.show {
-  animation: bp-combo-pop 1.2s ease-out forwards;
-}
-
-@keyframes bp-combo-pop {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
-}
-
 .bubble-instruction {
   position: absolute; bottom: 24px; left: 0; right: 0;
   text-align: center;
@@ -3121,22 +3123,6 @@ body.in-game .hud-pills { display: flex; }
   position: absolute; inset: 0;
   overflow: hidden;
   background: radial-gradient(ellipse at center, rgba(59, 30, 11, 0.4), rgba(20, 10, 30, 0.8));
-}
-
-.ninja-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px;
-  z-index: 10;
-  gap: 12px;
-}
-
-.ninja-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-  flex-shrink: 0;
 }
 
 .ninja-misses {
@@ -3199,28 +3185,6 @@ body.in-game .hud-pills { display: flex; }
   100% { transform: scale(0.3); opacity: 0; }
 }
 
-.ninja-combo {
-  position: absolute; top: 38%; left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(28px, 7vw, 48px);
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
-}
-
-.ninja-combo.show {
-  animation: ns-combo-pop 1.2s ease-out forwards;
-}
-
-@keyframes ns-combo-pop {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
-}
-
 .ninja-instruction {
   position: absolute; bottom: 24px; left: 0; right: 0;
   text-align: center;
@@ -3245,17 +3209,6 @@ body.in-game .hud-pills { display: flex; }
   user-select: none;
 }
 
-.cc-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; align-items: center; gap: 20px;
-  z-index: 10;
-}
-.cc-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-}
 .cc-target {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(14px, 3.5vw, 20px);
@@ -3338,26 +3291,6 @@ body.in-game .hud-pills { display: flex; }
   transition: background 0.3s;
 }
 
-.cc-combo {
-  position: absolute; top: 38%; left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(28px, 7vw, 48px);
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
-}
-.cc-combo.show {
-  animation: cc-combo-pop 1.2s ease-out forwards;
-}
-@keyframes cc-combo-pop {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
-}
-
 .cc-instruction {
   position: absolute; bottom: 20%; left: 0; right: 0;
   text-align: center;
@@ -3391,17 +3324,6 @@ body.in-game .hud-pills { display: flex; }
   touch-action: none;
   user-select: none;
 }
-.db-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; align-items: center; gap: 16px;
-  z-index: 10;
-}
-.db-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-}
 .db-hearts {
   display: flex; gap: 4px;
   font-size: clamp(18px, 4vw, 24px);
@@ -3413,13 +3335,6 @@ body.in-game .hud-pills { display: flex; }
   filter: grayscale(1);
   opacity: 0.4;
   transform: scale(0.8);
-}
-.db-timer {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: clamp(18px, 4vw, 26px);
-  color: var(--good);
-  text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
-  min-width: 60px; text-align: right;
 }
 
 .db-canvas {
@@ -3486,26 +3401,6 @@ body.in-game .hud-pills { display: flex; }
   50% { background: linear-gradient(180deg, #ff6b6b 0%, #ee5a5a 60%, #cc3333 100%); transform: scale(1.15); }
 }
 
-.db-combo {
-  position: absolute; top: 35%; left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(26px, 6vw, 42px);
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
-}
-.db-combo.show {
-  animation: db-combo-pop 1.0s ease-out forwards;
-}
-@keyframes db-combo-pop {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
-}
-
 .db-instruction {
   position: absolute; bottom: 18%; left: 0; right: 0;
   text-align: center;
@@ -3525,30 +3420,12 @@ body.in-game .hud-pills { display: flex; }
   touch-action: none;
   user-select: none;
 }
-.bs-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; align-items: center; gap: 16px;
-  z-index: 10;
-}
-.bs-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-}
 .bs-lives {
   display: flex; gap: 4px;
   font-size: clamp(18px, 4vw, 24px);
 }
 .bs-life { transition: transform 0.2s, opacity 0.3s; }
 .bs-life.lost { filter: grayscale(1); opacity: 0.4; transform: scale(0.8); }
-.bs-timer {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: clamp(18px, 4vw, 26px);
-  color: var(--good);
-  text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
-  min-width: 60px; text-align: right;
-}
 .bs-canvas {
   position: absolute; inset: 0;
   overflow: hidden;
@@ -3598,25 +3475,6 @@ body.in-game .hud-pills { display: flex; }
   0% { opacity: 0.5; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.3); }
 }
-.bs-combo {
-  position: absolute; top: 35%; left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(26px, 6vw, 42px);
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
-}
-.bs-combo.show {
-  animation: bs-combo-pop 1.0s ease-out forwards;
-}
-@keyframes bs-combo-pop {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  20%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-  80%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -80%) scale(0.9); opacity: 0; }
-}
 .bs-instruction {
   position: absolute; bottom: 20%; left: 0; right: 0;
   text-align: center;
@@ -3636,21 +3494,10 @@ body.in-game .hud-pills { display: flex; }
   touch-action: none;
   user-select: none;
 }
-.qd-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; align-items: center; gap: 16px;
-  z-index: 10;
-}
 .qd-round {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(16px, 3.5vw, 22px);
   color: #ffaa55;
-}
-.qd-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
 }
 .qd-stats {
   font-family: var(--font-display); font-weight: 600;
@@ -3765,29 +3612,11 @@ body.in-game .hud-pills { display: flex; }
   touch-action: none;
   user-select: none;
 }
-.rt-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; align-items: center; gap: 16px;
-  z-index: 10;
-}
-.rt-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-}
 .rt-combo {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(16px, 3.5vw, 22px);
   color: rgba(255, 255, 255, 0.6);
   transition: color 0.2s;
-}
-.rt-timer {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: clamp(18px, 4vw, 26px);
-  color: var(--good);
-  text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
-  min-width: 60px; text-align: right;
 }
 .rt-lives {
   position: absolute; top: 50px; left: 0; right: 0;
@@ -3886,29 +3715,11 @@ body.in-game .hud-pills { display: flex; }
   touch-action: none;
   user-select: none;
 }
-.cd-hud {
-  position: absolute; top: 12px; left: 0; right: 0;
-  display: flex; justify-content: center; align-items: center; gap: 16px;
-  z-index: 10;
-}
-.cd-score {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(22px, 5vw, 32px);
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(255, 211, 78, 0.4);
-}
 .cd-combo {
   font-family: var(--font-display); font-weight: 700;
   font-size: clamp(16px, 3.5vw, 22px);
   color: rgba(255, 255, 255, 0.6);
   transition: color 0.2s;
-}
-.cd-timer {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: clamp(18px, 4vw, 26px);
-  color: var(--good);
-  text-shadow: 0 2px 8px rgba(43, 255, 185, 0.4);
-  min-width: 60px; text-align: right;
 }
 .cd-lives {
   position: absolute; top: 50px; left: 0; right: 0;
