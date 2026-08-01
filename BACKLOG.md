@@ -67,8 +67,8 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 - [~] **MONETARISIERUNG** — Strategie festlegen und implementieren:
   - [x] Strategie-Dokument (store-assets/monetization.md) (2026-07-29)
   - [x] IAP-Integration (Capacitor Purchase Plugin) — iap.js + iap-browser.js, Premium-Tab, Restore, 23 Unit-Tests (2026-07-29)
-  - [ ] Produkt-Konfiguration in App Store Connect + Google Play Console
-  - [ ] Rewarded Ads (optional, nach Launch)
+  - [ ] Produkt-Konfiguration in App Store Connect + Google Play Console — MANUELL durch Danny (braucht Apple/Google-Developer-Accounts, 2026-08-01 dokumentiert)
+  - [ ] Rewarded Ads — OPTIONAL, nach Launch (2026-08-01 dokumentiert)
 
 - [~] **APP STORE ASSETS** — Fuer Store-Listing:
   - [x] App-Icon (1024x1024, iOS + Android) (2026-07-28)
@@ -88,7 +88,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Cross-Browser-CSS (Safari) — -webkit-backdrop-filter Fallbacks vorhanden (2026-07-29)
   - [x] Performance auf Low-End-Geraeten (2D-Fallback)
   - [x] Host-Minigame-Flow im Board-Modus flaky — Root Cause: Server-Routing (`room.mode == "board"` exakt ignorierte `board-party`) -> `player:finished` ging in Classic-Pfad, Runde hing ohne Final. Fix: `is_board_mode()` Helfer + 10 TDD-Unit-Tests, E2E-Bot PASS (2026-08-01)
-  - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell
+  - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell durch Danny, wenn er vom Gerät Zugriff hat (2026-08-01 dokumentiert)
 
 - [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js
 - [x] **MINISPIEL-VERTRAG (arch-1)** — verbindlicher Lebenszyklus als State-Machine (start -> countdown -> gameplay -> timer -> winner -> reward -> exit), nur Vorwaerts-Uebergaenge, setScore/finish-Guards, validateMinigame() Mindestvertrag (id/name/play), reines Logik-Modul js/minigame-contract.js, 16 Unit-Tests, Wiki-Doku (2026-08-01)
