@@ -72,7 +72,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 
 - [~] **APP STORE ASSETS** — Fuer Store-Listing:
   - [x] App-Icon (1024x1024, iOS + Android) (2026-07-28)
-  - [ ] Screenshots (6+ pro Geraet) — Guide erstellt, Screenshots fehlen
+  - [x] Screenshots (6+ pro Geraet) — Playwright-Automation (scripts/take-screenshots.js + tests/screenshot_bot.py), 6 Shots x 2 Plattformen (ios-6.7 1290x2796 + android 1080x1920): Main-Menu, Board-Party, Ninja Slash, Tower Stack, Results, Shop; CDP-Screenshot gegen rAF-Timeout, Board-Session mit Python-Bot, deterministischer --game Mode (2026-08-01)
   - [x] App-Beschreibung (DE + EN) (2026-07-29)
   - [x] Privacy Policy + Terms of Service (2026-07-29)
   - [x] Altersfreigabe (USK/PEGI) (2026-07-29)
@@ -87,6 +87,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
   - [x] Memory-Leak-Test (laengere Sessions) — clearInterval/clearTimeout geprueft (2026-07-29)
   - [x] Cross-Browser-CSS (Safari) — -webkit-backdrop-filter Fallbacks vorhanden (2026-07-29)
   - [x] Performance auf Low-End-Geraeten (2D-Fallback)
+  - [ ] Host-Minigame-Flow im Board-Modus flaky (Befund 2026-08-01): Ready-Screen erscheint 2-5 Min nach roundIntro, gelegentlich doppelter Ready-Screen, Runde springt dann nicht zum Final. Vermutlich #host-play-card vs. Player-Mirror (setHostPlayerMirrorMode). Siehe party-arena-wiki/concepts/store-screenshots-automation.md
   - [ ] Cross-Browser-Test (Chrome, Firefox) — manuell
 
 - [x] **CODE-DUPLIKATE AUSLAGERN** — host.js/player.js shared Funktionen in js/shared.js

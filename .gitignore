@@ -6,3 +6,6 @@ ios/
 .DS_Store
 *.log
 .env
+
+# Store-Screenshots sind Tracked-Assets (trotz android/-Regel oben)
+!store-assets/screenshots/android/

@@ -58,7 +58,13 @@ async function shot(page, name, sub) {
   const dir = sub ? path.join(OUT, sub) : OUT;
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, name);
-  await page.screenshot({ path: file, fullPage: false });
+  // CDP-Screenshot statt page.screenshot: Three.js/Canvas-Renderloops
+  // (requestAnimationFrame) lassen die Seite nie "stable" werden,
+  // Playwrights Screenshot-Wait wuerde nach 30s timeouten.
+  const cdp = await page.context().newCDPSession(page);
+  const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(file, Buffer.from(data, 'base64'));
+  await cdp.detach();
   const kb = (fs.statSync(file).size / 1024).toFixed(0);
   log(`saved ${name} (${kb} KB)`);
   return file;
@@ -103,7 +109,7 @@ async function captureStatic(browser) {
 /* ---------- Live-Session (Board + Minispiele + Final) ---------- */
 const SUBDIR = { ios: 'ios-6.7', android: 'android' };
 
-async function captureBoardSession(browser, viewport, tag) {
+async function captureBoardSession(browser, viewport, tag, gameId = null) {
   const ctx = await browser.newContext({ viewport });
   const host = await ctx.newPage();
   const errors = [];
@@ -126,14 +132,19 @@ async function captureBoardSession(browser, viewport, tag) {
     await sleep(150);
   }
   await clickForce(host, '#tempo-pills .pill[data-tempo="fast"]');
-  // Alle Spiele aus, dann genau ninjaslash + towerstack an
+  // Alle Spiele aus, dann nur Ziel-Spiel(e) an
   const toggles = await host.$$('.games-mix-toggle');
   for (const t of toggles) {
     await t.click();
     await sleep(200);
   }
-  await host.click('.game-tile[data-id="ninjaslash"]');
-  await host.click('.game-tile[data-id="towerstack"]');
+  if (gameId) {
+    await host.click(`.game-tile[data-id="${gameId}"]`);
+    log(`${tag}: nur Spiel "${gameId}" aktiviert`);
+  } else {
+    await host.click('.game-tile[data-id="ninjaslash"]');
+    await host.click('.game-tile[data-id="towerstack"]');
+  }
   await sleep(400);
 
   // Bot als zweiten Spieler joinen
@@ -151,12 +162,16 @@ async function captureBoardSession(browser, viewport, tag) {
   log(`${tag}: Spiel gestartet`);
 
   // ---------- Driver-Loop ----------
-  const deadline = Date.now() + 7 * 60 * 1000;
+  const deadline = Date.now() + 10 * 60 * 1000;
   let boardShotTaken = false, boardShotPendingAt = 0;
   let ninjaTaken = false, towerTaken = false, finalTaken = false;
   let currentIntroGame = '';
   let gameJustStarted = 0;
   let towerClicks = 0;
+  let lastActionAt = Date.now();
+  let stallLogged = false;
+  let lastStallLogAt = 0;
+  let lastScreen = '';
 
   while (Date.now() < deadline) {
     const st = await host.evaluate(() => {
@@ -165,6 +180,8 @@ async function captureBoardSession(browser, viewport, tag) {
       const q = (sel) => document.querySelector(sel);
       const visible = (el) => !!el && (el.offsetParent !== null || el.getClientRects().length > 0);
       const introName = q('#intro-game-name') ? q('#intro-game-name').textContent.trim() : '';
+      const stageText = q('#host-game-stage .stage-big-text') ? q('#host-game-stage .stage-big-text').textContent.trim() : '';
+      const stageHtml = q('#host-game-stage') ? q('#host-game-stage').innerHTML.slice(0, 260) : '';
       const turnBtn = (() => {
         const tn = q('.turn-notice:not([hidden])');
         if (tn) { const b = tn.querySelector('button'); if (b && visible(b)) return b.textContent.trim(); }
@@ -175,33 +192,70 @@ async function captureBoardSession(browser, viewport, tag) {
       for (const b of stageBtns) { if (/Bereit/.test(b.textContent)) { ready = visible(b); break; } }
       const playCard = q('#host-play-card');
       const branchOv = q('#branch-choice-overlay');
+      const prompt = q('#board-prompt') ? q('#board-prompt').textContent.trim() : '';
+      const actions = q('#board-actions') ? Array.from(q('#board-actions').querySelectorAll('button')).map(b => b.textContent.trim()) : [];
+      const hudGame = q('#host-hud-game') ? q('#host-hud-game').textContent.trim() : '';
       return {
         screen,
         introName,
+        stageText,
+        stageHtml,
+        hudGame,
         canBegin: visible(q('#btn-round-begin')),
         canNext: visible(q('#btn-round-next')),
         canStand: visible(q('#btn-standings-next')),
         hasTurnBtn: turnBtn !== '',
         turnBtnText: turnBtn,
         ready,
-        branch: !!(branchOv && branchOv.offsetParent !== null),
+        playCardHidden: !!(playCard && playCard.hidden),
+        branch: !!(branchOv && (branchOv.offsetParent !== null || branchOv.getClientRects().length > 0)),
+        branchCount: branchOv ? branchOv.querySelectorAll('button').length : 0,
         playing: !!(playCard && !playCard.hidden),
         gameName: (q('#live-name') || {}).textContent ? q('#live-name').textContent.trim() : '',
+        prompt,
+        actions,
       };
     });
+
+    // Board-Modus: Minispiel-Name aus #host-hud-game (startHostPlay setzt ihn immer),
+    // Fallback: .stage-big-text (roundIntro rendert #intro-game-name im Board-Modus nicht)
+    if (!currentIntroGame) {
+      const nameSrc = st.hudGame && !st.hudGame.startsWith('⚡') ? st.hudGame : (st.stageText || st.introName);
+      if (nameSrc && !/Reaktion|Alle spielen/.test(nameSrc)) currentIntroGame = nameSrc;
+    }
+
+    // Screen-Wechsel loggen (Diagnose)
+    if (st.screen !== lastScreen) {
+      log(`${tag}: screen -> ${st.screen} (${st.stageText || st.gameName || st.prompt || '-'})`);
+      lastScreen = st.screen;
+    }
+
+    // Bereit-Button robust erkennen (Locator zaehlt unabhaengig von visible()-Heuristik)
+    let readyCount = 0;
+    try { readyCount = await host.locator('#host-game-stage button:has-text("Bereit")').count(); } catch (_) {}
+    const readyNow = readyCount > 0 || st.ready;
+
+    // Stall-Diagnose: 45s ohne Aktion -> DOM-Snapshot loggen (max 1x pro 30s)
+    if (Date.now() - lastActionAt > 45000 && !st.canBegin && !readyNow && !st.hasTurnBtn && !st.canNext && !st.canStand && !st.branch && Date.now() - lastStallLogAt > 30000) {
+      stallLogged = true;
+      lastStallLogAt = Date.now();
+      log(`${tag}: STALL screen=${st.screen} intro="${st.introName}" stage="${st.stageText}" hud="${st.hudGame}" stageHtml="${st.stageHtml.replace(/\s+/g, ' ')}" turn="${st.turnBtnText}" playing=${st.playing} cardHidden=${st.playCardHidden} prompt="${st.prompt}" actions=[${st.actions.join(' | ')}]`);
+    }
 
     // Intro -> Runde starten
     if (st.canBegin) {
       if (st.introName) currentIntroGame = st.introName;
       log(`${tag}: roundIntro (${currentIntroGame}) -> begin`);
       await clickForce(host, '#btn-round-begin');
+      lastActionAt = Date.now();
       await sleep(500);
     }
     // Minispiel: Bereit klicken + Countdown abwarten
-    else if (st.ready) {
+    else if (readyNow) {
       await clickForce(host, '#host-game-stage button:has-text("Bereit")');
       log(`${tag}: Bereit -> Minispiel startet (${currentIntroGame})`);
       gameJustStarted = Date.now();
+      lastActionAt = Date.now();
       await sleep(500);
     }
     // Host-Zug: Aktion klicken (Wuerfeln/Kaufen/Duell/...)
@@ -210,20 +264,29 @@ async function captureBoardSession(browser, viewport, tag) {
       await clickForce(host, '.turn-notice:not([hidden]) button');
       log(`${tag}: Host-Aktion (${txt})`);
       if (/w[üu]rfel|würfel|wuerfel/i.test(txt)) boardShotPendingAt = Date.now() + 4000;
+      lastActionAt = Date.now();
       await sleep(400);
     }
     // Weiter-Buttons (klassische Screens, falls sie auftauchen)
     else if (st.canNext) {
       await clickForce(host, '#btn-round-next');
+      lastActionAt = Date.now();
       await sleep(300);
     } else if (st.canStand) {
       await clickForce(host, '#btn-standings-next');
+      lastActionAt = Date.now();
       await sleep(300);
     }
-    // Verzweigung (Wegwahl) fuer den Host
-    else if (st.branch) {
-      await clickForce(host, '#branch-choice-overlay button');
-      log(`${tag}: Wegwahl getroffen`);
+    // Verzweigung (Wegwahl) fuer den Host — Locator-Fallback (Overlay ist position:fixed)
+    else if (st.branch || st.branchCount > 0) {
+      try {
+        const bc = await host.locator('#branch-choice-overlay button').count();
+        if (bc > 0) {
+          await clickForce(host, '#branch-choice-overlay button');
+          log(`${tag}: Wegwahl getroffen (${bc} Optionen)`);
+        }
+      } catch (_) {}
+      lastActionAt = Date.now();
       await sleep(300);
     }
 
@@ -305,13 +368,19 @@ async function captureBoardSession(browser, viewport, tag) {
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  const noStatic = args.includes('--no-static');
+  const singleIdx = args.indexOf('--single');
+  const single = singleIdx >= 0 ? args[singleIdx + 1] : null; // 'ios' | 'android'
+  const gameIdx = args.indexOf('--game');
+  const gameId = gameIdx >= 0 ? args[gameIdx + 1] : null; // 'ninjaslash' | 'towerstack' | null
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ executablePath: CHROME, args: LAUNCH_ARGS });
   log('Browser gestartet (chromium-1228, SwiftShader)');
 
-  await captureStatic(browser);
-  await captureBoardSession(browser, IOS_LANDSCAPE, 'ios');
-  await captureBoardSession(browser, AND_LANDSCAPE, 'android');
+  if (!noStatic) await captureStatic(browser);
+  if (!single || single === 'ios') await captureBoardSession(browser, IOS_LANDSCAPE, 'ios', gameId);
+  if (!single || single === 'android') await captureBoardSession(browser, AND_LANDSCAPE, 'android', gameId);
 
   await browser.close();
   log('FERTIG');
