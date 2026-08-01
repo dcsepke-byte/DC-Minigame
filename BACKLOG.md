@@ -94,7 +94,7 @@ Party Arena soll soweit ausgereift werden, dass es als native App im Apple App S
 - [~] **MINISPIEL-VERTRAG (arch-1/arch-2)** — verbindlicher Lebenszyklus als State-Machine (start -> countdown -> gameplay -> timer -> winner -> reward -> exit), nur Vorwaerts-Uebergaenge, setScore/finish-Guards, validateMinigame() Mindestvertrag (id/name/play), reines Logik-Modul js/minigame-contract.js, 16 Unit-Tests, Wiki-Doku (2026-08-01)
   - [x] arch-1: Vertrag selbst (createMinigameSession + validateMinigame) (2026-08-01)
   - [x] arch-2 Schritt 1: Session-Adapter js/minigame-session.js (browser-frei) + js/minigame-session-browser.js (IIFE) — bestehende play(stage,api)-Spiele laufen durch die Session-State-Machine (start->countdown->gameplay->winner->reward->exit), setScore/finish durch Guards, Exception-Safety (finish(0) statt Haenger), 11 Unit-Tests + 5 Paritaetstests, E2E-Bot PASS; Reaktion als erstes Spiel umgestellt (2026-08-01)
-  - [ ] arch-2 Schritt 2: Weitere Spiele auf sessionWrap umstellen (eine Domain nach der anderen, Skill 15)
+  - [x] arch-2 Schritt 2: **Alle 46 Spiele auf sessionWrap umgestellt** — Registry durchgaengig `play: sessionWrap(gameX, 'xid')`, neuer Konventions-Test tests/minigame-registry.test.mjs (3 Tests), 1040 Tests gruen, E2E-Bot PASS (2026-08-01)
 - [x] **DIFF-BASIERTE BOARD-UPDATES** — nur geaenderte Tiles senden (2026-07-28)
 - [x] **5-STELLIGER RAUM-CODE** — oder Brute-Force-Sperre (2026-07-27)
 - [x] **RATE-LIMITING WEBSOCKET** — max 10 Msg/s pro Client, sliding-window, TDD: 15 Unit-Tests, ws_rate_limit.py, server.py Integration, rateLimit-Handler in host.js/player.js (2026-07-27)
