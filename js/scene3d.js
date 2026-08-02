@@ -2246,10 +2246,11 @@ function buildShowcaseDancer(def, pos) {
     g.add(spr);
   } catch (_) {}
 
-  g.scale.setScalar(8.5);
+  g.scale.setScalar(85);
   /* Tanz-Daten: jeder Charakter bewegt sich anders (Phase/Speed/Amp/Spin) */
   g.userData.dancer = {
     charId: def.id || '',
+    islandR: def.islandR || 260,
     baseY: pos.y,
     phase: di_phase(),
     speed: 2.0 + Math.random() * 1.4,
@@ -2349,8 +2350,8 @@ function addIslandDecor(isl, x, y, z, i) {
     ball.userData.orbit = 0.55 + i * 0.04 + b * 0.07;
   }
 
-  /* Deko 10x skaliert — passt zu den 10x-Inseln */
-  decor.scale.setScalar(10);
+  /* Deko 100x skaliert — passt zu den 100x-Inseln (2x 10er-Schritt) */
+  decor.scale.setScalar(100);
   return decor;
 }
 
@@ -2373,13 +2374,13 @@ function buildShowcase() {
      Hellblau/Weiss, Eisblau/Violett, Dschungelgruen/Gold, Silber/Orange,
      Gold/Tiefblau/Magenta). */
   const ISLANDS = [
-    { name: 'Sonnenstrand',    color: 0x40c8b8, accent: 0xffb37a, r: 26, a: 0 },
-    { name: 'Zuckerwald',      color: 0xf8a8c8, accent: 0x8d5a44, r: 34, a: Math.PI / 3.5 },
-    { name: 'Wolkenwerk',      color: 0xa8dcff, accent: 0x4fc3f7, r: 44, a: Math.PI / 1.8 },
-    { name: 'Frostgipfel',     color: 0xd8f0ff, accent: 0xb388e8, r: 51, a: Math.PI },
-    { name: 'Dschungeltempel', color: 0x4caf7d, accent: 0xfdd835, r: 44, a: Math.PI + Math.PI / 1.8 },
-    { name: 'Mechanik-Stadt',  color: 0xc8d0d8, accent: 0xff9800, r: 34, a: Math.PI + Math.PI / 3.5 },
-    { name: 'Sternenzitadelle',color: 0xffd34e, accent: 0x2a2a6e, r: 28, a: Math.PI * 1.85 },
+    { name: 'Sonnenstrand',    color: 0x40c8b8, accent: 0xffb37a, r: 260, a: 0 },
+    { name: 'Zuckerwald',      color: 0xf8a8c8, accent: 0x8d5a44, r: 340, a: Math.PI / 3.5 },
+    { name: 'Wolkenwerk',      color: 0xa8dcff, accent: 0x4fc3f7, r: 440, a: Math.PI / 1.8 },
+    { name: 'Frostgipfel',     color: 0xd8f0ff, accent: 0xb388e8, r: 510, a: Math.PI },
+    { name: 'Dschungeltempel', color: 0x4caf7d, accent: 0xfdd835, r: 440, a: Math.PI + Math.PI / 1.8 },
+    { name: 'Mechanik-Stadt',  color: 0xc8d0d8, accent: 0xff9800, r: 340, a: Math.PI + Math.PI / 3.5 },
+    { name: 'Sternenzitadelle',color: 0xffd34e, accent: 0x2a2a6e, r: 280, a: Math.PI * 1.85 },
   ];
 
   /* Sanft drehende Welt — als dezent animierter Hintergrund.
@@ -2389,87 +2390,87 @@ function buildShowcase() {
   ISLANDS.forEach((isl, i) => {
     const x = Math.cos(isl.a) * isl.r;
     const z = Math.sin(isl.a) * isl.r;
-    const lift = i % 2 === 0 ? 3.0 : -2.0;
-    const y = 6 + lift;
+    const lift = i % 2 === 0 ? 30 : -20;
+    const y = 60 + lift;
 
     /* Insel-Unterteil (umgedrehter Kegel — schwebend, riesig) */
     const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(5.5, 3.2, 5.0, 16),
+      new THREE.CylinderGeometry(55, 32, 50, 18),
       material(isl.accent, { metalness: 0.1, emissiveIntensity: 0.15 })
     );
-    base.position.set(x, y - 1.8, z);
+    base.position.set(x, y - 18, z);
     base.userData.orbit = 0.2 + i * 0.03;
-    base.userData.baseY = y - 1.8;
+    base.userData.baseY = y - 18;
     showcaseGroup.add(base);
 
     /* Insel-Oberteil (helle Scheibe, riesig) */
     const top = new THREE.Mesh(
-      new THREE.CylinderGeometry(5.8, 6.0, 2.6, 18),
+      new THREE.CylinderGeometry(58, 60, 26, 20),
       material(isl.color, { roughness: 0.85 })
     );
-    top.position.set(x, y + 0.6, z);
+    top.position.set(x, y + 6, z);
     top.userData.orbit = 0.2 + i * 0.03;
-    top.userData.baseY = y + 0.6;
+    top.userData.baseY = y + 6;
     showcaseGroup.add(top);
 
     /* Gras-Ring auf der Insel (Konzept: lebendig, freundlich) */
     const grass = new THREE.Mesh(
-      new THREE.TorusGeometry(5.0, 0.45, 10, 24),
+      new THREE.TorusGeometry(50, 4.5, 12, 28),
       material(0x5fd68a, { roughness: 0.9 })
     );
-    grass.position.set(x, y + 2.0, z);
+    grass.position.set(x, y + 20, z);
     grass.rotation.x = Math.PI / 2;
     grass.userData.orbit = 0.2 + i * 0.03;
-    grass.userData.baseY = y + 2.0;
+    grass.userData.baseY = y + 20;
     showcaseGroup.add(grass);
 
     /* Biome-Deko (Palme, Lutscher, Zahnrad, ...) + Luftballons */
-    showcaseGroup.add(addIslandDecor(isl, x, y + 2.0, z, i));
+    showcaseGroup.add(addIslandDecor(isl, x, y + 20, z, i));
 
     /* Insel-Label */
-    const label = makeLabelSprite(isl.name.toUpperCase(), '#' + isl.color.toString(16).padStart(6, '0'), 34);
-    label.position.set(x, y + 11.5, z);
-    label.scale.setScalar(5.5);
+    const label = makeLabelSprite(isl.name.toUpperCase(), '#' + isl.color.toString(16).padStart(6, '0'), 40);
+    label.position.set(x, y + 115, z);
+    label.scale.setScalar(55);
     label.userData.isLabel = true;
     showcaseGroup.add(label);
   });
 
   /* ArenaStar — leuchtender Stern mit Krone in der Mitte (Konzept-Maskottchen) */
   const star = new THREE.Mesh(
-    new THREE.OctahedronGeometry(8, 2),
+    new THREE.OctahedronGeometry(80, 2),
     material('#ffd34e', { metalness: 0.3, emissive: '#ffd34e', emissiveIntensity: 1.1 })
   );
-  star.position.set(0, 19, 0);
+  star.position.set(0, 190, 0);
   star.userData.spin = 0.6;
   star.userData.orbit = 0.35;
-  star.userData.baseY = 19;
+  star.userData.baseY = 190;
   showcaseGroup.add(star);
-  addGlow(star, '#ffd34e', 22, 2.0);
+  addGlow(star, '#ffd34e', 220, 2.0);
 
   /* Krone (Torus) ueber dem Stern */
   const crown = new THREE.Mesh(
-    new THREE.TorusGeometry(4.4, 0.9, 10, 24),
+    new THREE.TorusGeometry(44, 9, 12, 28),
     new THREE.MeshStandardMaterial({ color: 0xffd34e, metalness: 0.7, roughness: 0.3, emissive: 0xffd34e, emissiveIntensity: 0.6 })
   );
-  crown.position.set(0, 28.5, 0);
+  crown.position.set(0, 285, 0);
   crown.rotation.x = Math.PI / 2;
   crown.userData.spin = 0.3;
   crown.userData.orbit = 0.35;
-  crown.userData.baseY = 28.5;
+  crown.userData.baseY = 285;
   showcaseGroup.add(crown);
 
   /* Feine Gold-Partikel um die Welt */
-  const goldPositions = new Float32Array(140 * 3);
-  for (let i = 0; i < 140; i++) {
-    const a = (i / 140) * Math.PI * 2;
-    goldPositions[i * 3] = Math.cos(a) * 56;
-    goldPositions[i * 3 + 1] = 4 + Math.sin(i * 1.7) * 5;
-    goldPositions[i * 3 + 2] = Math.sin(a) * 56;
+  const goldPositions = new Float32Array(200 * 3);
+  for (let i = 0; i < 200; i++) {
+    const a = (i / 200) * Math.PI * 2;
+    goldPositions[i * 3] = Math.cos(a) * 560;
+    goldPositions[i * 3 + 1] = 40 + Math.sin(i * 1.7) * 50;
+    goldPositions[i * 3 + 2] = Math.sin(a) * 560;
   }
   const goldGeo = new THREE.BufferGeometry();
   goldGeo.setAttribute('position', new THREE.BufferAttribute(goldPositions, 3));
   const goldPoints = new THREE.Points(goldGeo, new THREE.PointsMaterial({
-    color: 0xffd34e, size: 0.6, transparent: true, opacity: 0.7, depthWrite: false,
+    color: 0xffd34e, size: 6, transparent: true, opacity: 0.7, depthWrite: false,
   }));
   goldPoints.userData.spin = 0.08;
   showcaseGroup.add(goldPoints);
@@ -2493,11 +2494,11 @@ function buildShowcase() {
     if (!isl) return;
     const x = Math.cos(isl.a) * isl.r;
     const z = Math.sin(isl.a) * isl.r;
-    const lift = ISLANDS.indexOf(isl) % 2 === 0 ? 3.0 : -2.0;
-    const groundY = 6 + lift + 3.3;
+    const lift = ISLANDS.indexOf(isl) % 2 === 0 ? 30 : -20;
+    const groundY = 60 + lift + 33;
     /* Zwei Figuren auf einer Insel: leicht versetzt nebeneinander */
-    const side = (di % 2 === 0 ? -1 : 1) * 2.2;
-    const dancer = buildShowcaseDancer(def, { x: x + side, y: groundY, z: z - side * 0.6 });
+    const side = (di % 2 === 0 ? -1 : 1) * 22;
+    const dancer = buildShowcaseDancer(Object.assign({ islandR: isl.r }, def), { x: x + side, y: groundY, z: z - side * 0.6 });
     showcaseGroup.add(dancer);
     dancerTargets.push(dancer);
   });
@@ -2700,26 +2701,28 @@ function updateCamera(delta) {
         if (showcaseCam.timer >= showcaseCam.hold) {
           showcaseCam.timer = 0;
           showcaseCam.target = (showcaseCam.target + 1) % dancers.length;
-          showcaseCam.hold = 3.6 + Math.random() * 2.0;
+          showcaseCam.hold = 4.5 + Math.random() * 3.0;
         }
       }
       const d = dancers[showcaseCam.target];
       const pos = d.getWorldPosition(_showcaseVec);
-      /* Leichtes Umschweben der Figur waehrend des Besuchs */
+      const islandR = (d.userData && d.userData.dancer && d.userData.dancer.islandR) || 260;
+      /* Kamera nah genug, dass die Insel den Bildschirm fuellt (Mario-Party-Look).
+         Abstand ~1.4x Inselradius, Hohe knapp ueber der Inselflaeche. */
       const ang = clock.getElapsedTime() * 0.35 + showcaseCam.target * 2.1;
-      const dist = 36;
+      const dist = Math.max(90, islandR * 1.4);
       const targetX = pos.x + Math.cos(ang) * dist + pointer.x * 1.2 + camPanX;
-      const targetY = Math.max(20, pos.y + 15 + pointer.y * 0.45 + camPanY);
+      const targetY = pos.y + Math.max(40, islandR * 0.3) + pointer.y * 0.45 + camPanY;
       const targetZ = pos.z + Math.sin(ang) * dist;
-      const k = 0.03;
+      const k = 0.08;
       camera.position.x += (targetX - camera.position.x) * k;
       camera.position.y += (targetY - camera.position.y) * k;
       camera.position.z += (targetZ - camera.position.z) * k;
-      camera.lookAt(pos.x, pos.y + 4, pos.z);
+      camera.lookAt(pos.x, pos.y + 12, pos.z);
       return;
     }
     /* Fallback: feste Kamera (Reduced-Motion oder keine Figuren) */
-    base = { x: camPanX, y: 44 + camPanY, z: 82 + (camZoom - 1) * 4 };
+    base = { x: camPanX, y: 440 + camPanY, z: 820 + (camZoom - 1) * 4 };
   }
   const targetX = base.x + pointer.x * (board ? 1.5 : 1.2);
   const targetY = base.y + pointer.y * (board ? 0.6 : 0.45);
@@ -2829,6 +2832,12 @@ function syncVisibility() {
   boardGroup.visible = state.mode === 'board';
   arenaGroup.visible = state.mode === 'game';
   showcaseGroup.visible = state.mode !== 'board' && state.mode !== 'game';
+  /* Nebel-Dichte an die Weltgroesse anpassen: Die Showcase-Welt ist riesig
+     (Inseln bis Radius ~510) — bei voller Dichte waere alles hinter ~100
+     Einheiten weggeblendet. Board bleibt wie bisher (kleinere Massstaebe). */
+  if (scene && scene.fog) {
+    scene.fog.density = state.mode === 'showcase' ? 0.0006 : 0.008;
+  }
 }
 
 function showBoard() {
@@ -2938,8 +2947,8 @@ function init() {
 
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);  /* leichter blauer Himmel-Nebel */
-    camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 22, 22);
+    camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 6000);
+    camera.position.set(0, 440, 820);
     clock = new THREE.Clock();
 
     /* Environment-Map fuer Reflexionen auf Pawns/Tiles (lackiertes Plastik-Look)
