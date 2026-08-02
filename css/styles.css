@@ -1032,7 +1032,7 @@ body.player-app .meta-xp-text { font-size: 10px; }
 }
 
 /* Player app: stage fills available space below HUD */
-body.player-app .screen[data-screen="play"] {
+body.player-app .screen[data-screen="play"].active {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -2665,7 +2665,9 @@ body.board-compact .board-layout {
   inset: 0;
   max-width: none;
   padding: 0;
-  display: block;
+  /* display: block NUR im aktiven Zustand (siehe .active-Regel unten) —
+     sonst liegt der Board-Screen als unsichtbare Vollbild-Schicht ueber
+     dem Hauptmenue und die Play-/Board-HUD wird sichtbar. */
   pointer-events: none; /* 3D-Canvas dahinter bleibt klickbar */
   z-index: 2;
 }

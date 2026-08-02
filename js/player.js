@@ -116,11 +116,21 @@
 
   /* ---------- Unlock-State (Shop) ---------- */
   function loadUnlockState() {
+    let s = null;
     try {
       const raw = localStorage.getItem('pa_unlocks');
-      if (raw) return JSON.parse(raw);
+      if (raw) s = JSON.parse(raw);
     } catch (_) {}
-    return MPL ? MPL.createUnlockState() : { owned: {} };
+    if (!s || typeof s !== 'object' || !s.owned) s = MPL ? MPL.createUnlockState() : { owned: {} };
+    // Starter-Items (price 0, z.B. char_rocket) IMMER owned mergen —
+    // alte States aus Vor-Shop-Versionen haben sie nicht und sperren
+    // damit im Join-Screen ALLE Figuren (Figure-Picker Lockout).
+    if (MPL && MPL.UNLOCKS) {
+      MPL.UNLOCKS.forEach(function (u) {
+        if (u.price === 0) s.owned[u.id] = true;
+      });
+    }
+    return s;
   }
   function saveUnlockState(s) {
     try { localStorage.setItem('pa_unlocks', JSON.stringify(s)); } catch (_) {}
@@ -1372,9 +1382,18 @@
     picker.innerHTML = '';
     const SVL = window.ShopViewLogic;
     const ownedIds = SVL ? SVL.getOwnedCharacterIds(unlockState) : null;
+    // Katalog-IDs des Shop-Systems — die ARENIANS (Brix, Nixie, ...) sind
+    // ein ANDERER Zeichensatz als die Shop-Unlocks (Rakete, Katze, ...).
+    // Nur Figuren sperren, die tatsaechlich im Katalog stehen und nicht
+    // owned sind; alles andere bleibt waehlbar.
+    let catalogCharIds = [];
+    if (SVL && MPL && MPL.UNLOCKS) {
+      catalogCharIds = MPL.UNLOCKS.filter(u => u.type === 'character').map(u => u.id);
+    }
     ARENIANS.forEach((a, idx) => {
       const charId = 'char_' + a.id;
-      const isOwned = ownedIds ? ownedIds.includes(charId) : true;
+      const inCatalog = catalogCharIds.includes(charId);
+      const isOwned = !inCatalog ? true : (ownedIds ? ownedIds.includes(charId) : true);
       const isSelected = me.figure === a.emoji;
       const cls = 'figure-pill' + (isSelected ? ' active' : '') + (!isOwned ? ' locked' : '');
       const b = el('button', cls);
