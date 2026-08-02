@@ -1736,6 +1736,52 @@ body.board-compact .board-layout {
   letter-spacing: 0.3px;
   color: var(--txt);
 }
+
+/* Figur-Vorschau: grosse Charakter-Karte bei der Auswahl (Mario-Party-Style) */
+.figure-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--char-color, #888) 50%, var(--glass-border));
+  background:
+    radial-gradient(120% 100% at 0% 50%, color-mix(in srgb, var(--char-color, #888) 22%, transparent), transparent 70%),
+    rgba(255, 255, 255, 0.05);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--char-color, #888) 25%, transparent);
+}
+.figure-preview[hidden] { display: none; }
+.figure-preview-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--char-color, #888) 78%, #ffffff 12%),
+    color-mix(in srgb, var(--char-color, #888) 50%, #000000 26%));
+  border: 3px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--char-color, #888) 55%, transparent);
+  flex-shrink: 0;
+  line-height: 1;
+}
+.figure-preview-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--txt);
+  letter-spacing: 0.5px;
+}
+.figure-preview-home {
+  font-size: 13px;
+  color: var(--txt-dim);
+  margin-top: 2px;
+}
+body.player-app .figure-preview-avatar { width: 56px; height: 56px; font-size: 30px; }
+body.player-app .figure-preview-name { font-size: 17px; }
 .board-grid {
   display: flex;
   position: relative;

@@ -107,6 +107,13 @@
         <label class="field-label">Dein Name</label>
         <input type="text" id="name-input" maxlength="14" placeholder="z. B. Max" autocomplete="off" />
         <label class="field-label">Figur wählen</label>
+        <div class="figure-preview" id="figure-preview" hidden>
+          <div class="figure-preview-avatar" id="figure-preview-avatar">🧱</div>
+          <div class="figure-preview-info">
+            <div class="figure-preview-name" id="figure-preview-name">Brix</div>
+            <div class="figure-preview-home" id="figure-preview-home">Mechanik-Stadt</div>
+          </div>
+        </div>
         <div class="figure-picker" id="figure-picker"></div>
         <label class="field-label">Raum-Code</label>
         <input type="text" id="code-input" maxlength="5" placeholder="z. B. ABCDE" autocomplete="off" class="code-field" />
@@ -360,7 +367,7 @@
   <script src="js/pawn-model-logic-browser.js?v=1"></script>
   <script src="js/biome-decor-logic-browser.js?v=2"></script>
   <script src="js/board-2d.js?v=1"></script>
-  <script type="module" src="js/scene3d.js?v=27"></script>
+  <script type="module" src="js/scene3d.js?v=28"></script>
   <script src="js/loading-screen-logic-browser.js?v=1"></script>
   <script src="js/loading-screen-ui.js?v=1"></script>
   <script src="js/audio-settings-logic-browser.js?v=1"></script>
@@ -386,6 +393,6 @@
   <script src="js/pwa.js?v=13"></script>
   <script src="js/branchchoice.js?v=13"></script>
   <script src="js/shared.js?v=2"></script>
-  <script src="js/player.js?v=19"></script>
+  <script src="js/player.js?v=20"></script>
 </body>
 </html>

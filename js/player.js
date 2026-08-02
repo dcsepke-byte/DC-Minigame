@@ -606,6 +606,11 @@
     }
   } catch (_) {}
   renderFigurePicker();
+  /* Vorschau mit Standard-Figur fuellen */
+  try {
+    const defFig = ARENIANS.find(a => a.emoji === me.figure) || ARENIANS[0];
+    if (defFig) renderFigurePreview(defFig);
+  } catch (_) {}
   initUiMode();
   initShop();
   initSettings();
@@ -1413,11 +1418,28 @@
           try { localStorage.setItem('pa_char_id', charId); } catch (_) {}
           try { localStorage.setItem('pa_character_id', a.id); } catch (_) {}
           renderFigurePicker();
+          renderFigurePreview(a);
+          /* Vorschau: Kamera fliegt zur gewaehlten Figur in der 3D-Welt */
+          try { if (window.Party3D && Party3D.showcaseFocusDancer) Party3D.showcaseFocusDancer(a.id); } catch (_) {}
           FX.Sound.tap();
         });
       }
       picker.appendChild(b);
     });
+  }
+
+  /* Figur-Vorschau: zeigt die gewaehlte Figur gross mit Name + Heimat-Insel */
+  function renderFigurePreview(a) {
+    const panel = $('#figure-preview');
+    if (!panel) return;
+    const av = $('#figure-preview-avatar');
+    const nameEl = $('#figure-preview-name');
+    const homeEl = $('#figure-preview-home');
+    if (av) av.textContent = a.emoji;
+    if (nameEl) nameEl.textContent = a.name;
+    if (homeEl) homeEl.textContent = '🏝️ ' + (a.home || 'Aethonia');
+    panel.style.setProperty('--char-color', a.color || '#888888');
+    panel.hidden = false;
   }
 
   /* ---------- Shop-UI ---------- */
