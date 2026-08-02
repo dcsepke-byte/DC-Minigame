@@ -51,6 +51,9 @@ let showcaseGroup = null;
 let particles = null;
 let pointer = { x: 0, y: 0 };
 let activeArenaId = '';
+/* FPS-Monitor fuer Auto-Perf-Regler (Mobile/Low-End) */
+let _fpsAccum = 0;
+let _fpsFrames = 0;
 /* Reusable Vector3 fuer Sprite-LOD im animate-Loop (vermeidet GC-Druck). */
 const _lodVec = new THREE.Vector3();
 /* Pawn-Hop-Animation — Meshes und Anim-State werden über rebuilds hinweg behalten */
@@ -1189,11 +1192,22 @@ function biomeDecor(biome, center, rng) {
     }
   });
 
+  /* Perf-Fix: Auf Mobile/Low-End Schatten auf allen Deko-Meshes deaktivieren
+     (VSM-Schatten auf hunderten Deko-Objekten sind der groesste FPS-Killer). */
+  if (window.__partyLowEnd === true) {
+    out.forEach(obj => {
+      obj.traverse && obj.traverse(n => { n.castShadow = false; n.receiveShadow = false; });
+    });
+  }
+
   return out;
 }
 
 function buildBoard() {
   if (!scene) return;
+  /* Perf-Fix: Auf Mobile/Low-End wird die Deko-Dichte reduziert
+     (48 statt 96 Terrain-Segmente, weniger Streudeko) */
+  const LOW = window.__partyLowEnd === true;
   if (boardGroup) {
     scene.remove(boardGroup);
     clearGroup(boardGroup);
@@ -1206,7 +1220,7 @@ function buildBoard() {
      Der Pfad verläuft IN der Landschaft — mittiger Berg, Biome in Tälern/Hängen.
      Plane wird pro Vertex auf Höhe gesetzt via terrainHeight() (Modul-global). */
   const TERRAIN_SIZE = 52;   /* Ausdehnung */
-  const TERRAIN_SEG = 96;    /* Vertex-Auflösung (96×96 = ~9k Verts, ok für Performance) */
+  const TERRAIN_SEG = LOW ? 48 : 96;    /* Vertex-Auflösung — Mobile halbiert */
   const terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEG, TERRAIN_SEG);
   terrainGeo.rotateX(-Math.PI / 2);   /* Plane liegt flach in XZ */
   const tpos = terrainGeo.attributes.position;
@@ -1352,7 +1366,8 @@ function buildBoard() {
 
   /* Grasbüschel & Streudeko auf der ganzen Karte (nicht nur Regionen) — mehr Leben */
   const globalRng = mulberry32(98765);
-  for (let i = 0; i < 36; i++) {
+  const STREW_COUNT = LOW ? 18 : 36;
+  for (let i = 0; i < STREW_COUNT; i++) {
     const a = globalRng() * Math.PI * 2;
     const rad = 3.2 + globalRng() * 4.0;
     const gx = Math.cos(a) * rad;
@@ -2301,9 +2316,28 @@ function animate() {
   if (!renderer || !scene) return;
   const elapsed = clock.getElapsedTime();
   const delta = Math.min(0.04, clock.getDelta());
+
+  /* Auto-Perf-Regler (Perf-Fix): Auf Mobile/Low-End FPS ueberwachen.
+     Wenn dauerhaft unter 20 FPS: reducedMotion aktivieren (stoppt
+     Board-Rotation, Partikel-Dichte sinkt) — groesster sofortiger Gewinn. */
+  if (window.__partyLowEnd === true && !state.reducedMotion) {
+    _fpsAccum += delta;
+    _fpsFrames++;
+    if (_fpsAccum >= 2.0) {
+      const fps = _fpsFrames / _fpsAccum;
+      _fpsAccum = 0;
+      _fpsFrames = 0;
+      if (fps < 20) {
+        state.reducedMotion = true;
+        console.warn('[Party3D] FPS zu niedrig (' + fps.toFixed(0) + '), Reduced-Motion aktiviert');
+      }
+    }
+  }
+
   updateCamera();
   updatePawnHops(delta);
-  /* Etappe 2.5 Perf: Bloom im Board-Modus aktiviert fuer Party-Feeling (sehr dezent, strength 0.2). */
+  /* Etappe 2.5 Perf: Bloom im Board-Modus aktiviert fuer Party-Feeling (sehr dezent, strength 0.2).
+     Auf Mobile/Low-End bleibt Bloom aus (composer == null). */
   if (bloomPass) bloomPass.enabled = true;
 
   if (particles) particles.rotation.y += delta * 0.008;
@@ -2438,17 +2472,32 @@ function init() {
     return;
   }
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    // Etappe 2.5 Perf: PixelRatio 2.5→1.5 (groesster FPS-Hebel auf HiDPI/Retina)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    /* Adaptive Qualitaetsstufe (Perf-Fix): Mobile/Low-End bekommt reduzierte
+       Qualitaet — Schatten aus, niedrigere Aufloesung, kein Bloom/FXAA.
+       Desktop/Tablet volle Qualitaet. Erkennung: Touch + kleine Bildschirme. */
+    const isMobile = ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+      && Math.min(window.innerWidth, window.innerHeight) < 900;
+    const LOW_END = isMobile || (navigator.hardwareConcurrency || 8) <= 4;
+    window.__partyLowEnd = LOW_END;
+
+    renderer = new THREE.WebGLRenderer({
+      antialias: !LOW_END,
+      alpha: true,
+      powerPreference: LOW_END ? 'default' : 'high-performance',
+    });
+    // PixelRatio: Mobile 1.0 (groesster FPS-Hebel), Desktop bis 1.5
+    const maxPR = LOW_END ? 1.0 : 1.5;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
     renderer.setSize(window.innerWidth, window.innerHeight);
     if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
     else if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;  /* hell, freundlich — Mario-Party-Style */
-    // Echte Schatten fuer Tiefe und Professionnalitaet — VSM = filmische weiche Schatten
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.VSMShadowMap;
+    // Echte Schatten nur auf Desktop — auf Mobile sind VSM-Schatten der groesste FPS-Killer
+    renderer.shadowMap.enabled = !LOW_END;
+    if (!LOW_END) {
+      renderer.shadowMap.type = THREE.VSMShadowMap;
+    }
     // Physikalisch korrekte Lichtstaerken (candela/lumen-Metrik) — realistischer Lichtfall
     if ('physicallyCorrectLights' in renderer) renderer.physicallyCorrectLights = true;
     renderer.domElement.id = 'party-3d-canvas';
@@ -2477,8 +2526,9 @@ function init() {
     scene.add(new THREE.HemisphereLight(0x87ceeb, 0x3a5f3a, 1.3));  /* Himmel/Gras */
     const key = new THREE.DirectionalLight(0xffffff, 2.0);  /* Sonne */
     key.position.set(8, 15, 10);
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    /* Schatten nur auf Desktop (Low-End-Fix) */
+    key.castShadow = !LOW_END;
+    key.shadow.mapSize.set(LOW_END ? 1024 : 2048, LOW_END ? 1024 : 2048);
     key.shadow.camera.near = 0.5;
     key.shadow.camera.far = 45;
     key.shadow.camera.left = -20;
@@ -2493,32 +2543,36 @@ function init() {
     fill.position.set(-5, 8, 5);
     scene.add(fill);
 
-    /* Postprocessing-Pipeline: RenderPass + UnrealBloomPass
-       Etappe 2.5 Perf: Bloom nur im Showcase/Mini-Game (kosmetisch), im Board-Modus abgestellt
-       weil es dort der größte FPS-Killer ist und das Board ohnehin nicht glühen muss. */
+    /* Postprocessing-Pipeline: RenderPass + UnrealBloomPass + FXAA
+       Perf-Fix: Auf Mobile/Low-End komplett deaktiviert (direkt rendern),
+       auf Desktop nur im Showcase/Mini-Game aktiv, im Board-Modus abgestellt. */
     try {
-      composer = new EffectComposer(renderer);
-      const renderPass = new RenderPass(scene, camera);
-      composer.addPass(renderPass);
-      bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.2,   /* strength: sehr dezent — leichtes Gluehen fuer Party-Feeling */
-        0.35,  /* radius: enger */
-        0.85   /* threshold: nur ganz helle Highlights glühen */
-      );
-      composer.addPass(bloomPass);
-      /* FXAA-Pass nach Bloom — kantenglaettung als letzter Pass vor Output.
-         uniforms.resolution muss bei Resize aktualisiert werden (siehe unten). */
-      fxaaPass = new ShaderPass(FXAAShader);
-      fxaaPass.material.transparent = true;
-      const pr = Math.min(window.devicePixelRatio || 1, 1.5);
-      fxaaPass.uniforms.resolution.value.set(
-        1 / (window.innerWidth * pr),
-        1 / (window.innerHeight * pr)
-      );
-      composer.addPass(fxaaPass);
-      composer.setSize(window.innerWidth, window.innerHeight);
-      composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      if (LOW_END) {
+        composer = null;
+      } else {
+        composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+        bloomPass = new UnrealBloomPass(
+          new THREE.Vector2(window.innerWidth, window.innerHeight),
+          0.2,   /* strength: sehr dezent — leichtes Gluehen fuer Party-Feeling */
+          0.35,  /* radius: enger */
+          0.85   /* threshold: nur ganz helle Highlights glühen */
+        );
+        composer.addPass(bloomPass);
+        /* FXAA-Pass nach Bloom — kantenglaettung als letzter Pass vor Output.
+           uniforms.resolution muss bei Resize aktualisiert werden (siehe unten). */
+        fxaaPass = new ShaderPass(FXAAShader);
+        fxaaPass.material.transparent = true;
+        const pr = Math.min(window.devicePixelRatio || 1, 1.5);
+        fxaaPass.uniforms.resolution.value.set(
+          1 / (window.innerWidth * pr),
+          1 / (window.innerHeight * pr)
+        );
+        composer.addPass(fxaaPass);
+        composer.setSize(window.innerWidth, window.innerHeight);
+        composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      }
     } catch (err) {
       console.warn('[Party3D] Composer init failed, fallback to direct render', err);
       composer = null;
@@ -2539,19 +2593,20 @@ function init() {
     syncFromScreen();
     window.addEventListener('resize', () => {
       if (!renderer || !camera) return;
+      const prNow = Math.min(window.devicePixelRatio || 1, LOW_END ? 1.0 : 1.5);
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(prNow);
       if (composer) {
         composer.setSize(window.innerWidth, window.innerHeight);
-        composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        composer.setPixelRatio(prNow);
       }
       /* FXAA-Resolution-Uniforms bei Resize aktualisieren. */
       if (fxaaPass) {
-        const pr2 = Math.min(window.devicePixelRatio || 1, 1.5);
         fxaaPass.uniforms.resolution.value.set(
-          1 / (window.innerWidth * pr2),
-          1 / (window.innerHeight * pr2)
+          1 / (window.innerWidth * prNow),
+          1 / (window.innerHeight * prNow)
         );
       }
     });
