@@ -355,6 +355,7 @@
     renderHostBoardTimeline();
     renderBoardPillsHost();       /* NEU Layout C: Spieler-Pillbar initial */
     setupBoardSlidesHost();       /* NEU Layout C: Slide-In-Panels + Menü-Button einmalig binden */
+    PartyArenaShared.setupCameraFollowButton('board-cam-follow');  /* Kamera-Follow-Button */
     showHostBoardPrompt('Warte auf deinen Zug…');
     hideTurnNotice();
     showScreen('board');

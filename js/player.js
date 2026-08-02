@@ -741,6 +741,7 @@
     renderBoardTimeline();
     renderBoardPills();         /* NEU Layout C: Spieler-Pillbar initial */
     setupBoardSlides();         /* NEU Layout C: Slide-Panels + Menü einmalig binden */
+    PartyArenaShared.setupCameraFollowButton('board-cam-follow');  /* Kamera-Follow-Button */
     showScreen('board');
   });
 

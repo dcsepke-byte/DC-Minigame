@@ -95,6 +95,23 @@
     });
   }
 
+  /* ---------- Kamera-Follow-Button (Figur fixieren) ---------- */
+  function setupCameraFollowButton(containerId) {
+    const btn = $('#' + (containerId || 'board-cam-follow'));
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const api = window.Party3D || window.PartyArena3D;
+      if (api && api.cameraFollow) {
+        const st = api.getCameraState ? api.getCameraState() : {};
+        const follow = !(st.follow === true);
+        api.cameraFollow(follow);
+        btn.textContent = follow ? '🎯' : '🕹️';
+        btn.classList.toggle('active', follow);
+        if (window.FX && FX.Sound && FX.Sound.tap) FX.Sound.tap();
+      }
+    });
+  }
+
   /* ---------- Turn Notice ---------- */
   let turnNoticeEl = null;
   function ensureTurnNotice() {
@@ -217,6 +234,7 @@
     pushBoardToast,
     renderBoardPills,
     setupBoardSlides,
+    setupCameraFollowButton,
     ensureTurnNotice,
     hideTurnNotice,
     showTurnNotice,

@@ -54,6 +54,16 @@ let activeArenaId = '';
 /* FPS-Monitor fuer Auto-Perf-Regler (Mobile/Low-End) */
 let _fpsAccum = 0;
 let _fpsFrames = 0;
+/* Manuelle Kamera-Steuerung (Orbit/Pan/Zoom + Follow-Toggle) */
+let camOrbitYaw = 0;        /* Yaw um die Figur (Drag links/rechts) */
+let camPanX = 0;            /* Pan-Offset X (Drag) */
+let camPanY = 0;            /* Pan-Offset Y (Drag) */
+let camZoom = 1;            /* Zoom-Faktor (Pinch / Scroll) */
+let camFollow = true;       /* Follow-Toggle: Kamera folgt aktiver Figur */
+let camDragging = false;
+let camLastX = 0;
+let camLastY = 0;
+let camPinchDist = 0;
 /* Reusable Vector3 fuer Sprite-LOD im animate-Loop (vermeidet GC-Druck). */
 const _lodVec = new THREE.Vector3();
 /* Pawn-Hop-Animation — Meshes und Anim-State werden über rebuilds hinweg behalten */
@@ -408,6 +418,65 @@ function pawn(player, index, totalAtTile) {
   group.add(nameSprite);
 
   const pos = tilePosition(Number(player.position) || 0, state.board.tiles.length || 24);
+  const offset = (index - (totalAtTile - 1) / 2) * 0.46;
+  group.position.set(pos.x + offset * Math.cos(pos.angle + Math.PI / 2), terrainHeight(pos.x, pos.z) + 0.18, pos.z + offset * Math.sin(pos.angle + Math.PI / 2));
+  group.rotation.y = -pos.angle;
+  group.userData.phase = index * 0.7;
+  group.userData.playerId = player.id;
+  return group;
+}
+
+/* Robuste Fallback-Figur — wirft nie, zeigt immer eine sichtbare Spielfigur.
+   Wird verwendet, wenn buildPawnParts/pawn() einen Fehler wirft. */
+function fallbackPawn(player, index) {
+  const group = new THREE.Group();
+  const PS = 1.6;
+  group.scale.setScalar(PS);
+  const baseColor = player.color || palette[index % palette.length] || '#ffd34e';
+
+  const pedestal = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.34, 0.42, 0.16, 12),
+    material('#3a3a5a', { metalness: 0.5, emissiveIntensity: 0.04 })
+  );
+  pedestal.position.y = 0.08;
+  group.add(pedestal);
+
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.24, 12, 10),
+    material(baseColor, { metalness: 0.42, emissive: baseColor, emissiveIntensity: 0.18 })
+  );
+  body.position.y = 0.5;
+  group.add(body);
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 12, 10),
+    material(baseColor, { metalness: 0.42, emissive: baseColor, emissiveIntensity: 0.18 })
+  );
+  head.position.y = 0.75;
+  group.add(head);
+
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
+  [-0.07, 0.07].forEach(x => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), eyeMat);
+    eye.position.set(x, 0.77, 0.13);
+    group.add(eye);
+  });
+
+  addGlow(group, baseColor, 0.85, 0.75);
+
+  const emoji = String(player.figure || '★');
+  const charSprite = makeTextSprite(emoji, baseColor);
+  charSprite.scale.setScalar(0.3);
+  charSprite.position.y = 1.05;
+  group.add(charSprite);
+
+  const nameSprite = makeLabelSprite(String(player.name || 'Spieler').slice(0, 12), '#ffffff', 28);
+  nameSprite.scale.setScalar(0.55);
+  nameSprite.position.y = -0.05;
+  group.add(nameSprite);
+
+  const pos = tilePosition(Number(player.position) || 0, state.board.tiles.length || 24);
+  const totalAtTile = 1;
   const offset = (index - (totalAtTile - 1) / 2) * 0.46;
   group.position.set(pos.x + offset * Math.cos(pos.angle + Math.PI / 2), terrainHeight(pos.x, pos.z) + 0.18, pos.z + offset * Math.sin(pos.angle + Math.PI / 2));
   group.rotation.y = -pos.angle;
@@ -1657,9 +1726,17 @@ function buildBoard() {
          Position wird von updatePawnHops() weiter getrieben. */
       boardGroup.add(existing);
     } else {
-      const p = pawn(player, sameIndex, totalByTile[position] || 1);
-      pawnMeshes[pid] = p;
-      boardGroup.add(p);
+      let p = null;
+      try {
+        p = pawn(player, sameIndex, totalByTile[position] || 1);
+      } catch (err) {
+        console.warn('[Party3D] Pawn-Fehler, Fallback-Figur:', err.message);
+        p = fallbackPawn(player, sameIndex);
+      }
+      if (p) {
+        pawnMeshes[pid] = p;
+        boardGroup.add(p);
+      }
     }
   });
   /* Verwaiste Pawn-Meshes entfernen (Spieler nicht mehr da) */
@@ -2261,6 +2338,24 @@ function updateCamera() {
   const board = state.mode === 'board';
   const game = state.mode === 'game';
 
+  /* Manuelle Kamera-Steuerung (Orbit/Pan/Zoom + Follow-Toggle):
+     Wenn der Nutzer gedraggt hat (camManual=true), bleibt die Kamera frei —
+     nur noch Zusatz-Offsets werden angewendet. Follow-Toggle setzt zurueck. */
+  if (board && camFollow) {
+    const pawnPos = activePawnWorldPos();
+    const camDist = 7.5 + (camZoom - 1) * 4;
+    const camHeight = 8.5 + (camZoom - 1) * 3;
+    const ang = camOrbitYaw;
+    const targetX = pawnPos.x + Math.sin(ang) * camDist;
+    const targetZ = pawnPos.z + Math.cos(ang) * camDist;
+    const k = 0.06;
+    camera.position.x += (targetX - camera.position.x) * k;
+    camera.position.y += (pawnPos.y + camHeight - camera.position.y) * k;
+    camera.position.z += (targetZ - camera.position.z) * k;
+    camera.lookAt(pawnPos.x, pawnPos.y + 0.3, pawnPos.z);
+    return;
+  }
+
   /* Cinematic Camera: wenn camState verfuegbar, nutze filmische Positionierung.
      Die Logik berechnet Position/LookAt/FOV/Speed pro Phase.
      Falls camState fehlt (Browser ohne Modul), falle auf alte statische Kamera zurueck. */
@@ -2270,11 +2365,13 @@ function updateCamera() {
     const speed = window.CinematicCamera.getInterpolationSpeed(camState);
     const fov = window.CinematicCamera.getFov(camState);
 
-    const targetX = target.position.x + pointer.x * 1.0;
-    const targetY = target.position.y + pointer.y * 0.4;
+    /* Manueller Orbit (Drag) + Pinch-Zoom wird hier als Offset addiert */
+    const targetX = target.position.x + pointer.x * 1.0 + camPanX;
+    const targetY = target.position.y + pointer.y * 0.4 + camPanY;
+    const zoomed = target.position.z + (camZoom - 1) * 3.0;
     camera.position.x += (targetX - camera.position.x) * speed;
     camera.position.y += (targetY - camera.position.y) * speed;
-    camera.position.z += (target.position.z - camera.position.z) * speed;
+    camera.position.z += (zoomed - camera.position.z) * speed;
 
     /* FOV smooth anpassen — filmischer Zoom-Effekt */
     if (camera.fov !== fov) {
@@ -2291,18 +2388,19 @@ function updateCamera() {
   if (board) {
     const focus = activePawnWorldPos();
     const outLen = Math.hypot(focus.x, focus.z) || 1;
-    const camDist = 7.5;
-    const camHeight = 8.5;
+    const camDist = 7.5 + (camZoom - 1) * 4;
+    const camHeight = 8.5 + (camZoom - 1) * 3;
+    const ang = camOrbitYaw;
     base = {
-      x: focus.x + (focus.x / outLen) * camDist,
+      x: focus.x + Math.sin(ang) * camDist,
       y: focus.y + camHeight,
-      z: focus.z + (focus.z / outLen) * camDist,
+      z: focus.z + Math.cos(ang) * camDist,
     };
     if (outLen < 3) base = { x: 0, y: 14, z: 14 };
   } else if (game) {
-    base = { x: 0, y: 8.2, z: 11.4 };
+    base = { x: camPanX, y: 8.2 + camPanY, z: 11.4 + (camZoom - 1) * 4 };
   } else {
-    base = { x: 0, y: 6.8, z: 12.6 };
+    base = { x: camPanX, y: 6.8 + camPanY, z: 12.6 + (camZoom - 1) * 4 };
   }
   const targetX = base.x + pointer.x * (board ? 1.5 : 1.2);
   const targetY = base.y + pointer.y * (board ? 0.6 : 0.45);
@@ -2610,10 +2708,80 @@ function init() {
         );
       }
     });
+    /* Kamera-Steuerung (Orbit/Pan/Zoom/Follow):
+       - Drag (Maus/Touch): Orbit um die Figur im Board, Pan in Menue/Game
+       - Pinch (2 Finger): Zoom
+       - Scroll (Mausrad): Zoom
+       - Double-Tap: Follow togglen */
     window.addEventListener('pointermove', event => {
       pointer.x = (event.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
       pointer.y = (event.clientY / Math.max(1, window.innerHeight) - 0.5) * -2;
+      if (camDragging) {
+        const dx = event.clientX - camLastX;
+        const dy = event.clientY - camLastY;
+        camLastX = event.clientX;
+        camLastY = event.clientY;
+        if (state.mode === 'board') {
+          camOrbitYaw += dx * 0.008;
+          camPanX += dx * 0.012;
+          camPanY += dy * 0.012;
+        } else {
+          camPanX += dx * 0.012;
+          camPanY += dy * 0.012;
+        }
+        camFollow = false;
+      }
     }, { passive: true });
+
+    window.addEventListener('pointerdown', event => {
+      camDragging = true;
+      camLastX = event.clientX;
+      camLastY = event.clientY;
+    }, { passive: true });
+    window.addEventListener('pointerup', () => { camDragging = false; }, { passive: true });
+    window.addEventListener('pointercancel', () => { camDragging = false; }, { passive: true });
+
+    /* Mausrad-Zoom */
+    window.addEventListener('wheel', event => {
+      camZoom = Math.max(0.5, Math.min(3, camZoom - event.deltaY * 0.001));
+      event.preventDefault();
+    }, { passive: false });
+
+    /* Pinch-Zoom (2 Finger) */
+    window.addEventListener('touchstart', event => {
+      if (event.touches.length === 2) {
+        camPinchDist = Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY
+        );
+      }
+    }, { passive: true });
+    window.addEventListener('touchmove', event => {
+      if (event.touches.length === 2 && camPinchDist > 0) {
+        const d = Math.hypot(
+          event.touches[0].clientX - event.touches[1].clientX,
+          event.touches[0].clientY - event.touches[1].clientY
+        );
+        camZoom = Math.max(0.5, Math.min(3, camZoom * (d / Math.max(1, camPinchDist))));
+        camPinchDist = d;
+      }
+    }, { passive: true });
+    window.addEventListener('touchend', () => { camPinchDist = 0; }, { passive: true });
+
+    /* Doppel-Tap: Figur wieder folgen */
+    let lastTap = 0;
+    window.addEventListener('touchend', () => {
+      const now = Date.now();
+      if (now - lastTap < 350) {
+        camFollow = true;
+        camZoom = 1;
+        camOrbitYaw = 0;
+        camPanX = 0;
+        camPanY = 0;
+      }
+      lastTap = now;
+    }, { passive: true });
+
     window.requestAnimationFrame(animate);
     /* 3D aktiv - 2D Hintergrund-Partikel stoppen fuer Performance */
     if (window.FX && FX.setBg3DActive) FX.setBg3DActive(true);
@@ -2637,6 +2805,20 @@ API.rollDice = rollDice;
 API.animatePawnMove = animatePawnMove;
 API.pulse = noop;
 API.spawnBurst = spawnBurst;
+/* Kamera-Steuerungs-API — Buttons in host/player koennen Follow+Zoom setzen */
+API.cameraFollow = function(enabled) {
+  camFollow = enabled !== false;
+  if (camFollow) {
+    camZoom = 1; camOrbitYaw = 0; camPanX = 0; camPanY = 0;
+  }
+};
+API.cameraZoom = function(f) { camZoom = Math.max(0.5, Math.min(3, f)); };
+API.getCameraState = function() { return { follow: camFollow, zoom: camZoom, yaw: camOrbitYaw }; };
+/* Debug: Pawn-Build testen (fuer Browser-Verifikation der Spielfiguren) */
+API.debugPawn = function(player, index, totalAtTile) {
+  try { return pawn(player, index || 0, totalAtTile || 1); }
+  catch (e) { return { error: e.message, stack: e.stack }; }
+};
 /* Cinematic Camera API — host.js/player.js koennen Phasen manuell setzen */
 API.startDiceRollCinematic = function(pawnPos) {
   if (camState && window.CinematicCamera) window.CinematicCamera.startDiceRoll(camState, pawnPos);
