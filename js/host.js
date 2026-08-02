@@ -14,14 +14,14 @@
   const HOST_PID = '__host__';
   /* Arenian-Charaktere (Spielwelt-Konzept Aethonia) */
   const HOST_ARENIANS = [
-    { id: 'brix',  emoji: '🧱', name: 'Brix',  home: 'Mechanik-Stadt' },
-    { id: 'nixie', emoji: '🐟', name: 'Nixie', home: 'Sonnenstrand' },
-    { id: 'pip',   emoji: '🐿️', name: 'Pip',   home: 'Wolkenwerk' },
-    { id: 'koko',  emoji: '🐼', name: 'Koko',  home: 'Zuckerwald' },
-    { id: 'tiko',  emoji: '🐦', name: 'Tiko',  home: 'Dschungeltempel' },
-    { id: 'bolt',  emoji: '🤖', name: 'Bolt',  home: 'Mechanik-Stadt' },
-    { id: 'bloom', emoji: '🌵', name: 'Bloom', home: 'Dschungeltempel' },
-    { id: 'momo',  emoji: '🦝', name: 'Momo',  home: 'Frostgipfel' },
+    { id: 'brix',  emoji: '🧱', name: 'Brix',  home: 'Mechanik-Stadt', color: '#ff6a00' },
+    { id: 'nixie', emoji: '🐟', name: 'Nixie', home: 'Sonnenstrand',   color: '#00f0ff' },
+    { id: 'pip',   emoji: '🐿️', name: 'Pip',   home: 'Wolkenwerk',     color: '#ffd34e' },
+    { id: 'koko',  emoji: '🐼', name: 'Koko',  home: 'Zuckerwald',     color: '#ff4d6d' },
+    { id: 'tiko',  emoji: '🐦', name: 'Tiko',  home: 'Dschungeltempel', color: '#2bffb9' },
+    { id: 'bolt',  emoji: '🤖', name: 'Bolt',  home: 'Mechanik-Stadt', color: '#3a86ff' },
+    { id: 'bloom', emoji: '🌵', name: 'Bloom', home: 'Dschungeltempel', color: '#7b2ff7' },
+    { id: 'momo',  emoji: '🦝', name: 'Momo',  home: 'Frostgipfel',    color: '#ff3cac' },
   ];
   const HOST_FIGURES = HOST_ARENIANS.map(a => a.emoji);
   const screens = {};
@@ -1241,7 +1241,8 @@
       const b = el('button', 'figure-pill' + (state.hostProfile.figure === a.emoji ? ' active' : ''));
       b.type = 'button';
       b.title = a.name + ' · ' + a.home;
-      b.innerHTML = `<span class="figure-emoji">${a.emoji}</span><span class="figure-name">${a.name}</span>`;
+      b.style.setProperty('--char-color', a.color || '#888888');
+      b.innerHTML = `<span class="figure-avatar">${a.emoji}</span><span class="figure-name">${a.name}</span>`;
       b.addEventListener('click', () => {
         state.hostProfile.figure = a.emoji;
         state.hostProfile.characterId = a.id;

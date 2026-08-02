@@ -1399,7 +1399,8 @@
       const b = el('button', cls);
       b.type = 'button';
       b.title = a.name + ' · ' + a.home;
-      b.innerHTML = `<span class="figure-emoji">${a.emoji}</span><span class="figure-name">${a.name}</span>`;
+      b.style.setProperty('--char-color', a.color || '#888888');
+      b.innerHTML = `<span class="figure-avatar">${a.emoji}</span><span class="figure-name">${a.name}</span>`;
       if (!isOwned) {
         b.disabled = true;
         b.title = 'Im Shop freischalten';

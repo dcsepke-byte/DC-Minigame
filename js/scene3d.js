@@ -2246,7 +2246,7 @@ function buildShowcaseDancer(def, pos) {
     g.add(spr);
   } catch (_) {}
 
-  g.scale.setScalar(0.65);
+  g.scale.setScalar(0.85);
   /* Tanz-Daten: jeder Charakter bewegt sich anders (Phase/Speed/Amp/Spin) */
   g.userData.dancer = {
     baseY: pos.y,
@@ -2265,6 +2265,92 @@ function di_phase() {
   return (_dancerSeed / 8) * Math.PI * 2;
 }
 
+/* Biome-Deko fuer die Showcase-Inseln (Spielwelt-Konzept Aethonia).
+   Jede Insel bekommt 2-3 wiedererkennbare Objekte + 2 Luftballons,
+   die sanft schweben (userData.orbit). */
+function addIslandDecor(isl, x, y, z, i) {
+  const decor = new THREE.Group();
+  decor.position.set(x, y, z);
+  const add = (geo, mat, px, py, pz, rx) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(px, py, pz);
+    if (rx) m.rotation.x = rx;
+    m.userData.orbit = 0.2 + i * 0.03;
+    m.userData.baseY = py;
+    decor.add(m);
+    return m;
+  };
+  const soft = (hex, opt) => material(hex, Object.assign({ roughness: 0.8 }, opt));
+
+  if (isl.name === 'Sonnenstrand') {
+    /* Palme: Stamm + Blattkugeln */
+    const trunk = add(new THREE.CylinderGeometry(0.05, 0.07, 0.5, 8), soft(0x8d6e63), 0.2, 0.4, 0.05);
+    trunk.rotation.z = 0.18;
+    add(new THREE.SphereGeometry(0.22, 10, 8), soft(0x2e9e5b), 0.22, 0.72, 0.05);
+    /* Sonnenschirm (Korallenrot — Konzeptfarbe) */
+    const stick = add(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), soft(0x8d6e63), -0.28, 0.42, -0.2);
+    const canopy = add(new THREE.ConeGeometry(0.24, 0.16, 10), soft(0xff8a65, { emissiveIntensity: 0.15 }), -0.28, 0.68, -0.2);
+  } else if (isl.name === 'Zuckerwald') {
+    /* Lutscher (Rosa + Mint) */
+    const lolliStick = add(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 6), soft(0xffffff), -0.2, 0.42, 0.1);
+    add(new THREE.SphereGeometry(0.16, 12, 10), soft(0xff6fa5, { emissiveIntensity: 0.2 }), -0.2, 0.74, 0.1);
+    /* Donut (Schokobraun — Konzeptfarbe) */
+    add(new THREE.TorusGeometry(0.14, 0.06, 10, 16), soft(0x8d5a44), 0.24, 0.16, -0.15, Math.PI / 2);
+  } else if (isl.name === 'Wolkenwerk') {
+    /* Kleine Wolke (Hellblau/Weiss) */
+    add(new THREE.SphereGeometry(0.14, 10, 8), soft(0xffffff), -0.18, 0.3, 0.05);
+    add(new THREE.SphereGeometry(0.18, 10, 8), soft(0xffffff), 0.02, 0.38, 0.05);
+    add(new THREE.SphereGeometry(0.13, 10, 8), soft(0xffffff), 0.22, 0.3, 0.05);
+    /* Regenbogen-Bogen (Konzeptfarbe) */
+    const bow = add(new THREE.TorusGeometry(0.28, 0.03, 8, 20, Math.PI), soft(0x4fc3f7, { emissiveIntensity: 0.25 }), 0.0, 0.22, -0.18);
+    bow.rotation.x = Math.PI / 2;
+    bow.rotation.z = Math.PI;
+  } else if (isl.name === 'Frostgipfel') {
+    /* Eiskristall (Violett/Blau — Konzeptfarbe) */
+    const crystal = add(new THREE.OctahedronGeometry(0.18, 0), soft(0xb388e8, { metalness: 0.3, emissiveIntensity: 0.3 }), 0.22, 0.55, 0.1);
+    crystal.userData.spin = 0.5 + i * 0.1;
+    /* Schneekegel */
+    add(new THREE.ConeGeometry(0.16, 0.3, 10), soft(0xffffff, { emissiveIntensity: 0.1 }), -0.24, 0.28, -0.12);
+  } else if (isl.name === 'Dschungeltempel') {
+    /* Urwald-Baum (Gruen + Gold — Konzeptfarben) */
+    const stem = add(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 8), soft(0x6d4c41), 0.2, 0.4, 0.1);
+    add(new THREE.SphereGeometry(0.2, 10, 8), soft(0x2e9e5b), 0.22, 0.7, 0.1);
+    /* Goldkugel-Schatz */
+    const gold = add(new THREE.SphereGeometry(0.1, 12, 10), soft(0xfdd835, { metalness: 0.5, emissiveIntensity: 0.35 }), -0.24, 0.2, -0.14);
+    gold.userData.spin = 0.8;
+  } else if (isl.name === 'Mechanik-Stadt') {
+    /* Uebergrosses Zahnrad (Silber/Orange — Konzeptfarben) */
+    const gear = add(new THREE.TorusGeometry(0.2, 0.05, 8, 14), soft(0xc8d0d8, { metalness: 0.6 }), 0.0, 0.32, 0.0);
+    gear.rotation.x = Math.PI / 2;
+    gear.userData.spin = 0.7 + i * 0.1;
+    for (let t = 0; t < 8; t++) {
+      const a = (t / 8) * Math.PI * 2;
+      add(new THREE.BoxGeometry(0.05, 0.09, 0.05), soft(0xff9800), Math.cos(a) * 0.2, 0.32, Math.sin(a) * 0.2);
+    }
+    /* Antenne */
+    add(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 6), soft(0x9aa5b1), -0.28, 0.45, -0.12);
+    add(new THREE.SphereGeometry(0.05, 8, 6), soft(0xff9800, { emissiveIntensity: 0.5 }), -0.28, 0.72, -0.12);
+  } else if (isl.name === 'Sternenzitadelle') {
+    /* Mini-ArenaStar + Fahne (Gold/Tiefblau/Magenta — Konzeptfarben) */
+    const miniStar = add(new THREE.OctahedronGeometry(0.16, 0), soft(0xffd34e, { emissive: 0xffd34e, emissiveIntensity: 0.8 }), 0.2, 0.62, 0.05);
+    miniStar.userData.spin = 0.9;
+    add(new THREE.CylinderGeometry(0.015, 0.015, 0.55, 6), soft(0x2a2a6e), -0.26, 0.4, -0.16);
+    add(new THREE.BoxGeometry(0.14, 0.1, 0.02), soft(0xff3cac, { emissiveIntensity: 0.3 }), -0.19, 0.66, -0.16);
+  }
+
+  /* 2 Luftballons ueber jeder Insel — schweben und wippen */
+  const balloonColors = [0xff6fa5, 0xffd34e, 0x4fc3f7, 0x81c784, 0xb388e8, 0xff8a65];
+  for (let b = 0; b < 2; b++) {
+    const bx = (b === 0 ? -0.24 : 0.26);
+    const bz = (b === 0 ? 0.16 : -0.18);
+    const line = add(new THREE.CylinderGeometry(0.006, 0.006, 0.5, 4), soft(0xffffff, { transparent: true, opacity: 0.5 }), bx, 0.55, bz);
+    const ball = add(new THREE.SphereGeometry(0.1, 10, 8), soft(balloonColors[(i * 2 + b) % balloonColors.length], { emissiveIntensity: 0.15 }), bx, 0.85, bz);
+    ball.userData.orbit = 0.55 + i * 0.04 + b * 0.07;
+  }
+
+  return decor;
+}
+
 function buildShowcase() {
   if (!scene) return;
   if (showcaseGroup) {
@@ -2279,14 +2365,18 @@ function buildShowcase() {
      7 schwebende Inseln in den Konzeptfarben + ArenaStar in der Mitte.
      Ersetzt das alte Portal/Kristall/Saeulen-Showcase, das wie eine
      Spieluebersicht aussah. */
+  /* Inseln nach Spielwelt-Konzept: 7 Biome, groesser + mehr Details.
+     Farben aus der Konzept-Tabelle (Tuerkis/Sandgelb, Rosa/Schoko/Mint,
+     Hellblau/Weiss, Eisblau/Violett, Dschungelgruen/Gold, Silber/Orange,
+     Gold/Tiefblau/Magenta). */
   const ISLANDS = [
-    { name: 'Sonnenstrand',    color: 0xffe082, accent: 0xff8a65, r: 1.5, a: 0 },
-    { name: 'Zuckerwald',      color: 0xf8bbd0, accent: 0xf06292, r: 2.0, a: Math.PI / 3.5 },
-    { name: 'Wolkenwerk',      color: 0xb3e5fc, accent: 0x4fc3f7, r: 2.6, a: Math.PI / 1.8 },
-    { name: 'Frostgipfel',     color: 0xe1f5fe, accent: 0x29b6f6, r: 3.0, a: Math.PI },
-    { name: 'Dschungeltempel', color: 0x81c784, accent: 0xfdd835, r: 2.6, a: Math.PI + Math.PI / 1.8 },
-    { name: 'Mechanik-Stadt',  color: 0xcfd8dc, accent: 0xff9800, r: 2.0, a: Math.PI + Math.PI / 3.5 },
-    { name: 'Sternenzitadelle',color: 0xffe082, accent: 0x7b2ff7, r: 1.6, a: Math.PI * 1.85 },
+    { name: 'Sonnenstrand',    color: 0x40c8b8, accent: 0xffb37a, r: 2.6, a: 0 },
+    { name: 'Zuckerwald',      color: 0xf8a8c8, accent: 0x8d5a44, r: 3.4, a: Math.PI / 3.5 },
+    { name: 'Wolkenwerk',      color: 0xa8dcff, accent: 0x4fc3f7, r: 4.4, a: Math.PI / 1.8 },
+    { name: 'Frostgipfel',     color: 0xd8f0ff, accent: 0xb388e8, r: 5.1, a: Math.PI },
+    { name: 'Dschungeltempel', color: 0x4caf7d, accent: 0xfdd835, r: 4.4, a: Math.PI + Math.PI / 1.8 },
+    { name: 'Mechanik-Stadt',  color: 0xc8d0d8, accent: 0xff9800, r: 3.4, a: Math.PI + Math.PI / 3.5 },
+    { name: 'Sternenzitadelle',color: 0xffd34e, accent: 0x2a2a6e, r: 2.8, a: Math.PI * 1.85 },
   ];
 
   /* Sanft drehende Welt — als dezent animierter Hintergrund.
@@ -2296,78 +2386,87 @@ function buildShowcase() {
   ISLANDS.forEach((isl, i) => {
     const x = Math.cos(isl.a) * isl.r;
     const z = Math.sin(isl.a) * isl.r;
-    const lift = i % 2 === 0 ? 0.2 : -0.15;
-    const y = 0.4 + lift;
+    const lift = i % 2 === 0 ? 0.3 : -0.2;
+    const y = 0.6 + lift;
 
-    /* Insel-Unterteil (umgedrehter Kegel — schwebend) */
+    /* Insel-Unterteil (umgedrehter Kegel — schwebend, groesser) */
     const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.34, 0.2, 0.35, 12),
+      new THREE.CylinderGeometry(0.55, 0.32, 0.5, 14),
       material(isl.accent, { metalness: 0.1, emissiveIntensity: 0.15 })
     );
-    base.position.set(x, y - 0.12, z);
+    base.position.set(x, y - 0.18, z);
     base.userData.orbit = 0.2 + i * 0.03;
+    base.userData.baseY = y - 0.18;
     showcaseGroup.add(base);
 
-    /* Insel-Oberteil (helle Scheibe) */
+    /* Insel-Oberteil (helle Scheibe, groesser) */
     const top = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.34, 0.36, 0.18, 14),
+      new THREE.CylinderGeometry(0.58, 0.6, 0.26, 16),
       material(isl.color, { roughness: 0.85 })
     );
-    top.position.set(x, y + 0.05, z);
+    top.position.set(x, y + 0.06, z);
     top.userData.orbit = 0.2 + i * 0.03;
+    top.userData.baseY = y + 0.06;
     showcaseGroup.add(top);
 
-    /* Kleiner Baum/Deko auf der Insel */
-    const tree = new THREE.Mesh(
-      new THREE.SphereGeometry(0.14, 8, 6),
-      material(isl.accent, { emissive: isl.accent, emissiveIntensity: 0.35 })
+    /* Gras-Ring auf der Insel (Konzept: lebendig, freundlich) */
+    const grass = new THREE.Mesh(
+      new THREE.TorusGeometry(0.5, 0.045, 8, 18),
+      material(0x5fd68a, { roughness: 0.9 })
     );
-    tree.position.set(x + 0.12, y + 0.3, z + 0.08);
-    tree.userData.orbit = 0.2 + i * 0.03;
-    tree.userData.spin = 0.4 + i * 0.1;
-    showcaseGroup.add(tree);
+    grass.position.set(x, y + 0.2, z);
+    grass.rotation.x = Math.PI / 2;
+    grass.userData.orbit = 0.2 + i * 0.03;
+    grass.userData.baseY = y + 0.2;
+    showcaseGroup.add(grass);
+
+    /* Biome-Deko (Palme, Lutscher, Zahnrad, ...) + Luftballons */
+    showcaseGroup.add(addIslandDecor(isl, x, y + 0.2, z, i));
 
     /* Insel-Label */
-    const label = makeLabelSprite(isl.name.toUpperCase(), '#' + isl.color.toString(16).padStart(6, '0'), 26);
-    label.position.set(x, y + 0.62, z);
-    label.scale.setScalar(0.4);
+    const label = makeLabelSprite(isl.name.toUpperCase(), '#' + isl.color.toString(16).padStart(6, '0'), 30);
+    label.position.set(x, y + 1.15, z);
+    label.scale.setScalar(0.55);
     label.userData.isLabel = true;
     showcaseGroup.add(label);
   });
 
   /* ArenaStar — leuchtender Stern mit Krone in der Mitte (Konzept-Maskottchen) */
   const star = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.55, 2),
+    new THREE.OctahedronGeometry(0.8, 2),
     material('#ffd34e', { metalness: 0.3, emissive: '#ffd34e', emissiveIntensity: 1.1 })
   );
-  star.position.set(0, 1.3, 0);
+  star.position.set(0, 1.9, 0);
   star.userData.spin = 0.6;
   star.userData.orbit = 0.35;
+  star.userData.baseY = 1.9;
   showcaseGroup.add(star);
-  addGlow(star, '#ffd34e', 1.6, 1.5);
+  addGlow(star, '#ffd34e', 2.2, 1.8);
 
   /* Krone (Torus) ueber dem Stern */
   const crown = new THREE.Mesh(
-    new THREE.TorusGeometry(0.3, 0.06, 8, 16),
+    new THREE.TorusGeometry(0.44, 0.09, 8, 18),
     new THREE.MeshStandardMaterial({ color: 0xffd34e, metalness: 0.7, roughness: 0.3, emissive: 0xffd34e, emissiveIntensity: 0.6 })
   );
-  crown.position.set(0, 1.95, 0);
+  crown.position.set(0, 2.85, 0);
   crown.rotation.x = Math.PI / 2;
   crown.userData.spin = 0.3;
+  crown.userData.orbit = 0.35;
+  crown.userData.baseY = 2.85;
   showcaseGroup.add(crown);
 
   /* Feine Gold-Partikel um die Welt */
-  const goldPositions = new Float32Array(60 * 3);
-  for (let i = 0; i < 60; i++) {
-    const a = (i / 60) * Math.PI * 2;
-    goldPositions[i * 3] = Math.cos(a) * 3.4;
-    goldPositions[i * 3 + 1] = 0.2 + Math.sin(i * 1.7) * 0.3;
-    goldPositions[i * 3 + 2] = Math.sin(a) * 3.4;
+  const goldPositions = new Float32Array(90 * 3);
+  for (let i = 0; i < 90; i++) {
+    const a = (i / 90) * Math.PI * 2;
+    goldPositions[i * 3] = Math.cos(a) * 5.6;
+    goldPositions[i * 3 + 1] = 0.4 + Math.sin(i * 1.7) * 0.5;
+    goldPositions[i * 3 + 2] = Math.sin(a) * 5.6;
   }
   const goldGeo = new THREE.BufferGeometry();
   goldGeo.setAttribute('position', new THREE.BufferAttribute(goldPositions, 3));
   const goldPoints = new THREE.Points(goldGeo, new THREE.PointsMaterial({
-    color: 0xffd34e, size: 0.05, transparent: true, opacity: 0.7, depthWrite: false,
+    color: 0xffd34e, size: 0.06, transparent: true, opacity: 0.7, depthWrite: false,
   }));
   goldPoints.userData.spin = 0.08;
   showcaseGroup.add(goldPoints);
@@ -2391,10 +2490,10 @@ function buildShowcase() {
     if (!isl) return;
     const x = Math.cos(isl.a) * isl.r;
     const z = Math.sin(isl.a) * isl.r;
-    const lift = ISLANDS.indexOf(isl) % 2 === 0 ? 0.2 : -0.15;
-    const groundY = 0.4 + lift + 0.18;
+    const lift = ISLANDS.indexOf(isl) % 2 === 0 ? 0.3 : -0.2;
+    const groundY = 0.6 + lift + 0.33;
     /* Zwei Figuren auf einer Insel: leicht versetzt nebeneinander */
-    const side = (di % 2 === 0 ? -1 : 1) * 0.18;
+    const side = (di % 2 === 0 ? -1 : 1) * 0.22;
     const dancer = buildShowcaseDancer(def, { x: x + side, y: groundY, z: z - side * 0.6 });
     showcaseGroup.add(dancer);
     dancerTargets.push(dancer);
@@ -2603,9 +2702,9 @@ function updateCamera(delta) {
       const pos = d.getWorldPosition(_showcaseVec);
       /* Leichtes Umschweben der Figur waehrend des Besuchs */
       const ang = clock.getElapsedTime() * 0.35 + showcaseCam.target * 2.1;
-      const dist = 2.5;
+      const dist = 3.6;
       const targetX = pos.x + Math.cos(ang) * dist + pointer.x * 1.2 + camPanX;
-      const targetY = Math.max(1.7, pos.y + 1.15 + pointer.y * 0.45 + camPanY);
+      const targetY = Math.max(2.0, pos.y + 1.5 + pointer.y * 0.45 + camPanY);
       const targetZ = pos.z + Math.sin(ang) * dist;
       const k = 0.03;
       camera.position.x += (targetX - camera.position.x) * k;
@@ -2615,7 +2714,7 @@ function updateCamera(delta) {
       return;
     }
     /* Fallback: feste Kamera (Reduced-Motion oder keine Figuren) */
-    base = { x: camPanX, y: 3.4 + camPanY, z: 6.6 + (camZoom - 1) * 4 };
+    base = { x: camPanX, y: 4.4 + camPanY, z: 8.2 + (camZoom - 1) * 4 };
   }
   const targetX = base.x + pointer.x * (board ? 1.5 : 1.2);
   const targetY = base.y + pointer.y * (board ? 0.6 : 0.45);
@@ -2701,7 +2800,7 @@ function animate() {
     showcaseGroup.rotation.y += delta * (state.reducedMotion ? ss * 0.3 : ss);
     showcaseGroup.traverse(node => {
       if (node.userData && node.userData.spin) node.rotation.y += delta * node.userData.spin;
-      if (node.userData && node.userData.orbit) node.position.y = 0.25 + Math.sin(elapsed * node.userData.orbit) * 0.15;
+      if (node.userData && node.userData.orbit) node.position.y = (node.userData.baseY || 0.25) + Math.sin(elapsed * node.userData.orbit) * 0.12;
       if (node.userData && node.userData.dancer) {
         /* Tanz-Animation: Hupfen + Wippen + langsame Drehung.
            Jede Figur tanzt mit eigenem Tempo und eigener Phase. */
