@@ -136,6 +136,28 @@ const MAP_REGIONS = [
 /* Biome-Farben für jeden Hauptpfad-Abschnitt (idx // 20). */
 const BIOME_BY_INDEX = ['beach','candy','sky','ice','jungle','tech','finale','finale'];
 
+/* Konzept-Biome-Palette (Aethonia) — modul-weit, wird von Terrain,
+   Region-Patches und Tiles genutzt. Keys = neue Biome-Namen. */
+const BIOME_PALETTE = {
+  beach:  { ground: '#ffe082', tint: '#ffecb3', edge: '#40c8b8' },
+  candy:  { ground: '#f8a8c8', tint: '#ffd0e0', edge: '#8d5a44' },
+  sky:    { ground: '#a8dcff', tint: '#e3f4ff', edge: '#ffffff' },
+  ice:    { ground: '#e1f5fe', tint: '#f0faff', edge: '#b388e8' },
+  jungle: { ground: '#4caf7d', tint: '#a5d6a7', edge: '#fdd835' },
+  tech:   { ground: '#cfd8dc', tint: '#eceff1', edge: '#ff9800' },
+  finale: { ground: '#ffd34e', tint: '#fff3b0', edge: '#2a2a6e' },
+};
+function biomePalette(name) {
+  return BIOME_PALETTE[name] || BIOME_PALETTE.beach;
+}
+/* Biome des Hauptpfad-Segments fuer einen Tile-Index. */
+function biomeForIndex(idx) {
+  const i = Number(idx) || 0;
+  if (i < 160) return BIOME_BY_INDEX[Math.floor(i / 20)] || 'beach';
+  const bi = Math.floor((i - 160) / 10);
+  return BIOME_BY_INDEX[bi] || 'beach';
+}
+
 /* Etappe 2.5: Graph-bewusstes Kleeblatt-Layout.
    Hauptpfad (idx < 160): 8-Lappen-Kleeblatt — je Biom ein Lappen der nach außen beult.
    Side-Paths (idx 160..239): Ausbuchtungen die vom Branch-Start weiter nach außen führen
@@ -196,26 +218,28 @@ function mainPathPosition(i, mainLen = 160) {
   /* Basiswinkel: 8 Segmente auf Kreis verteilt, Segment-Mitte als Referenz. */
   const segAngle = (segment + 0.5) / 8 * Math.PI * 2 - Math.PI / 2;
   /* Lappen-Bulge: Segmentmitte (segT=0.5) beult am weitesten nach außen,
-     Segmentränder (segT=0,1) sind näher am Zentrum → Kleeblatt-Form. */
+     Segmentränder (segT=0,1) sind näher am Zentrum → Kleeblatt-Form.
+     Pro Segment leicht andere Länge → organischere, weniger symmetrische
+     "Blumen"-Form (Danny: Brett soll nicht wie eine perfekte Blume aussehen). */
   const bulge = Math.sin(segT * Math.PI);       // 0..1..0
-  /* Basisradius klein (Zentrum), Lappen ragt nach außen. */
-  const radiusBase = 8.0;                       // Zentrum-Rand
-  const radiusBulge = 7.5 * bulge;              // Lappenlänge
+  const RADIUS_SCALE = [0.8, 1.0, 1.18, 1.32, 1.08, 0.96, 0.86, 0.92];
+  const Z_SQUASH = [0.98, 0.9, 0.86, 0.82, 0.9, 0.97, 1.02, 1.06];
+  const SEG_WIGGLE = [0, 0.06, -0.05, 0.04, -0.06, 0.05, -0.03, 0.07];
+  const radiusBase = 7.0;                       // Zentrum-Rand
+  const radiusBulge = 7.5 * bulge * RADIUS_SCALE[segment];  // Lappenlänge pro Region
   const r = radiusBase + radiusBulge;
   /* Winkel within Segment: segT von -0.5..+0.5 um segAngle.
-     Etappe 2.5 fix: angleSpread 0.95 (fast volle Segment-Breite) statt 0.7,
-     damit 20 Felder pro Segment nicht überlappen. Kleine Lücken zwischen
-     Biomen bleiben sichtbar — gewollt, betont Biom-Grenzen. */
+     Leichte Winkel-Verschiebung pro Segment → unregelmäßige Kanten. */
   const angleSpread = (Math.PI * 2 / 8) * 0.95;
-  const angle = segAngle + (segT - 0.5) * angleSpread;
+  const angle = segAngle + (segT - 0.5) * angleSpread + SEG_WIGGLE[segment];
   /* Biom-spezifische Höhe */
   const biome = BIOME_BY_INDEX[segment] || 'village';
   const y = biomeHeightOffset(biome, segT);
   /* Leichte organische Wackel für natürliche Kanten */
-  const wobble = Math.sin(t * Math.PI * 16) * 0.12;
+  const wobble = Math.sin(t * Math.PI * 16 + segment * 1.3) * 0.12;
   return {
     x: Math.cos(angle) * (r + wobble),
-    z: Math.sin(angle) * (r + wobble) * 0.92,
+    z: Math.sin(angle) * (r + wobble) * Z_SQUASH[segment],
     y,
     angle,
   };
@@ -272,17 +296,25 @@ function tileColor(tile, owner) {
   return '#90caf9';
 }
 
-/* Etappe 2: Pfad-Band zwischen zwei 3D-Positionen zeichnen (Graph-Edge). */
-function drawPathBand(pos1, pos2) {
+/* Etappe 2: Pfad-Band zwischen zwei 3D-Positionen zeichnen (Graph-Edge).
+   Farbe = Biome-Farbe der Region (Material wird pro Farbe gecacht). */
+const _pathMatCache = {};
+function drawPathBand(pos1, pos2, colorHex) {
   const dx = pos2.x - pos1.x, dz = pos2.z - pos1.z;
   const len = Math.sqrt(dx * dx + dz * dz);
   if (len < 0.001) return;
   const midX = (pos1.x + pos2.x) / 2, midZ = (pos1.z + pos2.z) / 2;
   const midY = (pos1.y + pos2.y) / 2;
   const angle = Math.atan2(dz, dx);
+  const col = colorHex || '#d4a574';
+  let pathMat = _pathMatCache[col];
+  if (!pathMat) {
+    pathMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.85, metalness: 0.05 });
+    _pathMatCache[col] = pathMat;
+  }
   const path = new THREE.Mesh(
     new THREE.BoxGeometry(len, 0.08, 0.42),
-    new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.85, metalness: 0.05 })
+    pathMat
   );
   path.position.set(midX, 0.3 + midY, midZ);
   path.rotation.y = -angle;
@@ -1304,19 +1336,27 @@ function buildBoard() {
     tpos.setY(v, terrainHeight(x, z));
   }
   terrainGeo.computeVertexNormals();
-  /* Terrain-Material: freundliche helle Farben, Vertex-Colors nach Hoehe. */
+  /* Terrain-Material: Vertex-Colors nach BIOM (Themengebiete!) + Hoehe.
+     Jedes Segment des Kleeblatts liegt in seiner Regions-Farbe → die Karte
+     ist sichtbar in 8 Themengebiete unterteilt (vorher alles gruen). */
   const terrainColors = new Float32Array(tpos.count * 3);
-  const colLow = new THREE.Color('#7cb342');    /* Tal — saftig gruen */
-  const colMid = new THREE.Color('#aed581');    /* Hang — hellgruen */
-  const colHigh = new THREE.Color('#cfd8dc');   /* Gipfel — hellgrau */
-  const colSnow = new THREE.Color('#ffffff');   /* Schneegipfel */
+  const colHigh = new THREE.Color('#cfd8dc');
+  const colSnow = new THREE.Color('#ffffff');
+  const _shadeCol = new THREE.Color();
   for (let v = 0; v < tpos.count; v++) {
     const y = tpos.getY(v);
-    const c = new THREE.Color();
-    if (y < 1.5) c.copy(colLow);
-    else if (y < 3.5) c.lerpColors(colLow, colMid, (y - 1.5) / 2.0);
-    else if (y < 5.0) c.lerpColors(colMid, colHigh, (y - 3.5) / 1.5);
-    else c.lerpColors(colHigh, colSnow, Math.min(1, (y - 5.0) / 1.5));
+    const x = tpos.getX(v);
+    const z = tpos.getZ(v);
+    /* Segment aus Winkel bestimmen → Region-Farbe */
+    const ang = Math.atan2(z, x);
+    let seg = Math.floor(((ang + Math.PI / 2) / (Math.PI * 2)) * 8);
+    seg = ((seg % 8) + 8) % 8;
+    const bc = biomePalette(BIOME_BY_INDEX[seg] || 'beach');
+    const c = new THREE.Color(bc.ground);
+    /* Hoehen-Schattierung: tief = Bodenfarbe, hoch = heller/grau */
+    const shade = Math.min(1, Math.max(0, y / 5.0));
+    _shadeCol.copy(colHigh).lerp(colSnow, Math.min(1, Math.max(0, (y - 4.5) / 1.5)));
+    c.lerp(_shadeCol, shade * 0.5);
     terrainColors[v * 3] = c.r;
     terrainColors[v * 3 + 1] = c.g;
     terrainColors[v * 3 + 2] = c.b;
@@ -1333,6 +1373,32 @@ function buildBoard() {
   base.castShadow = true;   /* Etappe 2.5 Perf: Terrain wirft Schatten auf sich selbst */
   boardGroup.add(base);
 
+  /* Wasserring — das Brett schwimmt auf tuerkisem Wasser (Mario-Party-Look).
+     Leicht animiert (Wellen-Bob im animate-Loop). */
+  const waterMat = new THREE.MeshStandardMaterial({
+    color: 0x4fc3f7, transparent: true, opacity: 0.62,
+    roughness: 0.15, metalness: 0.5,
+    emissive: 0x29b6f6, emissiveIntensity: 0.18,
+  });
+  const water = new THREE.Mesh(new THREE.CircleGeometry(27, 56), waterMat);
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = -0.6;
+  water.userData.water = true;
+  boardGroup.add(water);
+  /* Feiner heller Wellen-Rand */
+  const waterRim = new THREE.Mesh(
+    new THREE.RingGeometry(26.6, 27.6, 56),
+    new THREE.MeshStandardMaterial({
+      color: 0x81d4fa, transparent: true, opacity: 0.5,
+      roughness: 0.3, metalness: 0.3, side: THREE.DoubleSide,
+      emissive: 0x4fc3f7, emissiveIntensity: 0.2,
+    })
+  );
+  waterRim.rotation.x = -Math.PI / 2;
+  waterRim.position.y = -0.58;
+  waterRim.userData.water = true;
+  boardGroup.add(waterRim);
+
   /* Regionen als fließende Landschaft — Kleeblatt: 8 Biome je ein Lappen.
      Jede Region liegt im Mittelpunkt ihres Biom-Segments (bei Feld idx = segment*20 + 10).
      Biome sind jetzt zusammenhängende Zonen entlang des Pfads, keine isolierten Kreise mehr. */
@@ -1348,14 +1414,23 @@ function buildBoard() {
       z: midPos.z + (midPos.z / outLen) * outPush,
     };
     const biomeColors = {
-      village:  { ground: '#7cb342', tint: '#aed581', edge: '#558b2f' },
-      desert:   { ground: '#ffd54f', tint: '#ffecb3', edge: '#ff8f00' },
-      forest:   { ground: '#2e7d32', tint: '#66bb6a', edge: '#1b5e20' },
-      mountain: { ground: '#90a4ae', tint: '#cfd8dc', edge: '#546e7a' },
-      swamp:    { ground: '#6a8e23', tint: '#8bc34a', edge: '#33691e' },
-      ice:      { ground: '#b3e5fc', tint: '#e1f5fe', edge: '#4fc3f7' },
-      volcano:  { ground: '#ff6f00', tint: '#ffab40', edge: '#bf360c' },
-      clouds:   { ground: '#e1bee7', tint: '#f3e5f5', edge: '#ce93d8' },
+      /* Neue Konzept-Biome (Aethonia) — Name aus MAP_REGIONS/BIOME_BY_INDEX */
+      beach:   { ground: '#ffe082', tint: '#ffecb3', edge: '#40c8b8' },   /* Sonnenstrand: Sand + Türkis */
+      candy:   { ground: '#f8a8c8', tint: '#ffd0e0', edge: '#8d5a44' },   /* Zuckerwald: Rosa + Schoko */
+      sky:     { ground: '#a8dcff', tint: '#e3f4ff', edge: '#ffffff' },   /* Wolkenwerk: Hellblau + Weiß */
+      ice:     { ground: '#e1f5fe', tint: '#f0faff', edge: '#b388e8' },   /* Frostgipfel: Eisblau + Violett */
+      jungle:  { ground: '#4caf7d', tint: '#a5d6a7', edge: '#fdd835' },   /* Dschungeltempel: Grün + Gold */
+      tech:    { ground: '#cfd8dc', tint: '#eceff1', edge: '#ff9800' },   /* Mechanik-Stadt: Silber + Orange */
+      finale:  { ground: '#ffd34e', tint: '#fff3b0', edge: '#2a2a6e' },   /* Sternenzitadelle: Gold + Tiefblau */
+      /* Alte Namen (Fallback, falls woanders noch referenziert) */
+      village: { ground: '#7cb342', tint: '#aed581', edge: '#558b2f' },
+      desert:  { ground: '#ffd54f', tint: '#ffecb3', edge: '#ff8f00' },
+      forest:  { ground: '#2e7d32', tint: '#66bb6a', edge: '#1b5e20' },
+      mountain:{ ground: '#90a4ae', tint: '#cfd8dc', edge: '#546e7a' },
+      swamp:   { ground: '#6a8e23', tint: '#8bc34a', edge: '#33691e' },
+      iceOld:  { ground: '#b3e5fc', tint: '#e1f5fe', edge: '#4fc3f7' },
+      volcano: { ground: '#ff6f00', tint: '#ffab40', edge: '#bf360c' },
+      clouds:  { ground: '#e1bee7', tint: '#f3e5f5', edge: '#ce93d8' },
     };
     const bc = biomeColors[region.biome] || biomeColors.village;
     /* 6-8 organische Shape-Patches pro Region — entlang des Biom-Segments gestreut. */
@@ -1483,12 +1558,14 @@ function buildBoard() {
   tiles.forEach((tile, i) => {
     const idxA = Number(tile.idx == null ? i : tile.idx);
     const pos1 = tilePosition(idxA, tiles.length);
+    /* Pfad-Band in der Biome-Farbe der Region */
+    const bandBio = biomePalette(biomeForIndex(idxA));
     const nxts = tile.next || [];
     if (!nxts.length) {
       /* Fallback: linearer Wrap (alte Boards ohne next-Array) */
       const nextIdx = (i + 1) % tiles.length;
       const pos2 = tilePosition(Number(tiles[nextIdx].idx || nextIdx), tiles.length);
-      drawPathBand(pos1, pos2);
+      drawPathBand(pos1, pos2, bandBio.ground);
       return;
     }
     nxts.forEach(nIdx => {
@@ -1496,7 +1573,7 @@ function buildBoard() {
       if (drawnEdges.has(key)) return;
       drawnEdges.add(key);
       const pos2 = tilePosition(Number(nIdx), tiles.length);
-      drawPathBand(pos1, pos2);
+      drawPathBand(pos1, pos2, bandBio.ground);
     });
   });
 
@@ -1509,20 +1586,24 @@ function buildBoard() {
     const owner = players.find(player => player.id === ownerId);
     /* Junction-Tiles bekommen eine besondere Farbe (Wegweiser-Look) */
     const isJunction = tile.type === 'junction' || (tile.next && tile.next.length > 1);
+    /* Typ-Farbe (Cap + Label) UND Biome-Farbe der Region (Feld-Basis) —
+       so ist die Karte in Themengebiete unterteilt UND Feldtypen bleiben lesbar. */
     const baseTileColor = tileColor(tile, owner);
-    /* Etappe 2.5: Prozedurale Noise-Textur pro Tile-Farbe statt Flat-Color.
+    const tileBio = biomePalette(biomeForIndex(tile.idx == null ? index : tile.idx));
+    const biomeGround = tileBio.ground;
+    /* Etappe 2.5: Prozedurale Noise-Textur pro Farbe statt Flat-Color.
        Accent = leicht aufgehellt/abgedunkelt fuer sichtbare Struktur.
        Textur wird gecacht (makeNoiseTexture) → nur einmal pro Farbe erzeugt.
        Perf-Fix: Auf Mobile kleinere Texturen (32 statt 64) + keine Normal-Map. */
-    const baseThree = new THREE.Color(baseTileColor);
-    const accentThree = baseThree.clone().offsetHSL(0, 0, 0.12);
+    const baseThree = new THREE.Color(biomeGround);
+    const accentThree = baseThree.clone().offsetHSL(0, 0, 0.14);
     const accentHex = '#' + accentThree.getHexString();
     const texSize = LOW ? 32 : 64;
-    const noiseMap = makeNoiseTexture(baseTileColor, accentHex, texSize);
-    const tileMat = material(baseTileColor, { metalness: 0.5, emissiveIntensity: owner ? 0.44 : (isJunction ? 0.5 : 0.24) });
+    const noiseMap = makeNoiseTexture(biomeGround, accentHex, texSize);
+    const tileMat = material(biomeGround, { metalness: 0.45, emissiveIntensity: owner ? 0.3 : 0.12 });
     tileMat.map = noiseMap;   /* Base-Color-Textur ueberlagert Solid-Farbe mit Noise */
     if (!LOW) {
-      tileMat.normalMap = makeNormalMap(baseTileColor, accentHex, texSize);  /* Prozedurale Normal-Map fuer Tiefe */
+      tileMat.normalMap = makeNormalMap(biomeGround, accentHex, texSize);  /* Prozedurale Normal-Map fuer Tiefe */
       tileMat.normalScale = new THREE.Vector2(0.6, 0.6);  /* Subtile Tiefenwirkung */
     }
     /* Feld — abgerundete Box (RoundedBoxGeometry), flach auf dem Pfad.
@@ -2779,6 +2860,7 @@ function animate() {
     boardGroup.traverse(node => {
       if (node.userData && node.userData.spin) node.rotation.y += delta * node.userData.spin;
       if (node.userData && node.userData.orbit) node.position.y = 0.95 + Math.sin(elapsed * node.userData.orbit) * 0.12;
+      if (node.userData && node.userData.water) node.position.y = -0.6 + Math.sin(elapsed * 0.7 + node.position.x * 0.06) * 0.06;
       if (node.userData && node.userData.playerId) {
         /* Sanftes Wackeln + leichte Rotation — freundliche Idle-Anim, kein dramatic bob */
         node.position.y = 0.18 + Math.sin(elapsed * 1.8 + node.userData.phase) * 0.04;
