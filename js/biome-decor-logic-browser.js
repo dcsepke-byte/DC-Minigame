@@ -472,7 +472,7 @@
   ];
 
   function getDecorCount(biome, rng) {
-    var generators = G[biome] || G.village;
+    var generators = G[biomeMap(biome)] || G.village;
     var count = 0;
     generators.forEach(function (gen) {
       count += gen.count(rng);
@@ -480,8 +480,24 @@
     return count;
   }
 
+  /* Neue Konzept-Biome (Aethonia) auf die Generator-Sets mappen —
+     identisch zur ESM-Version (biome-decor-logic.js). Ohne diese Map
+     faellt alles auf village zurueck (ueberall Haeuser). */
+  function biomeMap(name) {
+    var map = {
+      beach: 'desert',   /* Sonnenstrand: Strand + Palmen */
+      candy: 'forest',   /* Zuckerwald: suesse Haeuser + Wald */
+      sky: 'clouds',     /* Wolkenwerk: schwebende Inseln */
+      ice: 'ice',        /* Frostgipfel: Eis */
+      jungle: 'forest',  /* Dschungeltempel: dichte Vegetation */
+      tech: 'mountain',  /* Mechanik-Stadt: kristalline Technik */
+      finale: 'clouds',  /* Sternenzitadelle: schwebend + Kristalle */
+    };
+    return map[name] || name;
+  }
+
   function generateDecorSpecs(biome, center, rng) {
-    var generators = G[biome] || G.village;
+    var generators = G[biomeMap(biome)] || G.village;
     /* Perf-Fix: Auf Mobile/Low-End jede zweite Dekoration weglassen —
        halbiert die Draw-Calls auf dem Board, ohne dass etwas fehlt. */
     var lowEnd = (typeof window !== 'undefined' && window.__partyLowEnd === true);

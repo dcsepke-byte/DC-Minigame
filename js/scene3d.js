@@ -554,6 +554,23 @@ function tileLabel(tile) {
   return labels[t] || 'FELD';
 }
 
+/* Hochwertiges Feld-SYMBOL (Emoji-Icon) statt Text-Label.
+   Wird als Sprite ueber dem Feld gerendert — sofort erkennbar,
+   kein kleiner Text mehr. Normale Felder: kein Icon (sauber). */
+function tileIcon(tile) {
+  const t = (tile && tile.type) || 'property';
+  const icons = {
+    start:    '🏁',
+    event:    '❓',
+    starshop: '⭐',
+    itemshop: '🛒',
+    lucky:    '🍀',
+    bonus:    '🎁',
+    junction: '🔀',
+  };
+  return icons[t] || '';
+}
+
 /* Beschreibung was das Feld macht — kurz und klar */
 function tileDescription(tile) {
   const t = (tile && tile.type) || 'property';
@@ -1496,9 +1513,19 @@ function buildBoard() {
     regionLabel.scale.setScalar(1.1);
     regionLabel.userData.isLabel = true;   /* Etappe 2.5: Sprite-LOD im animate-Loop */
     boardGroup.add(regionLabel);
-    /* Biom-spezifische Deko (Häuser/Brunnen, Dünen/Kakteen, Bäume/Pilze, Felsen/Kristalle) */
-    const decor = biomeDecor(region.biome, rPos, rng);
-    decor.forEach(d => boardGroup.add(d));
+    /* Biom-spezifische Deko (Häuser/Brunnen, Dünen/Kakteen, Bäume/Pilze, Felsen/Kristalle).
+       Dichte-Erhoehung: Deko an 3 Punkten entlang des Segments statt nur im Zentrum →
+       die Regionen wirken bewohnt und gefuellt, nicht leer. */
+    const decoFracs = [0.2, 0.5, 0.8];
+    decoFracs.forEach((frac, fi) => {
+      const di = ri * 20 + Math.floor(frac * 20);
+      const dp = mainPathPosition(Math.min(di, 159), 160);
+      const dOut = Math.hypot(dp.x, dp.z) || 1;
+      const dpPos = { x: dp.x + (dp.x / dOut) * 2.2, z: dp.z + (dp.z / dOut) * 2.2 };
+      const dRng = mulberry32(ri * 977 + fi * 131 + 7);
+      const decorN = biomeDecor(region.biome, dpPos, dRng);
+      decorN.forEach(d => boardGroup.add(d));
+    });
   });
 
   /* Zentrale Landmarke — grosser goldener Stern in der Mitte */
@@ -1515,7 +1542,7 @@ function buildBoard() {
 
   /* Grasbüschel & Streudeko auf der ganzen Karte (nicht nur Regionen) — mehr Leben */
   const globalRng = mulberry32(98765);
-  const STREW_COUNT = LOW ? 18 : 36;
+  const STREW_COUNT = LOW ? 28 : 56;
   for (let i = 0; i < STREW_COUNT; i++) {
     const a = globalRng() * Math.PI * 2;
     const rad = 3.2 + globalRng() * 4.0;
@@ -1627,12 +1654,15 @@ function buildBoard() {
     cap.receiveShadow = !LOW;
     boardGroup.add(cap);
 
-    /* Feld-Typ-Label — klar lesbar über dem Feld */
-    const label = makeLabelSprite(tileLabel(tile), tileColor(tile, owner), 28);
-    label.position.set(pos.x, tileY + 0.95, pos.z);
-    label.scale.setScalar(0.7);
-    label.userData.isLabel = true;   /* Etappe 2.5: Sprite-LOD im animate-Loop */
-    boardGroup.add(label);
+    /* Feld-SYMBOL — hochwertiges Emoji-Icon statt Text-Label.
+       Normale Felder bleiben sauber (kein Icon). */
+    const tIcon = tileIcon(tile);
+    if (tIcon) {
+      const iconSprite = makeTextSprite(tIcon, tileColor(tile, owner));
+      iconSprite.position.set(pos.x, tileY + 0.9, pos.z);
+      iconSprite.scale.setScalar(0.55);
+      boardGroup.add(iconSprite);
+    }
 
     /* Feld-Nummer — klein unten */
     const numSprite = makeTextSprite(String(tile.idx == null ? index : tile.idx), '#ffffff');
