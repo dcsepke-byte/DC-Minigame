@@ -1507,33 +1507,38 @@ function buildBoard() {
     const baseTileColor = tileColor(tile, owner);
     /* Etappe 2.5: Prozedurale Noise-Textur pro Tile-Farbe statt Flat-Color.
        Accent = leicht aufgehellt/abgedunkelt fuer sichtbare Struktur.
-       Textur wird gecacht (makeNoiseTexture) → nur einmal pro Farbe erzeugt. */
+       Textur wird gecacht (makeNoiseTexture) → nur einmal pro Farbe erzeugt.
+       Perf-Fix: Auf Mobile kleinere Texturen (32 statt 64) + keine Normal-Map. */
     const baseThree = new THREE.Color(baseTileColor);
     const accentThree = baseThree.clone().offsetHSL(0, 0, 0.12);
     const accentHex = '#' + accentThree.getHexString();
-    const noiseMap = makeNoiseTexture(baseTileColor, accentHex, 64);
+    const texSize = LOW ? 32 : 64;
+    const noiseMap = makeNoiseTexture(baseTileColor, accentHex, texSize);
     const tileMat = material(baseTileColor, { metalness: 0.5, emissiveIntensity: owner ? 0.44 : (isJunction ? 0.5 : 0.24) });
     tileMat.map = noiseMap;   /* Base-Color-Textur ueberlagert Solid-Farbe mit Noise */
-    tileMat.normalMap = makeNormalMap(baseTileColor, accentHex, 64);  /* Prozedurale Normal-Map fuer Tiefe */
-    tileMat.normalScale = new THREE.Vector2(0.6, 0.6);  /* Subtile Tiefenwirkung */
+    if (!LOW) {
+      tileMat.normalMap = makeNormalMap(baseTileColor, accentHex, texSize);  /* Prozedurale Normal-Map fuer Tiefe */
+      tileMat.normalScale = new THREE.Vector2(0.6, 0.6);  /* Subtile Tiefenwirkung */
+    }
     /* Feld — abgerundete Box (RoundedBoxGeometry), flach auf dem Pfad.
-       Mario-Party-Spielbrett-Look: weiche Kanten, freundliche Form. */
-    const tileMesh = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.22, 0.36, 4, 0.08), tileMat);
+       Mario-Party-Spielbrett-Look: weiche Kanten, freundliche Form.
+       Perf-Fix: Auf Mobile weniger Segmente (2 statt 4). */
+    const tileMesh = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.22, 0.36, LOW ? 2 : 4, 0.08), tileMat);
     tileMesh.position.set(pos.x, tileY, pos.z);
     tileMesh.rotation.y = -pos.angle;
     tileMesh.userData.index = tile.idx == null ? index : tile.idx;
-    tileMesh.castShadow = true;
-    tileMesh.receiveShadow = true;
+    tileMesh.castShadow = !LOW;
+    tileMesh.receiveShadow = !LOW;
     boardGroup.add(tileMesh);
 
     /* Cap — farbige Oberflaeche zeigt Feld-Typ, heller und klare Farben */
     const cap = new THREE.Mesh(
-      new RoundedBoxGeometry(0.4, 0.05, 0.28, 3, 0.04),
+      new RoundedBoxGeometry(0.4, 0.05, 0.28, LOW ? 2 : 3, 0.04),
       new THREE.MeshStandardMaterial({ color: color(tileColor(tile, owner)), transparent: true, opacity: 0.95, roughness: 0.5, emissive: color(tileColor(tile, owner)), emissiveIntensity: 0.22 })
     );
     cap.position.set(pos.x, tileY + 0.18, pos.z);
     cap.rotation.y = -pos.angle;
-    cap.receiveShadow = true;
+    cap.receiveShadow = !LOW;
     boardGroup.add(cap);
 
     /* Feld-Typ-Label — klar lesbar über dem Feld */
@@ -2288,7 +2293,10 @@ function updateBursts(delta) {
 }
 
 function buildParticles() {
-  const count = state.reducedMotion ? 160 : 420;
+  /* Perf-Fix: Auf Mobile/Low-End deutlich weniger Partikel (Points sind billig,
+     aber auf schwachen GPUs summiert sich jeder Draw-Call). */
+  const low = window.__partyLowEnd === true;
+  const count = low ? 60 : (state.reducedMotion ? 160 : 420);
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i += 1) {
     positions[i * 3] = (Math.random() - 0.5) * 32;

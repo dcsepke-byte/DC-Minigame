@@ -482,10 +482,14 @@
 
   function generateDecorSpecs(biome, center, rng) {
     var generators = G[biome] || G.village;
+    /* Perf-Fix: Auf Mobile/Low-End jede zweite Dekoration weglassen —
+       halbiert die Draw-Calls auf dem Board, ohne dass etwas fehlt. */
+    var lowEnd = (typeof window !== 'undefined' && window.__partyLowEnd === true);
     var all = [];
     generators.forEach(function (g) {
       var specs = g.gen(center, rng);
-      specs.forEach(function (s) {
+      specs.forEach(function (s, idx) {
+        if (lowEnd && idx % 2 === 1) return;  /* Mobile: jede 2. Deko weglassen */
         if (validateSpec(s)) all.push(s);
       });
     });
