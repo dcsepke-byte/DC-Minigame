@@ -66,6 +66,11 @@ let camLastY = 0;
 let camPinchDist = 0;
 /* Reusable Vector3 fuer Sprite-LOD im animate-Loop (vermeidet GC-Druck). */
 const _lodVec = new THREE.Vector3();
+/* Reusable Vector3 fuer die wandernde Showcase-Kamera. */
+const _showcaseVec = new THREE.Vector3();
+/* Showcase-Kamera (Hauptmenue): wandert langsam durch die Inselwelt.
+   target = Index der aktuell besuchten Figur, timer/hold steuern den Wechsel. */
+let showcaseCam = { target: 0, timer: 0, hold: 4.0 };
 /* Pawn-Hop-Animation — Meshes und Anim-State werden über rebuilds hinweg behalten */
 let pawnMeshes = {};   /* playerId -> THREE.Group */
 let pawnAnim = {};     /* playerId -> {active, from, to, currentStep, nextStep, progress, ...} */
@@ -2179,6 +2184,87 @@ function animateDice(delta, elapsed) {
   }
 }
 
+/* Baut eine tanzende Arenian-Figur fuer das Hauptmenue-Showcase.
+   Nutzt PawnModelLogic.buildPawnParts (gleiche Charakter-Bausteine wie
+   auf dem Board), aber ohne Board-Bezug, ohne Schatten und mit
+   Tanz-Animation (userData.dancer). */
+function buildShowcaseDancer(def, pos) {
+  const g = new THREE.Group();
+  g.position.set(pos.x, pos.y, pos.z);
+
+  function col(mode) {
+    if (mode === 'dark') return color('#3a3a5a');
+    if (mode === 'eye') return 0x111111;
+    return color(def.color);
+  }
+  function geo(part) {
+    const s = part.size;
+    if (part.geometry === 'sphere') return new THREE.SphereGeometry(s[0], s[1] || 10, s[2] || 8);
+    if (part.geometry === 'cylinder') return new THREE.CylinderGeometry(s[0], s[1], s[2], 10);
+    if (part.geometry === 'capsule') return new THREE.CapsuleGeometry(s[0], s[1], 6, 10);
+    if (part.geometry === 'box') return new THREE.BoxGeometry(s[0], s[1], s[2]);
+    if (part.geometry === 'cone') return new THREE.ConeGeometry(s[0], s[1], s[2] || 8);
+    return new THREE.SphereGeometry(s[0], 10, 8);
+  }
+
+  const PML = window.PawnModelLogic;
+  const parts = PML ? PML.buildPawnParts({ color: def.color, index: 0, kind: undefined }) : null;
+  if (parts) {
+    parts.forEach(p => {
+      const m = new THREE.MeshStandardMaterial({
+        color: col(p.colorMode),
+        roughness: p.material.roughness,
+        metalness: p.material.metalness,
+      });
+      if (p.colorMode === 'primary' || p.colorMode === 'accent') {
+        m.emissive = color(def.color);
+        m.emissiveIntensity = p.colorMode === 'accent' ? 0.4 : 0.18;
+      }
+      const mesh = new THREE.Mesh(geo(p), m);
+      mesh.position.set(p.position[0], p.position[1], p.position[2]);
+      if (p.rotation) mesh.rotation.set(p.rotation[0], p.rotation[1], p.rotation[2]);
+      /* Keine Schatten im Menue — spart Perf auf Mobile */
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      g.add(mesh);
+    });
+  } else {
+    /* Fallback: einfache Kugelfigur falls PawnModelLogic fehlt */
+    const body = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 14, 10),
+      material(def.color, { emissiveIntensity: 0.25 })
+    );
+    body.position.y = 0.5;
+    g.add(body);
+  }
+
+  /* Emoji ueber dem Kopf — erkennt die Figur sofort */
+  try {
+    const spr = makeTextSprite(def.emoji, def.color);
+    spr.scale.setScalar(0.34);
+    spr.position.y = 1.0;
+    g.add(spr);
+  } catch (_) {}
+
+  g.scale.setScalar(0.65);
+  /* Tanz-Daten: jeder Charakter bewegt sich anders (Phase/Speed/Amp/Spin) */
+  g.userData.dancer = {
+    baseY: pos.y,
+    phase: di_phase(),
+    speed: 2.0 + Math.random() * 1.4,
+    amp: 0.09 + Math.random() * 0.07,
+    spin: 0.35 + Math.random() * 0.45,
+    sway: 0.12 + Math.random() * 0.1,
+  };
+  return g;
+}
+/* Kleiner Helfer: phasenversetzter Startwinkel fuer Tanz-Animationen */
+let _dancerSeed = 0;
+function di_phase() {
+  _dancerSeed = (_dancerSeed + 1) % 8;
+  return (_dancerSeed / 8) * Math.PI * 2;
+}
+
 function buildShowcase() {
   if (!scene) return;
   if (showcaseGroup) {
@@ -2203,8 +2289,9 @@ function buildShowcase() {
     { name: 'Sternenzitadelle',color: 0xffe082, accent: 0x7b2ff7, r: 1.6, a: Math.PI * 1.85 },
   ];
 
-  /* Sanft drehende Welt — als dezent animierter Hintergrund */
-  showcaseGroup.userData.spinSpeed = 0.02;
+  /* Sanft drehende Welt — als dezent animierter Hintergrund.
+     Langsam genug, damit die wandernde Kamera das Tempo vorgibt. */
+  showcaseGroup.userData.spinSpeed = 0.012;
 
   ISLANDS.forEach((isl, i) => {
     const x = Math.cos(isl.a) * isl.r;
@@ -2284,6 +2371,35 @@ function buildShowcase() {
   }));
   goldPoints.userData.spin = 0.08;
   showcaseGroup.add(goldPoints);
+
+  /* Tanzende Arenian-Figuren auf den Inseln — die waehlbaren Charaktere
+     stehen sichtbar in der Welt (Mario-Party-Style: man sieht die Karte
+     UND die Figuren). Pro Insel 1-2 Figuren, jede tanzt anders. */
+  const DANCERS = [
+    { home: 'Sonnenstrand',     id: 'nixie', emoji: '🐟', name: 'Nixie', color: '#00f0ff' },
+    { home: 'Zuckerwald',       id: 'koko',  emoji: '🐼', name: 'Koko',  color: '#ff4d6d' },
+    { home: 'Wolkenwerk',       id: 'pip',   emoji: '🐿️', name: 'Pip',   color: '#ffd34e' },
+    { home: 'Frostgipfel',      id: 'momo',  emoji: '🦝', name: 'Momo',  color: '#ff3cac' },
+    { home: 'Dschungeltempel',  id: 'tiko',  emoji: '🐦', name: 'Tiko',  color: '#2bffb9' },
+    { home: 'Dschungeltempel',  id: 'bloom', emoji: '🌵', name: 'Bloom', color: '#7b2ff7' },
+    { home: 'Mechanik-Stadt',   id: 'brix',  emoji: '🧱', name: 'Brix',  color: '#ff6a00' },
+    { home: 'Mechanik-Stadt',   id: 'bolt',  emoji: '🤖', name: 'Bolt',  color: '#3a86ff' },
+  ];
+  const dancerTargets = [];
+  DANCERS.forEach((def, di) => {
+    const isl = ISLANDS.find(i => i.name === def.home);
+    if (!isl) return;
+    const x = Math.cos(isl.a) * isl.r;
+    const z = Math.sin(isl.a) * isl.r;
+    const lift = ISLANDS.indexOf(isl) % 2 === 0 ? 0.2 : -0.15;
+    const groundY = 0.4 + lift + 0.18;
+    /* Zwei Figuren auf einer Insel: leicht versetzt nebeneinander */
+    const side = (di % 2 === 0 ? -1 : 1) * 0.18;
+    const dancer = buildShowcaseDancer(def, { x: x + side, y: groundY, z: z - side * 0.6 });
+    showcaseGroup.add(dancer);
+    dancerTargets.push(dancer);
+  });
+  showcaseGroup.userData.dancers = dancerTargets;
 }
 
 /* ============================================================
@@ -2405,7 +2521,7 @@ function lookTarget() {
   return new THREE.Vector3(0, 0.75, 0);
 }
 
-function updateCamera() {
+function updateCamera(delta) {
   if (!camera) return;
   const board = state.mode === 'board';
   const game = state.mode === 'game';
@@ -2472,8 +2588,33 @@ function updateCamera() {
   } else if (game) {
     base = { x: camPanX, y: 8.2 + camPanY, z: 11.4 + (camZoom - 1) * 4 };
   } else {
-    /* Showcase (Hauptmenue): naeher an der Mini-Aethonia-Welt, damit
-       Inseln + ArenaStar gut sichtbar sind (nicht wie eine Spieluebersicht). */
+    /* Showcase (Hauptmenue): Kamera WANDERT langsam durch die Inselwelt
+       (Mario-Party-Style) — besucht die tanzenden Figuren nacheinander,
+       faehrt nahe an jeder Insel vorbei und schaut sie an. */
+    const dancers = (showcaseGroup && showcaseGroup.userData.dancers) || [];
+    if (dancers.length && !state.reducedMotion) {
+      showcaseCam.timer += (delta || 0.016);
+      if (showcaseCam.timer >= showcaseCam.hold) {
+        showcaseCam.timer = 0;
+        showcaseCam.target = (showcaseCam.target + 1) % dancers.length;
+        showcaseCam.hold = 3.6 + Math.random() * 2.0;
+      }
+      const d = dancers[showcaseCam.target];
+      const pos = d.getWorldPosition(_showcaseVec);
+      /* Leichtes Umschweben der Figur waehrend des Besuchs */
+      const ang = clock.getElapsedTime() * 0.35 + showcaseCam.target * 2.1;
+      const dist = 2.5;
+      const targetX = pos.x + Math.cos(ang) * dist + pointer.x * 1.2 + camPanX;
+      const targetY = Math.max(1.7, pos.y + 1.15 + pointer.y * 0.45 + camPanY);
+      const targetZ = pos.z + Math.sin(ang) * dist;
+      const k = 0.03;
+      camera.position.x += (targetX - camera.position.x) * k;
+      camera.position.y += (targetY - camera.position.y) * k;
+      camera.position.z += (targetZ - camera.position.z) * k;
+      camera.lookAt(pos.x, pos.y + 0.4, pos.z);
+      return;
+    }
+    /* Fallback: feste Kamera (Reduced-Motion oder keine Figuren) */
     base = { x: camPanX, y: 3.4 + camPanY, z: 6.6 + (camZoom - 1) * 4 };
   }
   const targetX = base.x + pointer.x * (board ? 1.5 : 1.2);
@@ -2506,7 +2647,7 @@ function animate() {
     }
   }
 
-  updateCamera();
+  updateCamera(delta);
   updatePawnHops(delta);
   /* Etappe 2.5 Perf: Bloom im Board-Modus aktiviert fuer Party-Feeling (sehr dezent, strength 0.2).
      Auf Mobile/Low-End bleibt Bloom aus (composer == null). */
@@ -2561,6 +2702,16 @@ function animate() {
     showcaseGroup.traverse(node => {
       if (node.userData && node.userData.spin) node.rotation.y += delta * node.userData.spin;
       if (node.userData && node.userData.orbit) node.position.y = 0.25 + Math.sin(elapsed * node.userData.orbit) * 0.15;
+      if (node.userData && node.userData.dancer) {
+        /* Tanz-Animation: Hupfen + Wippen + langsame Drehung.
+           Jede Figur tanzt mit eigenem Tempo und eigener Phase. */
+        const dv = node.userData.dancer;
+        const ph = elapsed * dv.speed + dv.phase;
+        node.position.y = dv.baseY + Math.sin(ph) * dv.amp * 1.5;
+        node.rotation.z = Math.sin(ph * 0.9) * dv.sway;
+        node.rotation.x = Math.cos(ph * 0.7) * dv.sway * 0.5;
+        node.rotation.y += delta * dv.spin;
+      }
     });
   }
 
