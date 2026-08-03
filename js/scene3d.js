@@ -1514,9 +1514,9 @@ function buildBoard() {
     regionLabel.userData.isLabel = true;   /* Etappe 2.5: Sprite-LOD im animate-Loop */
     boardGroup.add(regionLabel);
     /* Biom-spezifische Deko (Häuser/Brunnen, Dünen/Kakteen, Bäume/Pilze, Felsen/Kristalle).
-       Dichte-Erhoehung: Deko an 3 Punkten entlang des Segments statt nur im Zentrum →
-       die Regionen wirken bewohnt und gefuellt, nicht leer. */
-    const decoFracs = [0.2, 0.5, 0.8];
+       Deko an 2 Punkten pro Region (Kompromiss: gefuellt, aber nicht zu viele
+       Draw-Calls — Performance-Fix, Deko ist die teuerste Quelle). */
+    const decoFracs = [0.3, 0.7];
     decoFracs.forEach((frac, fi) => {
       const di = ri * 20 + Math.floor(frac * 20);
       const dp = mainPathPosition(Math.min(di, 159), 160);
@@ -1542,7 +1542,7 @@ function buildBoard() {
 
   /* Grasbüschel & Streudeko auf der ganzen Karte (nicht nur Regionen) — mehr Leben */
   const globalRng = mulberry32(98765);
-  const STREW_COUNT = LOW ? 28 : 56;
+  const STREW_COUNT = LOW ? 20 : 40;
   for (let i = 0; i < STREW_COUNT; i++) {
     const a = globalRng() * Math.PI * 2;
     const rad = 3.2 + globalRng() * 4.0;
