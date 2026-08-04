@@ -309,6 +309,54 @@ body.player-app .screen[data-screen="menu"] {
   pointer-events: none;
 }
 
+/* Figur-Vorschau im Hauptmenü — zeigt die gewählte Figur gross (Mario-Party-Hub-Style) */
+.menu-figure-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 340px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--menu-char-color, #888) 50%, var(--glass-border));
+  background:
+    radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--menu-char-color, #888) 28%, transparent), transparent 65%),
+    rgba(0, 0, 0, 0.32);
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--menu-char-color, #888) 30%, transparent);
+}
+.menu-figure-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 40px;
+  line-height: 1;
+  flex-shrink: 0;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--menu-char-color, #888) 78%, #ffffff 12%),
+    color-mix(in srgb, var(--menu-char-color, #888) 50%, #000000 26%));
+  border: 3px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--menu-char-color, #888) 55%, transparent);
+}
+.menu-figure-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-figure-name {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--txt);
+  letter-spacing: 0.5px;
+}
+.menu-figure-home {
+  font-size: 13px;
+  color: var(--txt-dim);
+}
+
+
 /* Menue-Buttons: grosse Touch-Ziele, freundliche Farben */
 .menu-buttons {
   display: flex;

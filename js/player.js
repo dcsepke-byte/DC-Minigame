@@ -189,6 +189,32 @@
       xpText.textContent = xpCur + ' / ' + xpNeed + ' XP';
     }
     updateJoinStarCount();
+    updateMenuFigurePreview();
+  }
+
+  /* Menü-Figur-Vorschau: zeigt die gewählte Figur gross (Name + Heimat) */
+  function updateMenuFigurePreview() {
+    const avatar = $('#menu-figure-avatar');
+    const nameEl = $('#menu-figure-name');
+    const homeEl = $('#menu-figure-home');
+    if (!avatar || !nameEl) return;
+    let fig = null;
+    try {
+      const emoji = localStorage.getItem('pa_figure') || (me && me.figure);
+      const charId = localStorage.getItem('pa_character_id') || (me && me.characterId);
+      fig = (window.ARENIANS || []).find(a =>
+        (a.id && charId && String(a.id) === String(charId)) ||
+        (a.emoji && emoji && a.emoji === emoji)
+      );
+    } catch (_) {}
+    if (!fig && (window.ARENIANS || []).length) fig = ARENIANS[0];
+    if (fig) {
+      avatar.textContent = fig.emoji || '🧱';
+      nameEl.textContent = fig.name || 'Brix';
+      homeEl.textContent = '🏝️ ' + (fig.home || 'Aethonia');
+      const wrap = document.getElementById('menu-figure-preview');
+      if (wrap) wrap.style.setProperty('--menu-char-color', fig.color || '#888888');
+    }
   }
 
   function updateUiSizeButton() {
