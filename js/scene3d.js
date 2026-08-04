@@ -3094,6 +3094,24 @@ function init() {
 
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);  /* leichter blauer Himmel-Nebel */
+    /* Himmel-Gradient als Hintergrund (statt transparent/weiss): erzeugt einen
+       sauberen Cartoon-Himmel, damit die Showcase-Welt das Bild fuellt statt
+       auf weissem Grund zu stehen ("sieht aus wie ein Schulprojekt"). */
+    try {
+      const skyCanvas = document.createElement('canvas');
+      skyCanvas.width = 2; skyCanvas.height = 256;
+      const sctx = skyCanvas.getContext('2d');
+      const grad = sctx.createLinearGradient(0, 0, 0, 256);
+      grad.addColorStop(0, '#5ec4ff');   /* klarblau oben */
+      grad.addColorStop(0.55, '#a8ddff');
+      grad.addColorStop(1, '#e6f6ff');   /* hell am Horizont */
+      sctx.fillStyle = grad;
+      sctx.fillRect(0, 0, 2, 256);
+      const skyTex = new THREE.CanvasTexture(skyCanvas);
+      scene.background = skyTex;
+    } catch (_) {
+      scene.background = new THREE.Color(0x87ceeb);
+    }
     camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 6000);
     camera.position.set(0, 440, 820);
     clock = new THREE.Clock();
