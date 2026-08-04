@@ -60,6 +60,7 @@ let camPanX = 0;            /* Pan-Offset X (Drag) */
 let camPanY = 0;            /* Pan-Offset Y (Drag) */
 let camZoom = 1;            /* Zoom-Faktor (Pinch / Scroll) */
 let camFollow = true;       /* Follow-Toggle: Kamera folgt aktiver Figur */
+let resetDone = false;      /* Einmaliger Kamera-Reset beim ersten Board-Update */
 let camDragging = false;
 let camLastX = 0;
 let camLastY = 0;
@@ -2962,6 +2963,34 @@ function showBoard() {
     buildBoard();
     syncVisibility();
   }
+  /* Kamera-Reset: Sofort auf das Board springen statt langsamer Interpolation
+     aus der riesigen Showcase-Welt (startete bei y=440 → reinzoomen dauerte
+     ewig, Figuren waren nie fixiert). Fix fuer "Kugel in Mitte + langsam rein". */
+  resetCameraForBoard();
+}
+
+/* Kamera sofort auf die aktive Figur / das Board setzen (kein langsames Einzoomen).
+   Wird bei jedem Board-Betritt und jedem setBoardState aufgerufen. */
+function resetCameraForBoard() {
+  if (!camera) return;
+  try {
+    const focus = activePawnWorldPos();
+    const outLen = Math.hypot(focus.x, focus.z) || 1;
+    let bx, by, bz;
+    if (outLen < 3) {
+      bx = 0; by = 14; bz = 14;  /* Start-Zentrum */
+    } else {
+      const ang = camOrbitYaw || 0;
+      bx = focus.x + Math.sin(ang) * (7.5 + (camZoom - 1) * 4);
+      by = focus.y + 8.5 + (camZoom - 1) * 3;
+      bz = focus.z + Math.cos(ang) * (7.5 + (camZoom - 1) * 4);
+    }
+    camera.position.set(bx, by, bz);
+    camera.lookAt(focus.x, focus.y + 0.3, focus.z);
+  } catch (_) {
+    camera.position.set(0, 14, 14);
+    camera.lookAt(0, 0.3, 0);
+  }
 }
 
 function showMiniGame(id, meta) {
@@ -3005,6 +3034,12 @@ function setBoardState(payload) {
     buildBoard();
     if (state.mode !== 'game') state.mode = 'board';
     syncVisibility();
+    /* Kamera beim ersten Board-Update sofort aufs Brett setzen (kein langsames
+       Einzoomen aus der Showcase-Welt — Fix fuer "Kugel in Mitte + langsam"). */
+    if (!resetDone) {
+      resetDone = true;
+      resetCameraForBoard();
+    }
   }
 }
 
