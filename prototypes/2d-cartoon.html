@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Party Arena — 2D Top-Down Welt Prototyp</title>
+<title>Party Arena — 2D Weltkarte Prototyp</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif; touch-action:none; }
-  body { background:#4a7a3a; display:flex; flex-direction:column; }
+  body { background:#3a6e2a; display:flex; flex-direction:column; }
   header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; z-index:5; }
   .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.5); letter-spacing:1px; }
   .logo span { color:#ffe14d; }
@@ -23,11 +23,12 @@
   .pchip.active { background:rgba(255,255,255,.9); color:#2b6ea8; box-shadow:0 2px 8px rgba(0,0,0,.2); }
   .msg { font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.6); margin-top:2px; }
   .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.95); text-shadow:0 1px 2px rgba(0,0,0,.6); z-index:4; pointer-events:none; }
+  #loading { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:700; background:#3a6e2a; z-index:20; }
 </style>
 </head>
 <body>
   <header><div class="logo">PARTY<span>ARENA</span></div><div class="round-badge">Runde 1</div></header>
-  <div class="board-wrap"><canvas id="board"></canvas><div class="hint">🖐 Ziehen zum Verschieben · 🔍 Pinchen zum Zoomen</div></div>
+  <div class="board-wrap"><canvas id="board"></canvas><div id="loading">Lade Weltkarte…</div><div class="hint">🖐 Ziehen zum Verschieben · 🔍 Pinchen zum Zoomen</div></div>
   <footer>
     <button class="dice-btn" id="diceBtn">🎲</button>
     <div class="turn-info">
@@ -42,89 +43,87 @@ const ARENIANS=[
 ];
 
 /* =========================================================
-   TOP-DOWN SPIELWELT: Blick von oben auf eine echte Landschaft.
-   Grüne Wiesen, Wege (Trampelpfade), Gebäude, Bäume, Berge.
-   Wege-Netz mit KLAREN Verzweigungen (Weggabelungen).
+   GROSSE DETAILLIERTE WELTKARTE (Kenney CC0 Tiny Town als Basis)
+   Wegenetz mit vielen Feldern + klar markierten Verzweigungen.
+   Karte: ../assets/kenney-tiny-town/world_base.png (812x744)
    ========================================================= */
+const MAP = { img:null, w:812, h:744 };
 
-// Felder (Knoten) im Wegenetz. `next` = mehrere = VERZWEIGUNG.
+// Kartengraph: Felder in Karten-Koordinaten (0..812, 0..744)
 const F=[];
 function addF(x,y,type,next){const i=F.length;F.push({idx:i,x,y,type,next:next||[]});return i;}
 (function(){
-  // Zitadellen-Platz (Start, oben links)
-  const s=addF(-500,-350,'start');
+  // Zitadelle (Start, unten links beim Schloss)
+  const s=addF(110,620,'start');
   // Hauptstraße nach Osten
-  const a=addF(-380,-350,'normal');
-  const b=addF(-260,-350,'shop');
-  const c=addF(-140,-350,'normal');
-  // VERZWEIGUNG 1 bei c: nach oben (Berg) ODER weiter nach Osten (Wiese)
-  const c_up=addF(-140,-460,'star');
-  const c_east=addF(-20,-350,'normal');
-  // Weiter nach Osten
-  const d=addF(100,-350,'lucky');
-  const e=addF(220,-350,'normal');
-  const f=addF(340,-350,'star');
-  const g=addF(460,-350,'normal');  // Ostrand oben
-  // Bergpfad (vom c_up): über den Berg nach Süden
-  const b1=addF(-140,-520,'normal');
-  const b2=addF(-60,-500,'star');
-  const b3=addF(20,-460,'normal');
-  // VERZWEIGUNG 2 bei b3: nach Süden in den Wald ODER zurück nach Osten
-  const b3_south=addF(20,-340,'normal');
-  const b3_east=addF(140,-420,'lucky');
-  const b3_e2=addF(260,-460,'normal');
-  const b3_e3=addF(380,-500,'star');  // Berggipfel rechts
-  // Süd-Wald-Pfad
-  const w1=addF(20,-220,'normal');
-  const w2=addF(-40,-120,'lucky');
-  const w3=addF(-120,-40,'normal');
-  const w4=addF(-220,-60,'star');
-  const w5=addF(-320,-120,'normal');
-  // VERZWEIGUNG 3 bei w5: nach Westen (zum Start) ODER nach Süden (Wiese)
-  const w5_west=addF(-420,-200,'normal');
-  const w5_south=addF(-320,0,'normal');
-  const ws2=addF(-320,120,'lucky');
-  const ws3=addF(-240,200,'normal');
-  const ws4=addF(-120,240,'star');
-  const ws5=addF(0,200,'normal');
-  const ws6=addF(80,120,'shop');
-  const ws7=addF(140,20,'normal');
-  // Verbindungen setzen
+  const a=addF(200,600,'normal');
+  const b=addF(290,580,'shop');
+  const c=addF(380,560,'normal');
+  // VERZWEIGUNG 1: nach Norden (Wald/Berg) oder weiter Osten
+  const c_n=addF(380,470,'star');
+  const c_e=addF(470,560,'normal');
+  const d=addF(560,540,'lucky');
+  const e=addF(650,520,'normal');
+  const f=addF(740,500,'star');
+  const g=addF(760,420,'normal');
+  // Nord-Pfad (vom c_n): über den Wald
+  const n1=addF(430,400,'normal');
+  const n2=addF(500,330,'star');
+  const n3=addF(580,280,'normal');
+  const n4=addF(660,240,'shop');
+  const n5=addF(700,170,'lucky');
+  // VERZWEIGUNG 2: vom n3 nach Südosten ODER weiter Norden
+  const n3_se=addF(640,340,'normal');
+  const n3_n=addF(540,220,'normal');
+  // Süd-Pfad (Seen)
+  const s1=addF(220,450,'normal');
+  const s2=addF(260,360,'lucky');
+  const s3=addF(340,300,'normal');
+  const s4=addF(420,240,'star');
+  const s5=addF(500,180,'shop');
+  // VERZWEIGUNG 3: vom s5 nach Osten (Berg) oder Westen (zurück)
+  const s5_e=addF(580,160,'normal');
+  const s5_w=addF(420,120,'normal');
+  // West-See-Pfad
+  const w1=addF(340,110,'normal');
+  const w2=addF(280,60,'star');
+  // Verbindungen
   F[s].next=[a];
   F[a].next=[b];F[b].next=[c];
-  F[c].next=[c_up,c_east];       // ← VERZWEIGUNG 1
-  F[c_up].next=[b1];F[b1].next=[b2];F[b2].next=[b3];
-  F[b3].next=[b3_south,b3_east]; // ← VERZWEIGUNG 2
-  F[b3_south].next=[w1];F[w1].next=[w2];F[w2].next=[w3];F[w3].next=[w4];F[w4].next=[w5];
-  F[w5].next=[w5_west,w5_south]; // ← VERZWEIGUNG 3
-  F[w5_west].next=[s];           // zurück zum Start
-  F[w5_south].next=[ws2];F[ws2].next=[ws3];F[ws3].next=[ws4];F[ws4].next=[ws5];
-  F[ws5].next=[ws6];F[ws6].next=[ws7];
-  F[ws7].next=[b3_east];         // Schleife schließt sich zum Bergpfad
-  F[c_east].next=[d];F[d].next=[e];F[e].next=[f];F[f].next=[g];
-  F[g].next=[b3_e2];F[b3_e2].next=[b3_e3];
-  F[b3_east].next=[b3_e2];
+  F[c].next=[c_n,c_e];        // ← VERZWEIGUNG 1
+  F[c_n].next=[n1];F[n1].next=[n2];F[n2].next=[n3];
+  F[n3].next=[n3_se,n3_n];    // ← VERZWEIGUNG 2
+  F[n3_se].next=[n4];F[n4].next=[n5];
+  F[n3_n].next=[w2];F[w2].next=[w1];
+  F[c_e].next=[d];F[d].next=[e];F[e].next=[f];F[f].next=[g];
+  // Süd
+  F[s].next.push(s1);         // auch südlicher Ausgang vom Start
+  F[s1].next=[s2];F[s2].next=[s3];F[s3].next=[s4];F[s4].next=[s5];
+  F[s5].next=[s5_e,s5_w];     // ← VERZWEIGUNG 3
+  F[s5_e].next=[n5];          // trifft Nordpfad
+  F[s5_w].next=[w1];
+  F[w1].next=[w2];
 })();
 const TILE_COUNT=F.length;
 const TYPE_ICON={start:'🏁',star:'⭐',lucky:'🍀',shop:'🛒',normal:''};
 const TYPE_COLOR={start:'#ffe14d',star:'#fff3b0',lucky:'#c9f7a8',shop:'#a8e4f7',normal:'#f7f0dc'};
 
-let players=[{id:'brix',char:ARENIANS[0],pos:0,moving:null},{id:'nixie',char:ARENIANS[1],pos:8,moving:null}];
+let players=[{id:'brix',char:ARENIANS[0],pos:0,moving:null},{id:'nixie',char:ARENIANS[1],pos:10,moving:null}];
 let turn=0,diceRolling=false;
 
 const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
-let cam={x:0,y:0,z:0.55};
+let cam={x:0,y:0,z:0.62};
 function resize(){DPR=Math.min(window.devicePixelRatio||1,2);const r=canvas.parentElement.getBoundingClientRect();W=r.width;H=r.height;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
 window.addEventListener('resize',resize);
 let dragging=false,lx=0,ly=0;
 canvas.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener('pointermove',e=>{if(dragging){cam.x+=(e.clientX-lx)/cam.z;cam.y+=(e.clientY-ly)/cam.z;lx=e.clientX;ly=e.clientY;}});
 canvas.addEventListener('pointerup',()=>dragging=false);
-canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(1.3,cam.z*(e.deltaY<0?1.1:.9)));},{passive:false});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(1.6,cam.z*(e.deltaY<0?1.12:.9)));},{passive:false});
 let pinch=0;
 canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:false});
-canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.3,Math.min(1.3,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.3,Math.min(1.6,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
 
 document.getElementById('diceBtn').addEventListener('click',()=>{
   if(diceRolling)return;
@@ -145,121 +144,69 @@ function updateMove(dt){
 }
 function lighten(hex,amt){const n=parseInt(hex.slice(1),16);return `rgb(${Math.min(255,(n>>16)+amt)},${Math.min(255,((n>>8)&255)+amt)},${Math.min(255,(n&255)+amt)})`;}
 
-/* ---- Grüne Spielwelt (Top-Down): Wiesen + Deko ---- */
-function drawGround(){
-  // Basis-Wiese
-  ctx.fillStyle='#5da63f';ctx.fillRect(-1000,-1000,2000,2000);
-  // Gras-Textur (helle/dunkle Flecken)
-  for(let y=-900;y<900;y+=55){
-    for(let x=-900;x<900;x+=55){
-      const v=(Math.sin(x*0.13+y*0.07)*0.5+0.5);
-      ctx.fillStyle=v>0.6?'rgba(255,255,255,.05)':v<0.35?'rgba(0,0,0,.06)':'transparent';
-      if(v>0.6||v<0.35){ctx.beginPath();ctx.arc(x+Math.sin(y)*30,y+Math.cos(x)*20,26,0,Math.PI*2);ctx.fill();}
-    }
-  }
-}
-function drawTrees(){
-  // Bäume (rund, von oben)
-  const trees=[[-450,-280],[-300,-450],[-80,-450],[250,-280],[480,-450],[-380,80],[-80,160],[180,280],[300,180],[-300,320],[-500,100],[400,20]];
-  trees.forEach(t=>{
-    ctx.beginPath();ctx.ellipse(t[0]+8,t[1]+12,34,24,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.15)';ctx.fill();
-    ctx.beginPath();ctx.arc(t[0],t[1],32,0,Math.PI*2);
-    const g=ctx.createRadialGradient(t[0]-10,t[1]-10,5,t[0],t[1],34);
-    g.addColorStop(0,'#7ec850');g.addColorStop(1,'#4a8a30');
-    ctx.fillStyle=g;ctx.fill();
-    ctx.beginPath();ctx.arc(t[0]-10,t[1]-12,6,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.3)';ctx.fill();
-  });
-}
-function drawHouses(){
-  // Häuser (von oben: Dach + Umriss)
-  const houses=[[-420,-370,0],[-200,-380,1],[380,-370,0],[180,-160,1],[-380,-40,0]];
-  houses.forEach(h=>{
-    ctx.save();ctx.translate(h[0],h[1]);
-    ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(-3,8,66,50);
-    ctx.fillStyle='#d95b43';ctx.fillRect(-28,-20,56,40);
-    ctx.strokeStyle='#8a3a28';ctx.lineWidth=3;ctx.strokeRect(-28,-20,56,40);
-    ctx.beginPath();ctx.moveTo(-32,-18);ctx.lineTo(0,-40);ctx.lineTo(32,-18);ctx.closePath();ctx.fillStyle='#b23b28';ctx.fill();ctx.stroke();
-    ctx.fillStyle='#f7d84e';ctx.fillRect(-14,4,28,18); // Fenster
-    ctx.restore();
-  });
-}
-function drawMountains(){
-  // Berge (von oben: helle Gipfel)
-  const mnt=[[-140,-520,70],[-60,-540,55],[260,-470,60],[380,-520,75]];
-  mnt.forEach(m=>{
-    ctx.beginPath();ctx.ellipse(m[0]+10,m[1]+14,m[2],m[2]*0.7,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.15)';ctx.fill();
-    ctx.beginPath();ctx.arc(m[0],m[1],m[2],0,Math.PI*2);
-    const g=ctx.createRadialGradient(m[0],m[1],5,m[0],m[1],m[2]);
-    g.addColorStop(0,'#e8e4d8');g.addColorStop(.6,'#c8bfa8');g.addColorStop(1,'#8a8370');
-    ctx.fillStyle=g;ctx.fill();
-    ctx.beginPath();ctx.arc(m[0]-m[2]*0.3,m[1]-m[2]*0.3,m[2]*0.3,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.8)';ctx.fill();
-  });
-}
-
-/* ---- Wege (Trampelpfade) + klare Verzweigungen ---- */
+/* --- Wege (Trampelpfade) über die Karte --- */
 function drawEdges(){
   ctx.lineCap='round';ctx.lineJoin='round';
   F.forEach(f=>{
     (f.next||[]).forEach(ni=>{
       const t=F[ni];
-      // Pfad-Außenkante (dunkler)
       ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);
-      ctx.lineWidth=60;ctx.strokeStyle='rgba(90,70,40,.35)';ctx.stroke();
-      // Pfad-Innenfläche (heller Trampelpfad)
-      ctx.lineWidth=42;ctx.strokeStyle='#d8c896';ctx.stroke();
-      // Gras-Rand
-      ctx.lineWidth=46;ctx.strokeStyle='rgba(255,255,200,.15)';ctx.stroke();
+      ctx.lineWidth=30;ctx.strokeStyle='rgba(90,70,40,.25)';ctx.stroke();
+      ctx.lineWidth=22;ctx.strokeStyle='#d8c896';ctx.stroke();
     });
   });
 }
-/* Wegweiser an Verzweigungen */
-function drawJunction(f){
-  ctx.beginPath();ctx.arc(f.x,f.y,36,0,Math.PI*2);
-  ctx.fillStyle='#f7e8c0';ctx.fill();ctx.lineWidth=5;ctx.strokeStyle='#c8a050';ctx.stroke();
-  ctx.font='700 30px "Baloo 2",sans-serif';ctx.fillStyle='#7a5a20';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🛣',f.x,f.y+2);
-}
 
-/* ---- Felder ---- */
+/* --- Felder --- */
 function drawTiles(){
   F.forEach(f=>{
     const isJunction=f.next.length>1;
-    const r=isJunction?38:32;
-    ctx.beginPath();ctx.arc(f.x+3,f.y+5,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.2)';ctx.fill();
+    const r=isJunction?30:24;
+    ctx.beginPath();ctx.arc(f.x+3,f.y+4,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
     const g=ctx.createRadialGradient(f.x-r*.3,f.y-r*.3,r*.2,f.x,f.y,r);
-    g.addColorStop(0,'#fff');g.addColorStop(.5,TYPE_COLOR[f.type]);g.addColorStop(1,'#e0d0a8');
+    g.addColorStop(0,'#fff');g.addColorStop(.5,TYPE_COLOR[f.type]);g.addColorStop(1,'#d8c8a0');
     ctx.beginPath();ctx.arc(f.x,f.y,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
     ctx.lineWidth=isJunction?5:4;ctx.strokeStyle='#fff';ctx.stroke();
-    if(isJunction){ctx.font='24px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🛣',f.x,f.y+1);}
-    else if(TYPE_ICON[f.type]){ctx.font='24px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(TYPE_ICON[f.type],f.x,f.y+1);}
-    else{ctx.font='700 12px "Baloo 2",sans-serif';ctx.fillStyle='rgba(80,60,30,.7)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.idx+1,f.x,f.y+1);}
+    if(isJunction){ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🛣',f.x,f.y+1);}
+    else if(TYPE_ICON[f.type]){ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(TYPE_ICON[f.type],f.x,f.y+1);}
+    else{ctx.font='700 11px "Baloo 2",sans-serif';ctx.fillStyle='rgba(80,60,30,.7)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.idx+1,f.x,f.y+1);}
   });
 }
 function drawPlayers(){
   players.forEach(p=>{
     const idx=Math.max(0,Math.min(TILE_COUNT-1,Math.round(p.pos)));
     const f=F[idx];
-    const hop=p.moving?Math.sin(p.moving.t*Math.PI)*24:0;
-    ctx.beginPath();ctx.ellipse(f.x,f.y+28,26,10,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
-    ctx.beginPath();ctx.arc(f.x,f.y-hop,32,0,Math.PI*2);
-    const g=ctx.createRadialGradient(f.x-10,f.y-hop-10,4,f.x,f.y-hop,34);
+    const hop=p.moving?Math.sin(p.moving.t*Math.PI)*20:0;
+    ctx.beginPath();ctx.ellipse(f.x,f.y+24,20,8,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.35)';ctx.fill();
+    ctx.beginPath();ctx.arc(f.x,f.y-hop,26,0,Math.PI*2);
+    const g=ctx.createRadialGradient(f.x-8,f.y-hop-8,3,f.x,f.y-hop,28);
     g.addColorStop(0,lighten(p.char.color,50));g.addColorStop(1,p.char.color);
-    ctx.fillStyle=g;ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.25)';ctx.stroke();
-    ctx.font='32px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,f.x,f.y-hop+1);
+    ctx.fillStyle=g;ctx.fill();ctx.lineWidth=3.5;ctx.strokeStyle='rgba(0,0,0,.3)';ctx.stroke();
+    ctx.font='26px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,f.x,f.y-hop+1);
   });
 }
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.save();ctx.translate(W/2+cam.x*cam.z,H/2+cam.y*cam.z);ctx.scale(cam.z,cam.z);
-  drawGround();
+  if(MAP.img){
+    // Weltkarte zentriert
+    ctx.drawImage(MAP.img,-MAP.w/2,-MAP.h/2,MAP.w,MAP.h);
+    // leichte Vignette/Overlay für Lesbarkeit
+    ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(-MAP.w/2,-MAP.h/2,MAP.w,MAP.h);
+  }
   drawEdges();
-  drawTrees();drawHouses();drawMountains();
   drawTiles();
   drawPlayers();
   ctx.restore();
 }
 let last=0;
 function loop(t){const dt=Math.min(.05,(t-last)/1000||.016);last=t;updateMove(dt);draw();requestAnimationFrame(loop);}
-resize();updateChips();setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);
+
+// Karte laden
+const img=new Image();
+img.onload=()=>{MAP.img=img;document.getElementById('loading').style.display='none';resize();updateChips();setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);};
+img.onerror=()=>{document.getElementById('loading').textContent='Karte fehlt — laufe ohne';resize();updateChips();requestAnimationFrame(loop);};
+img.src='../assets/kenney-tiny-town/world_base.png';
 </script>
 </body>
 </html>
