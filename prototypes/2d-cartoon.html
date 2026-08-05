@@ -3,21 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Party Arena — 2D Insel-Welt Prototyp</title>
+<title>Party Arena — 2D Kartengraph Prototyp</title>
 <style>
-  :root { --brix:#ff6a00; --nixie:#00f0ff; --pip:#ffd34e; --koko:#ff4d6d; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif; touch-action:none; }
-  body { background:linear-gradient(180deg,#3fa9e0 0%,#6cc4ee 50%,#a8ddff 100%); display:flex; flex-direction:column; }
-
-  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; gap:8px; z-index:5; }
-  .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.3); letter-spacing:1px; }
+  body { background:linear-gradient(180deg,#2a7fce 0%,#3a9de0 45%,#6cc4ee 100%); display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; z-index:5; }
+  .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.4); letter-spacing:1px; }
   .logo span { color:#ffe14d; }
-  .round-badge { background:#fff; color:#2b6ea8; font-weight:800; font-size:13px; padding:6px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.15); }
-
-  .board-wrap { flex:1; position:relative; margin:0 8px; overflow:hidden; border-radius:24px; box-shadow:0 10px 40px rgba(0,0,0,.25), inset 0 0 0 4px rgba(255,255,255,.25); }
+  .round-badge { background:rgba(255,255,255,.9); color:#2b6ea8; font-weight:800; font-size:13px; padding:6px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+  .board-wrap { flex:1; position:relative; margin:0 8px; overflow:hidden; border-radius:24px; box-shadow:0 10px 40px rgba(0,0,0,.35), inset 0 0 0 4px rgba(255,255,255,.3); }
   canvas#board { width:100%; height:100%; display:block; }
-
   footer { display:flex; align-items:center; gap:12px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); z-index:5; }
   .dice-btn { width:72px; height:72px; border-radius:18px; border:none; font-size:38px; background:linear-gradient(145deg,#fff,#e8e8f0); box-shadow:0 6px 20px rgba(0,0,0,.25), inset 0 -3px 0 rgba(0,0,0,.12); cursor:pointer; transition:transform .1s; flex-shrink:0; display:grid; place-items:center; }
   .dice-btn:active { transform:scale(.92); }
@@ -25,8 +21,8 @@
   .players-row { display:flex; gap:6px; }
   .pchip { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,.25); padding:4px 10px; border-radius:14px; color:#fff; font-weight:700; font-size:12px; }
   .pchip.active { background:rgba(255,255,255,.9); color:#2b6ea8; box-shadow:0 2px 8px rgba(0,0,0,.2); }
-  .msg { font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); margin-top:2px; }
-  .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.85); text-shadow:0 1px 2px rgba(0,0,0,.4); z-index:4; pointer-events:none; }
+  .msg { font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5); margin-top:2px; }
+  .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.9); text-shadow:0 1px 2px rgba(0,0,0,.5); z-index:4; pointer-events:none; }
 </style>
 </head>
 <body>
@@ -39,228 +35,248 @@
       <div class="msg" id="msg">Tippe den Würfel!</div>
     </div>
   </footer>
-
 <script>
-const ARENIANS = [
-  { id:'brix', emoji:'🧱', name:'Brix',  color:'#ff6a00', home:'Mechanik-Stadt' },
-  { id:'nixie',emoji:'🐟', name:'Nixie', color:'#00f0ff', home:'Sonnenstrand' },
-  { id:'pip',  emoji:'🐿️',name:'Pip',   color:'#ffd34e', home:'Wolkenwerk' },
-  { id:'koko', emoji:'🐼', name:'Koko',  color:'#ff4d6d', home:'Zuckerwald' },
-  { id:'tiko', emoji:'🐦', name:'Tiko',  color:'#2bffb9', home:'Dschungeltempel' },
-  { id:'bolt', emoji:'🤖', name:'Bolt',  color:'#3a86ff', home:'Mechanik-Stadt' },
-  { id:'bloom',emoji:'🌵', name:'Bloom', color:'#7b2ff7', home:'Dschungeltempel' },
-  { id:'momo', emoji:'🦝', name:'Momo',  color:'#ff3cac', home:'Frostgipfel' },
+const ARENIANS=[
+  {id:'brix',emoji:'🧱',name:'Brix',color:'#ff6a00'},
+  {id:'nixie',emoji:'🐟',name:'Nixie',color:'#00f0ff'},
+  {id:'pip',emoji:'🐿️',name:'Pip',color:'#ffd34e'},
+  {id:'koko',emoji:'🐼',name:'Koko',color:'#ff4d6d'}
 ];
 
 /* =========================================================
-   INSELE-WELT: 7 Inseln (Biome), verbunden durch einen Pfad mit
-   Feldern. Die Figur wandert von Insel zu Insel über Brücken.
-   Layout folgt der World-Architecture (Struktur, dann Regionen).
+   KARTEN-GRAPH: Felder (Knoten) + Kanten (Pfade) + Verzweigungen.
+   Jedes Feld hat `next` → mehrere = Abzweigung.
+   Felder sitzen AUF den Inseln (Regionen) UND auf Brückenpfaden.
    ========================================================= */
-
-// Insel-Definitionen (Welt-Koordinaten)
-const ISLANDS = [
-  { name:'Sternenzitadelle', color:'#ffd34e', edge:'#e0a800', x:-500, y:-260, r:150, icon:'👑' },
-  { name:'Mechanik-Stadt',   color:'#b8bfca', edge:'#8a94a6', x: 0,   y:-300, r:130, icon:'⚙️' },
-  { name:'Zuckerwald',       color:'#f8a8c8', edge:'#e0609a', x: 500, y:-260, r:130, icon:'🍭' },
-  { name:'Sonnenstrand',     color:'#ffe066', edge:'#e0a800', x:-400, y: 180, r:120, icon:'🏖️' },
-  { name:'Wolkenwerk',       color:'#cfe6ff', edge:'#9cc4f0', x: 0,   y: 280, r:115, icon:'☁️' },
-  { name:'Frostgipfel',      color:'#cfe0f5', edge:'#a0c0e8', x: 420, y: 200, r:120, icon:'❄️' },
-  { name:'Dschungeltempel',  color:'#a8e6a0', edge:'#5cb85c', x: 0,   y: 20,  r:95,  icon:'🗿' },
+const REGIONS = [
+  { name:'Sternenzitadelle', color:'#ffd34e', edge:'#d99a00', x:0,   y:-470, r:130, icon:'👑' },
+  { name:'Mechanik-Stadt',   color:'#b8bfca', edge:'#8a94a6', x:-420,y:-200, r:100, icon:'⚙️' },
+  { name:'Zuckerwald',       color:'#f8a8c8', edge:'#e0609a', x:420, y:-200, r:100, icon:'🍭' },
+  { name:'Sonnenstrand',     color:'#ffe066', edge:'#e0a800', x:-380,y:280,  r:105, icon:'🏖️' },
+  { name:'Wolkenwerk',       color:'#cfe6ff', edge:'#9cc4f0', x:380, y:300,  r:95,  icon:'☁️' },
+  { name:'Dschungeltempel',  color:'#a8e6a0', edge:'#5cb85c', x:0,   y:120,  r:90,  icon:'🗿' },
 ];
+// Region-Zuordnung pro Feld-Index (siehe unten)
 
-// Pfad der durch die Inseln führt (Feld-Positionen entlang einer Kurve)
-const PATH = [];
-(function buildPath(){
-  const pts = [
-    [-420,-60],[-180,40],[0,130],[180,150],[350,80],[430,-30],[380,-180],
-    [260,-260],[80,-260],[-80,-200],[-220,-140],[-380,-60],[-500,40],[-520,170],
-    [-380,260],[-180,300],[0,330],[200,300],[380,240],[480,120],[420,0]
-  ];
-  // Berechne glatte Kurve (Catmull-Rom) mit vielen Samples
-  const samples = [];
-  for(let i=0;i<pts.length-1;i++){
-    const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(pts.length-1,i+2)];
-    for(let f=0;f<1;f+=0.04){
-      const f2=f*f, f3=f2*f;
-      const x=0.5*((2*p1[0])+(-p0[0]+p2[0])*f+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*f2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*f3);
-      const y=0.5*((2*p1[1])+(-p0[1]+p2[1])*f+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*f2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*f3);
-      samples.push({x,y});
-    }
-  }
-  // Kumulative Länge berechnen
-  const cum=[0];
-  for(let i=1;i<samples.length;i++){
-    const dx=samples[i].x-samples[i-1].x, dy=samples[i].y-samples[i-1].y;
-    cum.push(cum[i-1]+Math.sqrt(dx*dx+dy*dy));
-  }
-  const total=cum[cum.length-1];
-  // 32 Felder mit gleichmäßigem Abstand (60px+ → keine Überlappung)
-  const N=32, STEP=total/N;
-  let si=0;
-  for(let n=0;n<N;n++){
-    const target=n*STEP;
-    while(si<cum.length-1 && cum[si+1]<target) si++;
-    const f=cum[si+1]-cum[si]<=0?0:(target-cum[si])/(cum[si+1]-cum[si]);
-    const a=samples[si], b=samples[Math.min(samples.length-1,si+1)];
-    PATH.push({ x: a.x+(b.x-a.x)*f, y: a.y+(b.y-a.y)*f });
-  }
+// Feld-Node: { x, y, region, type, next:[indizes] }
+const F = [];
+
+// Helper
+function addF(x,y,region,type,next){ const i=F.length; F.push({idx:i,x,y,region,type,next}); return i; }
+
+(function buildGraph(){
+  // --- Zitadelle (Hub, oben Mitte): Start-Felder ---
+  const s1=addF(-70,-470,'Zitadelle','start',[]);
+  const s2=addF(0,-520,'Zitadelle','normal',[s1]);
+  const s3=addF(70,-470,'Zitadelle','star',[s2]);
+  F[s1].next=[s2];
+
+  // --- Linke Kette: Zitadelle → Mechanik-Stadt ---
+  const m1=addF(-140,-390,'Mechanik','normal',[s1]);
+  const m2=addF(-230,-340,'Mechanik','normal',[m1]);
+  const m3=addF(-320,-280,'Mechanik','shop',[m2]);
+  const m4=addF(-400,-220,'Mechanik','normal',[m3]);
+  const m5=addF(-450,-160,'Mechanik','star',[m4]);  // Ende Mechanik-Insel
+  F[s1].next.push(m1);
+
+  // --- Rechte Kette: Zitadelle → Zuckerwald ---
+  const z1=addF(140,-390,'Zuckerwald','normal',[s3]);
+  const z2=addF(230,-340,'Zuckerwald','lucky',[z1]);
+  const z3=addF(320,-280,'Zuckerwald','normal',[z2]);
+  const z4=addF(400,-220,'Zuckerwald','shop',[z3]);
+  const z5=addF(450,-160,'Zuckerwald','normal',[z4]);  // Ende Zuckerwald
+  F[s3].next.push(z1);
+
+  // --- Verzweigung: Mechanik-Ende → nach unten (Strand) ODER zurück ---
+  const b1=addF(-420,20,'Brücke','normal',[m5]);
+  const b2=addF(-380,120,'Brücke','lucky',[b1]);
+  const b3=addF(-340,200,'Sonnenstrand','normal',[b2]);
+  const b4=addF(-280,260,'Sonnenstrand','star',[b3]);
+  const b5=addF(-180,280,'Sonnenstrand','normal',[b4]);  // Strand-Ende
+  F[m5].next=[b1];
+
+  // --- Verzweigung: Zuckerwald-Ende → nach unten (Wolken) ODER abkürzen ---
+  const w1=addF(420,40,'Brücke','normal',[z5]);
+  const w2=addF(390,140,'Brücke','lucky',[w1]);
+  const w3=addF(340,230,'Wolkenwerk','normal',[w2]);
+  const w4=addF(260,290,'Wolkenwerk','star',[w3]);
+  const w5=addF(160,300,'Wolkenwerk','normal',[w4]);  // Wolken-Ende
+  F[z5].next=[w1];
+
+  // --- Unten: Zwei Arme treffen auf Dschungeltempel (Mitte unten) ---
+  // Linker Arm (vom Strand)
+  const d1=addF(-140,180,'Dschungel','normal',[b5]);
+  const d2=addF(-60,130,'Dschungel','lucky',[d1]);
+  // Rechter Arm (vom Wolken)
+  const d3=addF(60,140,'Dschungel','shop',[w5]);
+  const d4=addF(0,110,'Dschungel','star',[d2]);
+  F[d4].next=[d2,d3];  // Dschungel = zentrale Verzweigung
+  F[d3].next=[];
+
+  // Verbindungen der Enden
+  F[b5].next=[d1];
+  F[w5].next=[d3];
+  F[d1].next=[d2];
+  F[d2].next=[d4];
 })();
-const TILE_COUNT = PATH.length;
 
-// Feld-Typen (Mario-Party-Like)
-function tileType(i){
-  if(i===0) return 'start';
-  if(i%13===5) return 'star';
-  if(i%17===9) return 'lucky';
-  if(i%11===7) return 'shop';
-  return 'normal';
-}
-const TYPE_ICON = { start:'🏁', star:'⭐', lucky:'🍀', shop:'🛒', normal:'' };
+const TILE_COUNT=F.length;
+// Feld-Typen
+const TYPE_ICON={start:'🏁',star:'⭐',lucky:'🍀',shop:'🛒',normal:''};
+const TYPE_COLOR={start:'#fff',star:'#ffe14d',lucky:'#7bd94e',shop:'#5ec8f0',normal:'#f5eedd'};
 
-let players = [
-  { id:'brix', char:ARENIANS[0], pos:0, moving:null },
-  { id:'nixie', char:ARENIANS[1], pos:14, moving:null },
+let players=[
+  {id:'brix',char:ARENIANS[0],pos:0,moving:null},
+  {id:'nixie',char:ARENIANS[1],pos:12,moving:null}
 ];
-let turn=0, diceRolling=false;
+let turn=0,diceRolling=false;
 
-const canvas=document.getElementById('board'), ctx=canvas.getContext('2d');
+const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
-let cam={x:0,y:0,z:0.62};
-function resize(){
-  DPR=Math.min(window.devicePixelRatio||1,2);
-  const rect=canvas.parentElement.getBoundingClientRect();
-  W=rect.width;H=rect.height;
-  canvas.width=W*DPR;canvas.height=H*DPR;
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-}
+let cam={x:0,y:0,z:0.5};
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);const r=canvas.parentElement.getBoundingClientRect();W=r.width;H=r.height;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
 window.addEventListener('resize',resize);
 
-/* Kamera Pan/Zoom */
 let dragging=false,lx=0,ly=0;
 canvas.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener('pointermove',e=>{if(dragging){cam.x+=(e.clientX-lx)/cam.z;cam.y+=(e.clientY-ly)/cam.z;lx=e.clientX;ly=e.clientY;}});
 canvas.addEventListener('pointerup',()=>dragging=false);
-canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(1.4,cam.z*(e.deltaY<0?1.1:.9)));},{passive:false});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.25,Math.min(1.4,cam.z*(e.deltaY<0?1.1:.9)));},{passive:false});
 let pinch=0;
 canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:false});
-canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.3,Math.min(1.4,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
-
-function tilePos(i){ const p=PATH[i]; return {x:p.x,y:p.y}; }
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.25,Math.min(1.4,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
 
 /* Würfel */
 document.getElementById('diceBtn').addEventListener('click',()=>{
   if(diceRolling)return;
   const roll=1+Math.floor(Math.random()*6);
   const p=players[turn];
-  p.moving={from:p.pos,to:p.pos+roll,steps:roll,t:0};
+  // Pfad aus `next`-Verzweigungen bauen (einfachster Pfad, bei Verzweigung erste Option)
+  const path=[p.pos];
+  let cur=p.pos;
+  for(let s=0;s<roll;s++){
+    const nxt=F[cur].next;
+    if(!nxt||!nxt.length)break;
+    cur=nxt[0]; path.push(cur);
+  }
+  p.moving={from:p.pos,to:cur,path,steps:path.length-1,t:0};
   diceRolling=true;
   setMsg(p.char.name+' würfelt '+roll+'…',p.char.color);
   animateDice(roll);
 });
 function animateDice(roll){const b=document.getElementById('diceBtn');let n=0;const s=setInterval(()=>{b.textContent=[1,2,3,4,5,6][n++%6];},90);setTimeout(()=>{clearInterval(s);b.textContent='🎲';},900);}
 function setMsg(t,c){const e=document.getElementById('msg');e.textContent=t;e.style.color=c||'';}
+function updateChips(){document.getElementById('chip1').classList.toggle('active',turn===0);document.getElementById('chip2').classList.toggle('active',turn===1);}
 
 function updateMove(dt){
   let allDone=true;
   players.forEach(p=>{
     if(!p.moving)return;allDone=false;
-    p.moving.t=Math.min(1,p.moving.t+dt*1.1/p.moving.steps);
+    p.moving.t=Math.min(1,p.moving.t+dt*1.2/Math.max(1,p.moving.steps));
     p.pos=p.moving.from+(p.moving.to-p.moving.from)*p.moving.t;
     if(p.moving.t>=1)p.moving=null;
   });
-  if(allDone&&diceRolling){
-    diceRolling=false;
-    const winner=turn;turn=(turn+1)%2;updateChips();
-    setMsg(players[winner].char.name+' zieht '+Math.round(players[winner].pos)+'. '+players[turn].char.name+' ist dran!',players[winner].char.color);
+  if(allDone&&diceRolling){diceRolling=false;const w=turn;turn=(turn+1)%2;updateChips();setMsg(players[w].char.name+' zieht '+Math.round(players[w].pos)+'. '+players[turn].char.name+' ist dran!',players[w].char.color);}
+}
+function lighten(hex,amt){const n=parseInt(hex.slice(1),16);return `rgb(${Math.min(255,(n>>16)+amt)},${Math.min(255,((n>>8)&255)+amt)},${Math.min(255,(n&255)+amt)})`;}
+
+/* Spielkarten-Hintergrund: Wasser mit Wellen, Wolken, Deko */
+function drawWater(){
+  // dunkles Wasser
+  ctx.fillStyle='#1e6fb8';
+  ctx.fillRect(-1200,-1200,2400,2400);
+  // Wellenlinien
+  ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=3;
+  for(let row=-800;row<900;row+=70){
+    ctx.beginPath();
+    for(let x=-900;x<900;x+=14){
+      const y=row+Math.sin(x*0.03+row*0.05)*12;
+      if(x===-900)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
   }
 }
-function updateChips(){
-  document.getElementById('chip1').classList.toggle('active',turn===0);
-  document.getElementById('chip2').classList.toggle('active',turn===1);
+function drawClouds(){
+  ctx.fillStyle='rgba(255,255,255,.6)';
+  const clouds=[[-500,-600,50],[-150,-700,70],[350,-580,45],[450,500,60],[-450,550,50],[0,700,65]];
+  clouds.forEach(c=>{
+    ctx.beginPath();ctx.arc(c[0],c[1],c[2],0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(c[0]+c[2]*.8,c[1]-c[2]*.3,c[2]*.7,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(c[0]-c[2]*.8,c[1]-c[2]*.2,c[2]*.6,0,Math.PI*2);ctx.fill();
+  });
 }
-
-/* Runde Insel zeichnen */
-function drawIsland(isl){
+function drawRegion(reg){
   // Schatten
-  ctx.beginPath();ctx.ellipse(isl.x+10,isl.y+14,isl.r+12,isl.r*0.72,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.18)';ctx.fill();
-  // Insel-Grund (unregelmässig-runde Form)
+  ctx.beginPath();ctx.ellipse(reg.x+12,reg.y+16,reg.r+16,reg.r*0.7,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.2)';ctx.fill();
+  // Insel-Fläche (organisch)
   ctx.beginPath();
-  for(let a=0;a<=Math.PI*2+0.1;a+=0.15){
-    const rr=isl.r*(1+0.12*Math.sin(a*3)+0.06*Math.sin(a*5));
-    const px=isl.x+Math.cos(a)*rr, py=isl.y+Math.sin(a)*rr*0.75;
+  for(let a=0;a<=Math.PI*2+0.1;a+=0.12){
+    const rr=reg.r*(1+0.14*Math.sin(a*3)+0.07*Math.sin(a*5));
+    const px=reg.x+Math.cos(a)*rr,py=reg.y+Math.sin(a)*rr*0.75;
     if(a===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
   }
   ctx.closePath();
-  const grad=ctx.createRadialGradient(isl.x-isl.r*.3,isl.y-isl.r*.4,isl.r*.2,isl.x,isl.y,isl.r*1.4);
-  grad.addColorStop(0,lighten(isl.color,40));grad.addColorStop(.6,isl.color);grad.addColorStop(1,isl.edge);
-  ctx.fillStyle=grad;ctx.fill();
-  ctx.lineWidth=6;ctx.strokeStyle=lighten(isl.edge,30);ctx.stroke();
-  // Landmarke (Icon) + Name
-  ctx.font='46px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(isl.icon,isl.x,isl.y-isl.r*0.15);
-  ctx.font='700 15px "Baloo 2",sans-serif';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(isl.name,isl.x,isl.y+isl.r*0.55);
+  const g=ctx.createRadialGradient(reg.x-reg.r*.3,reg.y-reg.r*.4,reg.r*.2,reg.x,reg.y,reg.r*1.4);
+  g.addColorStop(0,lighten(reg.color,40));g.addColorStop(.6,reg.color);g.addColorStop(1,reg.edge);
+  ctx.fillStyle=g;ctx.fill();
+  ctx.lineWidth=6;ctx.strokeStyle=lighten(reg.edge,40);ctx.stroke();
+  // Landmarke + Name
+  ctx.font='44px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(reg.icon,reg.x,reg.y-reg.r*0.18);
+  ctx.font='700 14px "Baloo 2",sans-serif';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(reg.name,reg.x,reg.y+reg.r*0.5);
 }
-function lighten(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;r=Math.min(255,r);g=Math.min(255,g);b=Math.min(255,b);return `rgb(${r},${g},${b})`;}
 
-/* Pfad-Band + Felder */
-function drawPath(){
-  // Pfad (dickes Band)
-  ctx.beginPath();
-  PATH.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
-  ctx.lineWidth=52;ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.strokeStyle='rgba(240,230,200,.9)';ctx.stroke();
-  ctx.lineWidth=40;ctx.strokeStyle='rgba(120,90,50,.25)';ctx.stroke();
+/* Pfade (Kanten) zeichnen */
+function drawEdges(){
+  ctx.lineCap='round';ctx.lineJoin='round';
+  F.forEach(f=>{
+    (f.next||[]).forEach(ni=>{
+      const t=F[ni];
+      ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);
+      ctx.lineWidth=46;ctx.strokeStyle='rgba(230,215,170,.9)';ctx.stroke();
+      ctx.lineWidth=34;ctx.strokeStyle='rgba(150,110,60,.35)';ctx.stroke();
+    });
+  });
 }
 function drawTiles(){
-  for(let i=0;i<TILE_COUNT;i++){
-    const p=tilePos(i),r=30;
-    const type=tileType(i);
+  F.forEach(f=>{
+    const r=32;
     // Schatten
-    ctx.beginPath();ctx.arc(p.x+3,p.y+4,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.2)';ctx.fill();
+    ctx.beginPath();ctx.arc(f.x+3,f.y+4,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.22)';ctx.fill();
     // Feld
-    const g=ctx.createRadialGradient(p.x-r*.3,p.y-r*.3,r*.2,p.x,p.y,r);
-    g.addColorStop(0,'#fff');g.addColorStop(.7,'#f0e8d8');g.addColorStop(1,'#e0d0b8');
-    ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    const g=ctx.createRadialGradient(f.x-r*.3,f.y-r*.3,r*.2,f.x,f.y,r);
+    g.addColorStop(0,'#fff');g.addColorStop(.5,TYPE_COLOR[f.type]);g.addColorStop(1,'#e8d8b8');
+    ctx.beginPath();ctx.arc(f.x,f.y,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
     ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.stroke();
-    // Icon/Nummer
-    ctx.font=(TYPE_ICON[type]?'22px':'700 12px')+' "Baloo 2",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    if(TYPE_ICON[type]){ctx.font='22px serif';ctx.fillText(TYPE_ICON[type],p.x,p.y+1);}
-    else{ctx.fillStyle='rgba(80,60,30,.6)';ctx.fillText(i+1,p.x,p.y+1);}
-  }
+    // Icon
+    if(TYPE_ICON[f.type]){ctx.font='24px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(TYPE_ICON[f.type],f.x,f.y+1);}
+    else{ctx.font='700 12px "Baloo 2",sans-serif';ctx.fillStyle='rgba(80,60,30,.6)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.idx+1,f.x,f.y+1);}
+  });
 }
-
-/* Figuren */
 function drawPlayers(){
   players.forEach(p=>{
     const idx=Math.max(0,Math.min(TILE_COUNT-1,Math.round(p.pos)));
-    const tp=tilePos(idx);
-    const next=tilePos(Math.min(TILE_COUNT-1,idx+1));
-    // Richtung
-    const ang=Math.atan2(next.y-tp.y,next.x-tp.x);
+    const f=F[idx];
     const hop=p.moving?Math.sin(p.moving.t*Math.PI)*26:0;
     // Schatten
-    ctx.beginPath();ctx.ellipse(tp.x,tp.y+30,24,9,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
+    ctx.beginPath();ctx.ellipse(f.x,f.y+30,24,9,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
     // Körper
-    ctx.beginPath();ctx.arc(tp.x,tp.y-hop,32,0,Math.PI*2);
-    const g=ctx.createRadialGradient(tp.x-10,tp.y-hop-10,4,tp.x,tp.y-hop,34);
+    ctx.beginPath();ctx.arc(f.x,f.y-hop,32,0,Math.PI*2);
+    const g=ctx.createRadialGradient(f.x-10,f.y-hop-10,4,f.x,f.y-hop,34);
     g.addColorStop(0,lighten(p.char.color,50));g.addColorStop(1,p.char.color);
     ctx.fillStyle=g;ctx.fill();
     ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.25)';ctx.stroke();
-    // Emoji-Gesicht
-    ctx.font='32px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,tp.x,tp.y-hop+1);
+    ctx.font='32px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,f.x,f.y-hop+1);
   });
 }
-
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.save();
   ctx.translate(W/2+cam.x*cam.z,H/2+cam.y*cam.z);
   ctx.scale(cam.z,cam.z);
-  // Wasser
-  ctx.fillStyle='rgba(60,160,220,.55)';
-  ctx.fillRect(-1000,-1000,2000,2000);
-  drawPath();
-  ISLANDS.forEach(drawIsland);
+  drawWater();
+  drawClouds();
+  drawEdges();
+  REGIONS.forEach(drawRegion);
   drawTiles();
   drawPlayers();
   ctx.restore();
