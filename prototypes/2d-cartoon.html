@@ -64,7 +64,21 @@ const REGIONS = [
 
 // Grid
 let grid=[];  // grid[y][x] = { regionId, isRoad, tileId }
+let decor=[];  // decor[y][x] = tile-id für Deko (Bäume, Häuser, Zäune)
 let waypoints=[];  // [{x,y,type}] Felder auf dem Weg
+
+// Tile-Bilder (Deko-Tiles laden)
+const tileCache={};
+const DECO_TILES=[0,1,2,3,4,15,16,18,20,25,27,28,29,30,31,32,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75];
+function loadTiles(cb){
+  let loaded=0;
+  DECO_TILES.forEach(id=>{
+    const img=new Image();
+    img.onload=()=>{tileCache[id]=img;if(++loaded===DECO_TILES.length)cb();};
+    img.onerror=()=>{if(++loaded===DECO_TILES.length)cb();};
+    img.src='../assets/kenney-tiny-town/tiles/tile_'+String(id).padStart(4,'0')+'.png';
+  });
+}
 
 function inRegion(x,y,reg){
   return x>=reg.x && x<reg.x+reg.w && y>=reg.y && y<reg.y+reg.h;
@@ -137,6 +151,45 @@ function buildGrid(){
   }
   // Startfeld in der Zitadelle
   waypoints.unshift({x:REGIONS[0].x+REGIONS[0].w/2, y:REGIONS[0].y+REGIONS[0].h/2, type:'start'});
+
+  // Deko-Grid initialisieren (leer)
+  decor=[];
+  for(let y=0;y<GH;y++){decor[y]=new Array(GW).fill(0);}
+  // Deko-Elemente in den Regionen platzieren
+  REGIONS.forEach((reg,ri)=>{
+    // Bäume (Kronen 4 + Körper 16) verstreut im Dschungel/Zuckerwald
+    if(reg.name==='Dschungeltempel'||reg.name==='Zuckerwald'){
+      let n=ri===6?8:6;
+      for(let i=0;i<n;i++){
+        const bx=reg.x+2+((i*7+3)%Math.max(1,reg.w-4));
+        const by=reg.y+2+((i*11+5)%Math.max(1,reg.h-4));
+        if(decor[by][bx]===0 && !grid[by][bx].isRoad){
+          decor[by][bx]= (reg.name==='Zuckerwald'?3:4);  // gelbe/grüne Krone
+          if(by+1<GH && !grid[by+1][bx].isRoad) decor[by+1][bx]=(reg.name==='Zuckerwald'?15:16); // Körper
+        }
+      }
+    }
+    // Häuser (Stein grau) in der Zitadelle
+    if(reg.name==='Sternenzitadelle'){
+      // ein kleines Häuser-Set in der Ecke
+      const hx=reg.x+4, hy=reg.y+4;
+      if(hx+3<GW&&hy+3<GH){
+        decor[hy][hx]=48; decor[hy][hx+1]=49; decor[hy][hx+2]=50;   // Dächer oben
+        decor[hy+1][hx]=60; decor[hy+1][hx+1]=61; decor[hy+1][hx+2]=62; // Dächer Mitte
+        decor[hy+2][hx]=72; decor[hy+2][hx+1]=74; decor[hy+2][hx+2]=75; // Fassaden
+      }
+    }
+    // Schubkarren-Deko verstreut
+    if(reg.name==='Sonnenstrand'){
+      decor[reg.y+2][reg.x+2]=57;
+    }
+    // Zäune an der Regionengrenze (unten)
+    if(reg.y+reg.h<GH){
+      for(let zx=reg.x+1;zx<reg.x+reg.w-1;zx++){
+        if(decor[reg.y+reg.h-1][zx]===0 && !grid[reg.y+reg.h-1][zx].isRoad) decor[reg.y+reg.h-1][zx]=45;
+      }
+    }
+  });
 }
 
 // Spieler
@@ -202,6 +255,14 @@ function draw(){
       ctx.fillStyle='#4a6a44';ctx.fillRect(px,py,TS,TS);
     }
   }
+  // Deko-Tiles über den Regionen zeichnen (Bäume, Häuser, Zäune)
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    const d=decor[y][x];
+    if(d>0){
+      const img=tileCache[d];
+      if(img)ctx.drawImage(img,x*TS,y*TS,TS,TS);
+    }
+  }
   // Regions-Namen (Labels über jeder Region)
   REGIONS.forEach(reg=>{
     const cx=reg.x+reg.w/2, cy=reg.y+reg.h/2;
@@ -230,7 +291,8 @@ function draw(){
 }
 let last=0;
 function loop(t){const dt=Math.min(.05,(t-last)/1000||.016);last=t;updateMove(dt);draw();requestAnimationFrame(loop);}
-resize();buildGrid();updateChips();document.getElementById('loading').style.display='none';setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);
+resize();buildGrid();updateChips();
+loadTiles(()=>{document.getElementById('loading').style.display='none';setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);});
 </script>
 </body>
 </html>
