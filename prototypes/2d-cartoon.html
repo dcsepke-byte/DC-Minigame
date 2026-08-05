@@ -206,7 +206,7 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000||.016);last=t;updateMove(dt
 const img=new Image();
 img.onload=()=>{MAP.img=img;document.getElementById('loading').style.display='none';resize();updateChips();setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);};
 img.onerror=()=>{document.getElementById('loading').textContent='Karte fehlt — laufe ohne';resize();updateChips();requestAnimationFrame(loop);};
-img.src='../assets/kenney-tiny-town/world_base_bright.png';
+img.src='../assets/kenney-tiny-town/world_base.png';
 </script>
 </body>
 </html>
