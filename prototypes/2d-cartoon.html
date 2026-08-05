@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Party Arena — Block-Karte</title>
+<title>Party Arena — Board-Konzept 128x128</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif; touch-action:none; }
-  body { background:#2f4f2f; display:flex; flex-direction:column; }
+  body { background:#1f3320; display:flex; flex-direction:column; }
   header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; z-index:5; }
   .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.5); letter-spacing:1px; }
   .logo span { color:#ffe14d; }
@@ -23,12 +23,12 @@
   .pchip.active { background:rgba(255,255,255,.9); color:#2b6ea8; box-shadow:0 2px 8px rgba(0,0,0,.2); }
   .msg { font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.6); margin-top:2px; }
   .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.95); text-shadow:0 1px 2px rgba(0,0,0,.6); z-index:4; pointer-events:none; }
-  #loading { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:700; background:#2f4f2f; z-index:20; }
+  #loading { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:700; background:#1f3320; z-index:20; }
 </style>
 </head>
 <body>
-  <header><div class="logo">PARTY<span>ARENA</span></div><div class="round-badge">Karte</div></header>
-  <div class="board-wrap"><canvas id="board"></canvas><div id="loading">Baue Karte…</div><div class="hint">🖐 Ziehen zum Verschieben · 🔍 Pinchen zum Zoomen</div></div>
+  <header><div class="logo">PARTY<span>ARENA</span></div><div class="round-badge">Board-Konzept</div></header>
+  <div class="board-wrap"><canvas id="board"></canvas><div id="loading">Baue 128×128 Board…</div><div class="hint">🖐 Ziehen zum Verschieben · 🔍 Pinchen zum Zoomen</div></div>
   <footer>
     <button class="dice-btn" id="diceBtn">🎲</button>
     <div class="turn-info">
@@ -43,95 +43,122 @@ const ARENIANS=[
 ];
 
 /* =========================================================
-   BLOCK-KARTE aus Kenney-Tiles (Tile 25 = Weg-Mitte als Grundgerüst).
-   Weg = Spielwelt, darauf liegen unsere Felder. Gras = Umgebung.
-   Weitere Blöcke (Wasser, Häuser) kommen später hinzu.
+   128x128 BOARD-KONZEPT mit Regionen (Minecraft-artig, von oben).
+   Regionen = blockige Flächen in unterschiedlichen Grüntönen.
+   Wegenetz (Tile 25) verbindet die Regionen, Felder liegen darauf.
+   NUR Konzept — keine Details.
    ========================================================= */
 const TS=16;  // Tile-Größe
-const tileCache={};
-function loadTiles(cb){
-  // Wir brauchen nur die Grund-Blöcke: Gras 0,1,2 + Weg 25 (+ Ecken 24,26,13)
-  const ids=[0,1,2,13,24,25,26];
-  let loaded=0;
-  ids.forEach(id=>{
-    const img=new Image();
-    img.onload=()=>{tileCache[id]=img;if(++loaded===ids.length)cb();};
-    img.onerror=()=>{if(++loaded===ids.length)cb();};
-    img.src='../assets/kenney-tiny-town/tiles/tile_'+String(id).padStart(4,'0')+'.png';
-  });
-}
+const GW=128, GH=128;
 
-// Grid: GW x GH
-const GW=24, GH=16;
-let grid=[];   // grid[y][x] = tile-id
+// Regionen (Aethonia-Themen) — Minecraft-Biome-Look
+const REGIONS = [
+  { name:'Sternenzitadelle', color:'#d8b84a', grass:'#e0d050', x:54, y:44, w:22, h:22, icon:'👑' },  // Hub Mitte
+  { name:'Mechanik-Stadt',   color:'#b8bec8', grass:'#a8b0c0', x:28, y:72, w:18, h:18, icon:'⚙️' },
+  { name:'Zuckerwald',       color:'#e0a8c0', grass:'#f0a0c8', x:82, y:72, w:18, h:18, icon:'🍭' },
+  { name:'Sonnenstrand',     color:'#f0d080', grass:'#f8d878', x:40, y:98, w:16, h:16, icon:'🏖️' },
+  { name:'Wolkenwerk',       color:'#b8d8f0', grass:'#b0d8f8', x:76, y:100, w:16, h:16, icon:'☁️' },
+  { name:'Frostgipfel',      color:'#c8e0f8', grass:'#d0e8ff', x:92, y:18, w:16, h:16, icon:'❄️' },
+  { name:'Dschungeltempel',  color:'#6cc058', grass:'#5cb84a', x:36, y:14, w:18, h:18, icon:'🗿' },
+];
+
+// Grid
+let grid=[];  // grid[y][x] = { regionId, isRoad, tileId }
 let waypoints=[];  // [{x,y,type}] Felder auf dem Weg
+
+function inRegion(x,y,reg){
+  return x>=reg.x && x<reg.x+reg.w && y>=reg.y && y<reg.y+reg.h;
+}
 
 function buildGrid(){
   grid=[];
+  // Grund = Gras außerhalb der Regionen (dunkles Außengrün)
   for(let y=0;y<GH;y++){
     grid[y]=[];
     for(let x=0;x<GW;x++){
-      // Gras verteilt (0,1,2)
-      const r=(x*7+y*13)%11;
-      grid[y][x]= r<5?0 : r<8?1 : 2;
+      grid[y][x]={regionId:-1,isRoad:false,tileId:0};
     }
   }
-  // Hauptweg horizontal in der Mitte (Tile 25 = Weg-Mitte)
-  const midY=Math.floor(GH/2);   // 8
-  // mit Ecken links/rechts
-  grid[midY][0]=24; grid[midY][GW-1]=26;
-  for(let x=1;x<GW-1;x++) grid[midY][x]=25;
+  // Regionen füllen
+  REGIONS.forEach((reg,ri)=>{
+    for(let y=reg.y;y<reg.y+reg.h;y++){
+      for(let x=reg.x;x<reg.x+reg.w;x++){
+        if(x>=0&&x<GW&&y>=0&&y<GH){
+          grid[y][x].regionId=ri;
+          // blockige Textur (Gras-Variation je Region)
+          grid[y][x].tileId=(x+y)%3;
+        }
+      }
+    }
+  });
 
-  // Vertikaler Weg (Verzweigung) in der Mitte nach unten
-  const midX=Math.floor(GW/2);   // 12
-  grid[midY][midX]=13;           // Ecke oben
-  for(let y=midY+1;y<GH;y++) grid[y][midX]=25;
+  // Wegenetz: verbindet Regionen (Minecraft-artig blockig, Tile 25)
+  const road=(x0,y0,x1,y1)=>{
+    // horizontal
+    const y=Math.round(y0);
+    for(let x=Math.min(x0,x1);x<=Math.max(x0,x1);x++){
+      if(x>=0&&x<GW&&y>=0&&y<GH){grid[y][x].isRoad=true;grid[y][x].tileId=25;}
+    }
+    // vertikal
+    const x=Math.round(x1);
+    for(let yy=Math.min(y0,y1);yy<=Math.max(y0,y1);yy++){
+      if(x>=0&&x<GW&&yy>=0&&yy<GH){grid[yy][x].isRoad=true;grid[yy][x].tileId=25;}
+    }
+  };
 
-  // Zweiter horizontaler Weg unten (zweite Route → Schleife)
-  const lowY=GH-3;               // 13
-  for(let x=1;x<GW-1;x++) grid[lowY][x]=25;
-  grid[lowY][0]=24; grid[lowY][GW-1]=26;
+  // Zitadelle (Hub) → alle Regionen
+  const hubX=REGIONS[0].x+REGIONS[0].w/2, hubY=REGIONS[0].y+REGIONS[0].h;
+  // → Mechanik (links unten)
+  road(hubX,REGIONS[0].y+REGIONS[0].h, hubX,REGIONS[1].y+4);
+  road(REGIONS[1].x+REGIONS[1].w/2,REGIONS[1].y+4, hubX,REGIONS[1].y+4);
+  // → Zuckerwald (rechts unten)
+  road(hubX,REGIONS[0].y+REGIONS[0].h, hubX,REGIONS[2].y+4);
+  road(REGIONS[2].x+REGIONS[2].w/2,REGIONS[2].y+4, hubX,REGIONS[2].y+4);
+  // → Frostgipfel (oben rechts)
+  road(hubX,REGIONS[0].y, REGIONS[3].x+REGIONS[3].w/2,REGIONS[0].y);
+  // → Dschungel (oben links)
+  road(hubX,REGIONS[0].y, REGIONS[6].x+REGIONS[6].w/2,REGIONS[0].y);
+  // → Sonnenstrand (unten links)
+  road(REGIONS[1].x+REGIONS[1].w/2,REGIONS[1].y+REGIONS[1].h, REGIONS[1].x+REGIONS[1].w/2,REGIONS[3].y+2);
+  road(REGIONS[3].x+REGIONS[3].w/2,REGIONS[3].y+2, REGIONS[1].x+REGIONS[1].w/2,REGIONS[3].y+2);
+  // → Wolkenwerk (unten rechts)
+  road(REGIONS[2].x+REGIONS[2].w/2,REGIONS[2].y+REGIONS[2].h, REGIONS[2].x+REGIONS[2].w/2,REGIONS[4].y+2);
+  road(REGIONS[4].x+REGIONS[4].w/2,REGIONS[4].y+2, REGIONS[2].x+REGIONS[2].w/2,REGIONS[4].y+2);
 
-  // Felder (waypoints) auf dem Weg — wo Figuren stehen
+  // Felder (waypoints) auf dem Weg — grob verteilt
   waypoints=[];
   const types=['start','normal','lucky','normal','star','shop','normal'];
-  // horizontaler Hauptweg
   let ti=0;
-  for(let x=2;x<GW-2;x+=3){
-    waypoints.push({x,y:midY,type:types[ti%types.length]});
-    ti++;
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    if(grid[y][x].isRoad && (x%7===0||y%7===0) && (x%2===0&&y%2===0)){
+      // Felder im Abstand platzieren
+      waypoints.push({x,y,type:types[ti%types.length]});ti++;
+    }
   }
-  // vertikaler Weg
-  for(let y=midY+2;y<GH-2;y+=3){
-    waypoints.push({x:midX,y,type:'normal'});
-  }
-  // unterer horizontaler Weg
-  for(let x=3;x<GW-3;x+=3){
-    waypoints.push({x,y:lowY,type:ti%types.length===2?'star':'normal'});
-    ti++;
-  }
+  // Startfeld in der Zitadelle
+  waypoints.unshift({x:REGIONS[0].x+REGIONS[0].w/2, y:REGIONS[0].y+REGIONS[0].h/2, type:'start'});
 }
 
 // Spieler
 let players=[
   {id:'brix',char:ARENIANS[0],wp:0,moving:null},
-  {id:'nixie',char:ARENIANS[1],wp:6,moving:null}
+  {id:'nixie',char:ARENIANS[1],wp:4,moving:null}
 ];
 let turn=0,diceRolling=false;
 
 const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
 let W=0,H=0,DPR=1;
-let cam={x:0,y:0,z:1.1};
+let cam={x:-GW*TS/2,y:-GH*TS/2,z:0.3};
 function resize(){DPR=Math.min(window.devicePixelRatio||1,2);const r=canvas.parentElement.getBoundingClientRect();W=r.width;H=r.height;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
 window.addEventListener('resize',resize);
 let dragging=false,lx=0,ly=0;
 canvas.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener('pointermove',e=>{if(dragging){cam.x+=(e.clientX-lx)/cam.z;cam.y+=(e.clientY-ly)/cam.z;lx=e.clientX;ly=e.clientY;}});
 canvas.addEventListener('pointerup',()=>dragging=false);
-canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.4,Math.min(3,cam.z*(e.deltaY<0?1.15:.87)));},{passive:false});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.15,Math.min(4,cam.z*(e.deltaY<0?1.15:.87)));},{passive:false});
 let pinch=0;
 canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:false});
-canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.4,Math.min(3,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.15,Math.min(4,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
 
 document.getElementById('diceBtn').addEventListener('click',()=>{
   if(diceRolling)return;
@@ -153,16 +180,40 @@ function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.save();ctx.translate(W/2+cam.x*cam.z,H/2+cam.y*cam.z);ctx.scale(cam.z,cam.z);
   // Hintergrund
-  ctx.fillStyle='#4a8a30';ctx.fillRect(-TS*2,-TS*2,GW*TS+TS*4,GH*TS+TS*4);
-  // Tiles
+  ctx.fillStyle='#2a442a';ctx.fillRect(-TS*2,-TS*2,GW*TS+TS*4,GH*TS+TS*4);
+  // Regionen + Gras (blockig, Minecraft-Look — farbige Flächen statt Tiles für Konzept)
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
-    const img=tileCache[grid[y][x]];
-    if(img)ctx.drawImage(img,x*TS,y*TS,TS,TS);
+    const c=grid[y][x];
+    const px=x*TS, py=y*TS;
+    if(c.isRoad){
+      // Weg
+      ctx.fillStyle='#d8b878';ctx.fillRect(px,py,TS,TS);
+      ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(px,py,TS,2);ctx.fillRect(px,py,2,TS);
+    } else if(c.regionId>=0){
+      // Region (Minecraft-Biome-Farbe)
+      ctx.fillStyle=REGIONS[c.regionId].grass;ctx.fillRect(px,py,TS,TS);
+      // dunkler Rand der Region
+      if(x===REGIONS[c.regionId].x||x===REGIONS[c.regionId].x+REGIONS[c.regionId].w-1||
+         y===REGIONS[c.regionId].y||y===REGIONS[c.regionId].y+REGIONS[c.regionId].h-1){
+        ctx.fillStyle='rgba(0,0,0,.2)';ctx.fillRect(px,py,TS,TS);
+      }
+    } else {
+      // Außengrün (etwas heller für Kontrast)
+      ctx.fillStyle='#4a6a44';ctx.fillRect(px,py,TS,TS);
+    }
   }
-  // Felder (Marker auf dem Weg)
+  // Regions-Namen (Labels über jeder Region)
+  REGIONS.forEach(reg=>{
+    const cx=reg.x+reg.w/2, cy=reg.y+reg.h/2;
+    ctx.font='700 26px "Baloo 2",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillText(reg.icon,cx*TS,cy*TS-14);
+    ctx.fillStyle='#fff';ctx.strokeStyle='rgba(0,0,0,.6)';ctx.lineWidth=3;
+    ctx.strokeText(reg.name,cx*TS,cy*TS+14);ctx.fillText(reg.name,cx*TS,cy*TS+14);
+  });
+  // Felder
   waypoints.forEach(wp=>{
     const cx=wp.x*TS+TS/2, cy=wp.y*TS+TS/2;
-    ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);
+    ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);
     ctx.fillStyle=wp.type==='star'?'#ffe14d':wp.type==='lucky'?'#7bd94e':wp.type==='shop'?'#5ec8f0':wp.type==='start'?'#ff6a6a':'#fff';
     ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(0,0,0,.5)';ctx.stroke();
   });
@@ -170,17 +221,16 @@ function draw(){
   players.forEach(p=>{
     const wp=waypoints[Math.max(0,Math.min(waypoints.length-1,p.wp))];
     const cx=wp.x*TS+TS/2, cy=wp.y*TS+TS/2;
-    const hop=p.moving?Math.sin(p.moving.t*Math.PI)*8:0;
-    ctx.beginPath();ctx.arc(cx,cy-hop,9,0,Math.PI*2);
+    const hop=p.moving?Math.sin(p.moving.t*Math.PI)*10:0;
+    ctx.beginPath();ctx.arc(cx,cy-hop,10,0,Math.PI*2);
     ctx.fillStyle=p.char.color;ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle='rgba(0,0,0,.3)';ctx.stroke();
-    ctx.font='14px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,cx,cy-hop);
+    ctx.font='15px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,cx,cy-hop);
   });
   ctx.restore();
 }
 let last=0;
 function loop(t){const dt=Math.min(.05,(t-last)/1000||.016);last=t;updateMove(dt);draw();requestAnimationFrame(loop);}
-resize();buildGrid();updateChips();
-loadTiles(()=>{document.getElementById('loading').style.display='none';setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);});
+resize();buildGrid();updateChips();document.getElementById('loading').style.display='none';setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);
 </script>
 </body>
 </html>
