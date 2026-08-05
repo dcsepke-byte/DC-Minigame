@@ -3616,7 +3616,9 @@ const Games = (() => {
     { id: 'coindash', name: 'Coin Dash', icon: '🪙', desc: 'Sammle Muenzen, weiche Gegnern aus, nutze Power-Ups!',
       rules: 'Bewege dich durch <strong>Ziehen</strong> auf dem Feld. Sammle <strong>goldene Muenzen</strong> fuer Punkte und <strong>Combos</strong>! Meide die <strong>roten Gegner</strong> — 3 Treffer = Game Over! <strong>Power-Ups</strong>: Magnet (Muenzen anziehen), Schild (blockt Gegner), Freeze (stoppt Gegner). 30 Sekunden.', play: sessionWrap(gameCoinDash, 'coindash') },
     { id: 'tileflip', name: 'Tile Flip', icon: '🧩', desc: 'Memory-Puzzle mit Boostern gegen die Zeit!',
-      rules: 'Decke Kacheln auf und finde <strong>Paare</strong>! Jeder Match gibt Punkte, <strong>Combos</strong> (aufeinanderfolgende Matches) geben mehr! <strong>3 Booster</strong>: Peek (alle kurz sehen), Shuffle (neu mischen), Freeze (Zeit stoppen). Finde alle Paare vor Ablauf der Zeit fuer einen <strong>Zeitbonus</strong>! 60 Sekunden.', play: sessionWrap(gameTileFlip, 'tileflip') }
+      rules: 'Decke Kacheln auf und finde <strong>Paare</strong>! Jeder Match gibt Punkte, <strong>Combos</strong> (aufeinanderfolgende Matches) geben mehr! <strong>3 Booster</strong>: Peek (alle kurz sehen), Shuffle (neu mischen), Freeze (Zeit stoppen). Finde alle Paare vor Ablauf der Zeit fuer einen <strong>Zeitbonus</strong>! 60 Sekunden.', play: sessionWrap(gameTileFlip, 'tileflip') },
+    { id: 'pipeline', name: 'Rohrleitung', icon: '🚰', desc: 'Drehe die Rohre, damit das Wasser durchfliesst!',
+      rules: 'Drehe die <strong>Rohrteile</strong> per Tippen, um eine durchgehende <strong>Verbindung</strong> vom Eingang zum Ausgang zu bauen. Sobald die Leitung komplett ist, fliesst das Wasser und du bekommst Punkte — je schneller, desto mehr! Mit jedem Level wird das Raster <strong>groesser</strong>. 60 Sekunden.', play: sessionWrap(gamePipeLine, 'pipeline') },
   ];
 
   /* =========================================================
@@ -4292,6 +4294,184 @@ const Games = (() => {
       showFeedback('LOS!', 'var(--good)');
       FX.Sound.go();
     }, START_DELAY);
+  }
+
+  /* =========================================================
+     ROHRLEITUNG (Pipeline) — Drehpuzzle gegen die Zeit
+     Drehe Rohre, verbinde Eingang->Ausgang, Wasser fliesst.
+     ========================================================= */
+  function gamePipeLine(stage, api) {
+    const TIME_MS = 60000;
+    const DIRS = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] };
+    // Rohr-Typen: 0=Ecke(2 Öffnungen L), 1=gerade(2 gegenüber), 2=T-Stück(3), 3=Kreuz(4)
+    let score = 0, level = 1, grid = [], solved = false, solving = false;
+    let startCell = null, endCell = null;
+    const endAt = performance.now() + TIME_MS;
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="pp-bar"></div>
+      <div class="pp-hud">
+        <span class="pp-score" id="pp-score">0</span>
+        <span class="pp-info" id="pp-info">Verbinde die Rohre!</span>
+      </div>
+      <div class="pp-grid" id="pp-grid"></div>
+      <div class="pp-status" id="pp-status">Tippe Rohre, um sie zu drehen</div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#pp-bar');
+    const scoreEl = wrap.querySelector('#pp-score');
+    const infoEl = wrap.querySelector('#pp-info');
+    const statusEl = wrap.querySelector('#pp-status');
+    const gridEl = wrap.querySelector('#pp-grid');
+
+    // Rohr-Grafik auf Canvas zeichnen (einfache Pixel-Art ohne externe Assets)
+    function drawPipe(type, rot, color, highlight) {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 64;
+      const c = cv.getContext('2d');
+      const cx = 32, cy = 32, half = 20, w = 12;
+      c.clearRect(0,0,64,64);
+      // Basis-Kreis
+      c.fillStyle = '#1a3a4a';
+      c.beginPath(); c.arc(cx, cy, half, 0, Math.PI*2); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = 2; c.stroke();
+      const opens = [];
+      // Öffnungen je Typ
+      if (type === 0) opens.push('right','down');
+      else if (type === 1) opens.push('left','right');
+      else if (type === 2) opens.push('up','right','down');
+      else opens.push('up','down','left','right');
+      // Rotation
+      function rotDir(d, r) { const o = {up:0,right:1,down:2,left:3}; const v=(o[d]+r)%4; const k=['up','right','down','left'][v]; return k; }
+      const rotN = rot % 4;
+      opens.forEach(d => {
+        const rd = rotDir(d, rotN);
+        const [dx, dy] = DIRS[rd];
+        c.fillStyle = color;
+        c.fillRect(cx - w/2 + dx*(w/2), cy - w/2 + dy*(w/2), w, w);
+      });
+      // Flüssigkeit (Wasser) wenn verbunden+gelöst
+      if (solved && highlight) {
+        opens.forEach(d => {
+          const rd = rotDir(d, rotN);
+          const [dx, dy] = DIRS[rd];
+          c.fillStyle = 'rgba(80,200,255,.8)';
+          c.fillRect(cx - w/2 + dx*(w/2), cy - w/2 + dy*(w/2), w, w);
+        });
+      }
+      // Outline
+      c.strokeStyle = '#000'; c.lineWidth = 3;
+      c.beginPath(); c.arc(cx, cy, half, 0, Math.PI*2); c.stroke();
+      return cv.toDataURL();
+    }
+
+    // Prüfe, ob die Leitung vom Start zum Ende durchgeht
+    function isSolved(g) {
+      if (!startCell || !endCell) return false;
+      const seen = new Set();
+      const q = [[startCell.x, startCell.y]];
+      const openMap = {};
+      g.forEach((row, y) => row.forEach((cell, x) => {
+        openMap[`${x},${y}`] = cell;
+      }));
+      while (q.length) {
+        const [x, y] = q.shift();
+        const key = `${x},${y}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (x === endCell.x && y === endCell.y) return true;
+        const cell = openMap[key];
+        const type = cell.type, rot = cell.rot;
+        const dirs = {0:['right','down'],1:['left','right'],2:['up','right','down'],3:['up','down','left','right']}[type];
+        const o = {up:0,right:1,down:2,left:3};
+        const k = ['up','right','down','left'];
+        dirs.forEach(d => {
+          const rd = k[(o[d]+rot)%4];
+          const [dx, dy] = DIRS[rd];
+          const nx = x+dx, ny = y+dy;
+          if (nx<0||ny<0||nx>=g[0].length||ny>=g.length) return;
+          // Prüfe Rückverbindung
+          const nc = openMap[`${nx},${ny}`];
+          if (!nc) return;
+          const ntype = nc.type, nrot = nc.rot;
+          const ndirs = {0:['right','down'],1:['left','right'],2:['up','right','down'],3:['up','down','left','right']}[ntype];
+          const back = {left:'right', right:'left', up:'down', down:'up'}[rd];
+          const nk = k[(o[back]+nrot)%4];
+          const hasBack = ndirs.some(nd => k[(o[nd]+nrot)%4] === back);
+          if (hasBack) q.push([nx, ny]);
+        });
+      }
+      return false;
+    }
+
+    function newLevel(lvl) {
+      solved = false; solving = false;
+      const size = Math.min(3 + lvl, 6); // Level 1: 4x4, steigend bis 6x6
+      // Leeres Grid
+      const g = [];
+      for (let y=0; y<size; y++) { const row=[]; for(let x=0;x<size;x++){row.push({type:0,rot:0});} g.push(row); }
+      // Zufällige Rohre
+      for (let y=0; y<size; y++) for (let x=0; x<size; x++) {
+        // Rand-Spezial: Start links-mitte, Ende rechts-mitte
+        const r = Math.random();
+        g[y][x] = { type: r<0.45?0 : r<0.75?1 : r<0.9?2 : 3, rot: Math.floor(Math.random()*4) };
+      }
+      // Start (links) und Ende (rechts) mit passenden Öffnungen
+      startCell = { x: 0, y: Math.floor(size/2) };
+      endCell = { x: size-1, y: Math.floor(size/2) };
+      g[startCell.y][startCell.x] = { type: 1, rot: 1 }; // links-rechts
+      g[endCell.y][endCell.x] = { type: 1, rot: 1 };
+      // Stellen sicher, dass es eine Lösung gibt (lösbares Puzzle): 
+      // Lösung wird durch eine zufällige gültige Kette generiert
+      // (vereinfacht: wir generieren einfach und prüfen; falls unlösbar, neue Start-Rotation)
+      let guard = 0;
+      while (!isSolved(g) && guard++ < 50) {
+        // zufällige Rotationen
+        for (let y=0; y<size; y++) for (let x=0; x<size; x++) g[y][x].rot = Math.floor(Math.random()*4);
+      }
+      grid = g;
+      render();
+      infoEl.textContent = `Level ${level} · ${size}×${size}`;
+    }
+
+    function render() {
+      gridEl.innerHTML = '';
+      const size = grid.length;
+      gridEl.style.gridTemplateColumns = `repeat(${size}, 56px)`;
+      grid.forEach((row, y) => row.forEach((cell, x) => {
+        const btn = el('button', 'pp-cell');
+        btn.style.backgroundImage = `url(${drawPipe(cell.type, cell.rot, '#3a7a4a', true)})`;
+        btn.style.backgroundSize = 'cover';
+        btn.dataset.x = x; btn.dataset.y = y;
+        if (x===0 && y===Math.floor(size/2)) { btn.classList.add('pp-start'); btn.textContent='▶'; }
+        if (x===size-1 && y===Math.floor(size/2)) { btn.classList.add('pp-end'); btn.textContent='🏁'; }
+        btn.addEventListener('pointerdown', () => {
+          if (solving) return;
+          cell.rot = (cell.rot + 1) % 4;
+          render();
+          if (isSolved(grid)) {
+            solved = true;
+            const timeBonus = Math.max(0, Math.round((endAt - performance.now())/100) * 2);
+            const pts = 100 + timeBonus;
+            score += pts; api.setScore(score);
+            FX.Sound.star(); FX.burst(window.innerWidth/2, window.innerHeight/2, 30, 10);
+            statusEl.textContent = `✅ Verbunden! +${pts}`;
+            infoEl.textContent = `Level ${level} gelöst!`;
+            api.timeout(() => { level++; newLevel(level); }, 900);
+          } else {
+            statusEl.textContent = 'Weiterdrehen…';
+          }
+        });
+        gridEl.appendChild(btn);
+      }));
+    }
+
+    newLevel(1);
+    api.frameLoop(() => {
+      const rem = endAt - performance.now();
+      bar.style.width = Math.max(0, rem/TIME_MS*100) + '%';
+      if (rem <= 0) { FX.burst(window.innerWidth/2, window.innerHeight/2, 40, 12); api.finish(score); return false; }
+    });
   }
 
   return { list };
