@@ -29,45 +29,88 @@ def jitter(c, amt, rnd):
             max(0,min(255,c[2]+rnd.randrange(-amt,amt))))
 
 def draw_organic_stone(d, cx, cy, rad, tone, seed, joint=(60,58,60)):
-    """Unregelmäßiger runder Stein: leicht gezackter Umriss, Ton-Variation, Schatten+Highlight."""
+    """Unregelmäßiger runder Stein: leicht gezackter Umriss, Ton-Variation, Schatten+Highlight.
+    Steine füllen fast komplett (rad groß, dicht gepackt) → Fugen nur als dünne Kanten."""
     rnd = random.Random(seed)
-    # unregelmäßiger Umriss (Punkte mit Radius-Jitter)
     pts = []
-    n = 10
+    n = 12  # mehr Punkte = runderer, organischerer Umriss
     for i in range(n):
         a = 2*math.pi*i/n
-        r = rad * rnd.uniform(0.72, 1.0)
+        r = rad * rnd.uniform(0.85, 1.0)
         pts.append((cx + r*math.cos(a), cy + r*math.sin(a)))
-    # Füllung (dunkler Ton = Schattenbasis)
-    d.polygon(pts, fill=shade(tone, 0.18))
+    # Füllung
+    d.polygon(pts, fill=shade(tone, 0.15))
     d.polygon(pts, fill=tone)
     # Textur-Punkte im Stein
-    for _ in range(6):
-        x = cx + rnd.uniform(-rad*0.6, rad*0.6)
-        y = cy + rnd.uniform(-rad*0.6, rad*0.6)
-        d.point((x, y), fill=jitter(tone, 16, rnd))
+    for _ in range(5):
+        x = cx + rnd.uniform(-rad*0.55, rad*0.55)
+        y = cy + rnd.uniform(-rad*0.55, rad*0.55)
+        d.point((x, y), fill=jitter(tone, 14, rnd))
     # Highlight links-oben (kleiner Bogen)
     hx, hy = cx - rad*0.35, cy - rad*0.35
-    d.ellipse([hx-2, hy-2, hx+3, hy+3], fill=lighten(tone, 0.25))
-    # Outline dunkelbraun
+    d.ellipse([hx-2, hy-2, hx+3, hy+3], fill=lighten(tone, 0.22))
+    # Outline dunkelbraun — NUR dünn, sonst wirken Fugen breit
     d.polygon(pts, outline=OUTLINE)
     return pts
 
 def save(img, name):
     img.save(os.path.join(OUT, f"{name}.png"))
 
+def rect(img, x0, y0, x1, y1, c):
+    ImageDraw.Draw(img).rectangle([x0, y0, x1, y1], fill=c)
+
 # ============================================================
-# TILE 1: Standard-Pflaster (hellgrau) — organische Steine
+# TILE 1: Standard-Pflaster (hellgrau) — große Steine, dünne Fugen
 # ============================================================
 def tile_standard():
-    img = new_tile(); d = ImageDraw.Draw(img)
-    joint = (120, 118, 120)   # Fugen dunkelgrau
-    d.rectangle([0,0,TS-1,TS-1], fill=joint)
+    img = new_tile()
     stone = (178, 179, 183)
-    # 7 organische, leicht überlappende Steine (lückenlos)
-    layout = [(8,8,6,1),(24,8,6,2),(16,16,7,3),(8,25,6,4),(24,25,6,5),(31,16,4,6),(2,17,4,7)]
-    for cx,cy,r,s in layout:
-        draw_organic_stone(d, cx, cy, r, jitter(stone, 8, random.Random(100+s)), 100+s)
+    joint = (125, 123, 125)
+    # Volle Stein-Fläche
+    rect(img, 0, 0, TS-1, TS-1, stone)
+    rnd = random.Random(100)
+    d = ImageDraw.Draw(img)
+    # Stein-Textur (Ton-Variation in großen Flecken)
+    for _ in range(20):
+        x = rnd.randrange(TS); y = rnd.randrange(TS)
+        c = jitter(stone, 10, rnd)
+        d.rectangle([x, y, min(TS-1,x+3), min(TS-1,y+2)], fill=c)
+    # Organische Fugenlinien (dünn, 1px): unregelmäßige dunkle Kanten
+    # Die Fugen verlaufen wie bei echten Pflastersteinen: gebrochene, unregelmäßige Linien
+    def fugue(x0, y0, x1, y1, jagg):
+        # gebrochene Linie mit kleinen Versätzen
+        steps = 6
+        pts = []
+        for i in range(steps+1):
+            t = i/steps
+            bx = x0 + (x1-x0)*t + rnd.randrange(-jagg, jagg+1)
+            by = y0 + (y1-y0)*t + rnd.randrange(-jagg, jagg+1)
+            pts.append((bx, by))
+        d.line(pts, fill=joint, width=1)
+    # Horizontale Fugen (2, mit Versatz)
+    fugue(0, 10, TS-1, 11, 2)
+    fugue(0, 21, TS-1, 20, 2)
+    # Vertikale Fugen (gebogen, zwischen den horizontalen)
+    fugue(9, 0, 10, 10, 2)
+    fugue(10, 11, 9, 21, 2)
+    fugue(9, 22, 11, 32, 2)
+    fugue(22, 0, 20, 10, 2)
+    fugue(21, 11, 23, 21, 2)
+    fugue(22, 22, 20, 32, 2)
+    # Schatten rechts-unten + Highlight links-oben auf der Gesamtfläche
+    for y in range(TS):
+        d.line([(TS-2, y), (TS-1, y)], fill=(150,151,155), width=1)
+    for x in range(TS):
+        d.line([(x, TS-2), (x, TS-1)], fill=(150,151,155), width=1)
+    for y in range(TS):
+        d.line([(0, y), (1, y)], fill=(198,199,203), width=1)
+    for x in range(TS):
+        d.line([(x, 0), (x, 1)], fill=(198,199,203), width=1)
+    # Ein paar Steine betonen (leicht heller, für organische Wirkung)
+    d.polygon([(2,2),(9,2),(9,8),(2,9)], fill=jitter(stone, 8, random.Random(1)))
+    d.polygon([(12,2),(20,2),(21,9),(12,10)], fill=jitter(stone, 8, random.Random(2)))
+    # Outline außen
+    d.rectangle([0,0,TS-1,TS-1], outline=OUTLINE, width=1)
     save(img, "Base_01_StandardPflaster")
 
 # ============================================================
