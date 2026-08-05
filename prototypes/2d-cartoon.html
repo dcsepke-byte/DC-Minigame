@@ -3,82 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Party Arena — 2D Cartoon Prototyp</title>
+<title>Party Arena — 2D Insel-Welt Prototyp</title>
 <style>
-  :root {
-    --brix:#ff6a00; --nixie:#00f0ff; --pip:#ffd34e; --koko:#ff4d6d;
-    --tiko:#2bffb9; --bolt:#3a86ff; --bloom:#7b2ff7; --momo:#ff3cac;
-  }
+  :root { --brix:#ff6a00; --nixie:#00f0ff; --pip:#ffd34e; --koko:#ff4d6d; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; overflow:hidden; font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif; touch-action:none; }
-  body { background:linear-gradient(180deg,#5ec4ff 0%,#a8ddff 55%,#e6f6ff 100%); display:flex; flex-direction:column; }
+  body { background:linear-gradient(180deg,#3fa9e0 0%,#6cc4ee 50%,#a8ddff 100%); display:flex; flex-direction:column; }
 
-  /* --- Kopfzeile --- */
-  header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 14px; gap:8px; z-index:5;
-  }
-  .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.25); letter-spacing:1px; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; gap:8px; z-index:5; }
+  .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.3); letter-spacing:1px; }
   .logo span { color:#ffe14d; }
-  .round-badge {
-    background:#fff; color:#2b6ea8; font-weight:800; font-size:13px;
-    padding:6px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.15);
-  }
+  .round-badge { background:#fff; color:#2b6ea8; font-weight:800; font-size:13px; padding:6px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,.15); }
 
-  /* --- Spielfeld (Kern des Prototyps) --- */
-  .board-wrap { flex:1; position:relative; margin:0 8px; overflow:hidden; border-radius:24px;
-    box-shadow:0 10px 40px rgba(0,0,0,.25), inset 0 0 0 4px rgba(255,255,255,.25); }
+  .board-wrap { flex:1; position:relative; margin:0 8px; overflow:hidden; border-radius:24px; box-shadow:0 10px 40px rgba(0,0,0,.25), inset 0 0 0 4px rgba(255,255,255,.25); }
   canvas#board { width:100%; height:100%; display:block; }
 
-  /* --- Unten: Wuerfel + Infos --- */
-  footer {
-    display:flex; align-items:center; gap:12px; padding:12px 16px calc(14px + env(safe-area-inset-bottom));
-    z-index:5;
-  }
-  .dice-btn {
-    width:72px; height:72px; border-radius:18px; border:none; font-size:38px;
-    background:linear-gradient(145deg,#fff,#e8e8f0); box-shadow:0 6px 20px rgba(0,0,0,.25), inset 0 -3px 0 rgba(0,0,0,.12);
-    cursor:pointer; transition:transform .1s; flex-shrink:0; display:grid; place-items:center;
-  }
+  footer { display:flex; align-items:center; gap:12px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); z-index:5; }
+  .dice-btn { width:72px; height:72px; border-radius:18px; border:none; font-size:38px; background:linear-gradient(145deg,#fff,#e8e8f0); box-shadow:0 6px 20px rgba(0,0,0,.25), inset 0 -3px 0 rgba(0,0,0,.12); cursor:pointer; transition:transform .1s; flex-shrink:0; display:grid; place-items:center; }
   .dice-btn:active { transform:scale(.92); }
   .turn-info { flex:1; }
-  .turn-info .name { font-weight:900; font-size:17px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); }
-  .turn-info .msg { font-size:13px; color:rgba(255,255,255,.9); }
   .players-row { display:flex; gap:6px; }
   .pchip { display:flex; align-items:center; gap:5px; background:rgba(255,255,255,.25); padding:4px 10px; border-radius:14px; color:#fff; font-weight:700; font-size:12px; }
   .pchip.active { background:rgba(255,255,255,.9); color:#2b6ea8; box-shadow:0 2px 8px rgba(0,0,0,.2); }
-
-  .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.8); text-shadow:0 1px 2px rgba(0,0,0,.3); z-index:4; pointer-events:none; }
+  .msg { font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); margin-top:2px; }
+  .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.85); text-shadow:0 1px 2px rgba(0,0,0,.4); z-index:4; pointer-events:none; }
 </style>
 </head>
 <body>
-  <header>
-    <div class="logo">PARTY<span>ARENA</span></div>
-    <div class="round-badge">Runde 1</div>
-  </header>
-
-  <div class="board-wrap">
-    <canvas id="board"></canvas>
-    <div class="hint">🖐 Ziehe, um das Brett zu verschieben · 🔍 Pinchen zum Zoomen</div>
-  </div>
-
+  <header><div class="logo">PARTY<span>ARENA</span></div><div class="round-badge">Runde 1</div></header>
+  <div class="board-wrap"><canvas id="board"></canvas><div class="hint">🖐 Ziehen zum Verschieben · 🔍 Pinchen zum Zoomen</div></div>
   <footer>
     <button class="dice-btn" id="diceBtn">🎲</button>
     <div class="turn-info">
-      <div class="players-row">
-        <span class="pchip" id="chip1">🧱 Brix</span>
-        <span class="pchip" id="chip2">🐟 Nixie</span>
-      </div>
+      <div class="players-row"><span class="pchip" id="chip1">🧱 Brix</span><span class="pchip" id="chip2">🐟 Nixie</span></div>
       <div class="msg" id="msg">Tippe den Würfel!</div>
     </div>
   </footer>
 
 <script>
-/* =========================================================
-   PARTY ARENA — 2D CARTON PROTOTYP
-   Canvas-2D statt WebGL → garantiert flüssig auf jedem Handy.
-   Zeigt: Themengebiete-Brett, 2 Figuren, Würfel, Bewegungs-Animation.
-   ========================================================= */
 const ARENIANS = [
   { id:'brix', emoji:'🧱', name:'Brix',  color:'#ff6a00', home:'Mechanik-Stadt' },
   { id:'nixie',emoji:'🐟', name:'Nixie', color:'#00f0ff', home:'Sonnenstrand' },
@@ -89,199 +51,223 @@ const ARENIANS = [
   { id:'bloom',emoji:'🌵', name:'Bloom', color:'#7b2ff7', home:'Dschungeltempel' },
   { id:'momo', emoji:'🦝', name:'Momo',  color:'#ff3cac', home:'Frostgipfel' },
 ];
-const BIOMES = [
-  { name:'Sonnenstrand', color:'#ffd54f', dark:'#e6a800' },
-  { name:'Zuckerwald',   color:'#f8a8c8', dark:'#e0609a' },
-  { name:'Wolkenwerk',   color:'#a8d8ff', dark:'#5ca8e6' },
-  { name:'Frostgipfel',  color:'#b8d8f0', dark:'#80b8e6' },
-  { name:'Dschungel',    color:'#8fd98a', dark:'#4da64a' },
-  { name:'Mechanik',     color:'#b0b8c8', dark:'#78849c' },
-  { name:'Zitadelle',    color:'#ffd34e', dark:'#d99a00' },
+
+/* =========================================================
+   INSELE-WELT: 7 Inseln (Biome), verbunden durch einen Pfad mit
+   Feldern. Die Figur wandert von Insel zu Insel über Brücken.
+   Layout folgt der World-Architecture (Struktur, dann Regionen).
+   ========================================================= */
+
+// Insel-Definitionen (Welt-Koordinaten)
+const ISLANDS = [
+  { name:'Sternenzitadelle', color:'#ffd34e', edge:'#e0a800', x:-500, y:-260, r:150, icon:'👑' },
+  { name:'Mechanik-Stadt',   color:'#b8bfca', edge:'#8a94a6', x: 0,   y:-300, r:130, icon:'⚙️' },
+  { name:'Zuckerwald',       color:'#f8a8c8', edge:'#e0609a', x: 500, y:-260, r:130, icon:'🍭' },
+  { name:'Sonnenstrand',     color:'#ffe066', edge:'#e0a800', x:-400, y: 180, r:120, icon:'🏖️' },
+  { name:'Wolkenwerk',       color:'#cfe6ff', edge:'#9cc4f0', x: 0,   y: 280, r:115, icon:'☁️' },
+  { name:'Frostgipfel',      color:'#cfe0f5', edge:'#a0c0e8', x: 420, y: 200, r:120, icon:'❄️' },
+  { name:'Dschungeltempel',  color:'#a8e6a0', edge:'#5cb85c', x: 0,   y: 20,  r:95,  icon:'🗿' },
 ];
 
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-let W=0, H=0, DPR=1;
-let cam = { x:0, y:0, z:1 };   // Kamera: Pan + Zoom (2D)
-const BOARD_R = 300;           // Brett-Radius (Welt-Koordinaten)
+// Pfad der durch die Inseln führt (Feld-Positionen entlang einer Kurve)
+const PATH = [];
+(function buildPath(){
+  const pts = [
+    [-420,-60],[-180,40],[0,130],[180,150],[350,80],[430,-30],[380,-180],
+    [260,-260],[80,-260],[-80,-200],[-220,-140],[-380,-60],[-500,40],[-520,170],
+    [-380,260],[-180,300],[0,330],[200,300],[380,240],[480,120],[420,0]
+  ];
+  // Berechne glatte Kurve (Catmull-Rom) mit vielen Samples
+  const samples = [];
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)], p1=pts[i], p2=pts[i+1], p3=pts[Math.min(pts.length-1,i+2)];
+    for(let f=0;f<1;f+=0.04){
+      const f2=f*f, f3=f2*f;
+      const x=0.5*((2*p1[0])+(-p0[0]+p2[0])*f+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*f2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*f3);
+      const y=0.5*((2*p1[1])+(-p0[1]+p2[1])*f+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*f2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*f3);
+      samples.push({x,y});
+    }
+  }
+  // Kumulative Länge berechnen
+  const cum=[0];
+  for(let i=1;i<samples.length;i++){
+    const dx=samples[i].x-samples[i-1].x, dy=samples[i].y-samples[i-1].y;
+    cum.push(cum[i-1]+Math.sqrt(dx*dx+dy*dy));
+  }
+  const total=cum[cum.length-1];
+  // 32 Felder mit gleichmäßigem Abstand (60px+ → keine Überlappung)
+  const N=32, STEP=total/N;
+  let si=0;
+  for(let n=0;n<N;n++){
+    const target=n*STEP;
+    while(si<cum.length-1 && cum[si+1]<target) si++;
+    const f=cum[si+1]-cum[si]<=0?0:(target-cum[si])/(cum[si+1]-cum[si]);
+    const a=samples[si], b=samples[Math.min(samples.length-1,si+1)];
+    PATH.push({ x: a.x+(b.x-a.x)*f, y: a.y+(b.y-a.y)*f });
+  }
+})();
+const TILE_COUNT = PATH.length;
+
+// Feld-Typen (Mario-Party-Like)
+function tileType(i){
+  if(i===0) return 'start';
+  if(i%13===5) return 'star';
+  if(i%17===9) return 'lucky';
+  if(i%11===7) return 'shop';
+  return 'normal';
+}
+const TYPE_ICON = { start:'🏁', star:'⭐', lucky:'🍀', shop:'🛒', normal:'' };
+
 let players = [
   { id:'brix', char:ARENIANS[0], pos:0, moving:null },
-  { id:'nixie', char:ARENIANS[1], pos:30, moving:null },
+  { id:'nixie', char:ARENIANS[1], pos:14, moving:null },
 ];
-const TILE_COUNT = 64;         // 64 Felder im Kreis
-let turn = 0;                  // 0=Brix, 1=Nixie
-let diceRolling = false;
+let turn=0, diceRolling=false;
 
-/* --- Layout/DPR --- */
-function resize() {
-  DPR = Math.min(window.devicePixelRatio||1, 2);
-  const rect = canvas.parentElement.getBoundingClientRect();
-  W = rect.width; H = rect.height;
-  canvas.width = W*DPR; canvas.height = H*DPR;
+const canvas=document.getElementById('board'), ctx=canvas.getContext('2d');
+let W=0,H=0,DPR=1;
+let cam={x:0,y:0,z:0.62};
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const rect=canvas.parentElement.getBoundingClientRect();
+  W=rect.width;H=rect.height;
+  canvas.width=W*DPR;canvas.height=H*DPR;
   ctx.setTransform(DPR,0,0,DPR,0,0);
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize',resize);
 
-/* --- Brett-Felder als Kreis --- */
-function tilePos(i) {
-  const a = (i / TILE_COUNT) * Math.PI * 2 - Math.PI/2;
-  return { x: Math.cos(a)*BOARD_R, y: Math.sin(a)*BOARD_R };
-}
-function biomeFor(i) {
-  return BIOMES[Math.floor(i / 9) % BIOMES.length];
-}
-
-/* --- 2D-Kamera: Pan + Zoom --- */
-let dragging=false, lastX=0, lastY=0, pinchDist=0;
-canvas.addEventListener('pointerdown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', e=>{
-  if(!dragging) return;
-  cam.x += (e.clientX-lastX)/cam.z; cam.y += (e.clientY-lastY)/cam.z;
-  lastX=e.clientX; lastY=e.clientY;
-});
-canvas.addEventListener('pointerup', ()=>dragging=false);
-canvas.addEventListener('wheel', e=>{ e.preventDefault(); cam.z = Math.max(.4, Math.min(1.8, cam.z*(e.deltaY<0?1.1:.9))); }, {passive:false});
+/* Kamera Pan/Zoom */
+let dragging=false,lx=0,ly=0;
+canvas.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',e=>{if(dragging){cam.x+=(e.clientX-lx)/cam.z;cam.y+=(e.clientY-ly)/cam.z;lx=e.clientX;ly=e.clientY;}});
+canvas.addEventListener('pointerup',()=>dragging=false);
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(1.4,cam.z*(e.deltaY<0?1.1:.9)));},{passive:false});
 let pinch=0;
-canvas.addEventListener('touchstart', e=>{ if(e.touches.length===2){pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);} },{passive:false});
-canvas.addEventListener('touchmove', e=>{ if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.4,Math.min(1.8,cam.z*(d/pinch)));pinch=d;e.preventDefault();} },{passive:false});
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:false});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.3,Math.min(1.4,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
 
-/* --- Würfeln --- */
-document.getElementById('diceBtn').addEventListener('click', () => {
-  if(diceRolling) return;
-  const roll = 1+Math.floor(Math.random()*6);
-  const p = players[turn];
-  const from = p.pos;
-  let to = (from + roll) % TILE_COUNT;
-  if(to<from) to += TILE_COUNT;   // über Runde hinaus → volle Strecke
-  p.moving = { from, to:from+roll, steps:roll, t:0 };
-  diceRolling = true;
-  setMsg(p.char.name+' würfelt '+roll+' …', p.char.color);
+function tilePos(i){ const p=PATH[i]; return {x:p.x,y:p.y}; }
+
+/* Würfel */
+document.getElementById('diceBtn').addEventListener('click',()=>{
+  if(diceRolling)return;
+  const roll=1+Math.floor(Math.random()*6);
+  const p=players[turn];
+  p.moving={from:p.pos,to:p.pos+roll,steps:roll,t:0};
+  diceRolling=true;
+  setMsg(p.char.name+' würfelt '+roll+'…',p.char.color);
   animateDice(roll);
 });
+function animateDice(roll){const b=document.getElementById('diceBtn');let n=0;const s=setInterval(()=>{b.textContent=[1,2,3,4,5,6][n++%6];},90);setTimeout(()=>{clearInterval(s);b.textContent='🎲';},900);}
+function setMsg(t,c){const e=document.getElementById('msg');e.textContent=t;e.style.color=c||'';}
 
-function animateDice(roll){
-  const btn=document.getElementById('diceBtn');
-  let n=0; const spin=setInterval(()=>{ btn.textContent=[1,2,3,4,5,6][n++%6]; },90);
-  setTimeout(()=>{ clearInterval(spin); btn.textContent='🎲'; }, 900);
-}
-
-function setMsg(text, color){ const el=document.getElementById('msg'); el.textContent=text; el.style.color=color||''; }
-
-/* --- Bewegungs-Animation --- */
 function updateMove(dt){
   let allDone=true;
   players.forEach(p=>{
-    if(!p.moving) return; allDone=false;
-    p.moving.t = Math.min(1, p.moving.t + dt*1.2/p.moving.steps);
-    // hop: kleine Parabel
-    const hop = Math.sin(p.moving.t*Math.PI)*22;
-    p.pos = p.moving.from + (p.moving.to-p.moving.from)*p.moving.t;
-    if(p.moving.t>=1){ p.moving=null; }
+    if(!p.moving)return;allDone=false;
+    p.moving.t=Math.min(1,p.moving.t+dt*1.1/p.moving.steps);
+    p.pos=p.moving.from+(p.moving.to-p.moving.from)*p.moving.t;
+    if(p.moving.t>=1)p.moving=null;
   });
-  if(allDone && diceRolling){
+  if(allDone&&diceRolling){
     diceRolling=false;
-    const winner=turn;
-    turn=(turn+1)%2;
-    updateChips();
-    setMsg(players[winner].char.name+' zieht '+players[winner].pos+' Felder. '+players[turn].char.name+' ist dran!', players[winner].char.color);
+    const winner=turn;turn=(turn+1)%2;updateChips();
+    setMsg(players[winner].char.name+' zieht '+Math.round(players[winner].pos)+'. '+players[turn].char.name+' ist dran!',players[winner].char.color);
+  }
+}
+function updateChips(){
+  document.getElementById('chip1').classList.toggle('active',turn===0);
+  document.getElementById('chip2').classList.toggle('active',turn===1);
+}
+
+/* Runde Insel zeichnen */
+function drawIsland(isl){
+  // Schatten
+  ctx.beginPath();ctx.ellipse(isl.x+10,isl.y+14,isl.r+12,isl.r*0.72,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.18)';ctx.fill();
+  // Insel-Grund (unregelmässig-runde Form)
+  ctx.beginPath();
+  for(let a=0;a<=Math.PI*2+0.1;a+=0.15){
+    const rr=isl.r*(1+0.12*Math.sin(a*3)+0.06*Math.sin(a*5));
+    const px=isl.x+Math.cos(a)*rr, py=isl.y+Math.sin(a)*rr*0.75;
+    if(a===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.closePath();
+  const grad=ctx.createRadialGradient(isl.x-isl.r*.3,isl.y-isl.r*.4,isl.r*.2,isl.x,isl.y,isl.r*1.4);
+  grad.addColorStop(0,lighten(isl.color,40));grad.addColorStop(.6,isl.color);grad.addColorStop(1,isl.edge);
+  ctx.fillStyle=grad;ctx.fill();
+  ctx.lineWidth=6;ctx.strokeStyle=lighten(isl.edge,30);ctx.stroke();
+  // Landmarke (Icon) + Name
+  ctx.font='46px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(isl.icon,isl.x,isl.y-isl.r*0.15);
+  ctx.font='700 15px "Baloo 2",sans-serif';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText(isl.name,isl.x,isl.y+isl.r*0.55);
+}
+function lighten(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;r=Math.min(255,r);g=Math.min(255,g);b=Math.min(255,b);return `rgb(${r},${g},${b})`;}
+
+/* Pfad-Band + Felder */
+function drawPath(){
+  // Pfad (dickes Band)
+  ctx.beginPath();
+  PATH.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
+  ctx.lineWidth=52;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(240,230,200,.9)';ctx.stroke();
+  ctx.lineWidth=40;ctx.strokeStyle='rgba(120,90,50,.25)';ctx.stroke();
+}
+function drawTiles(){
+  for(let i=0;i<TILE_COUNT;i++){
+    const p=tilePos(i),r=30;
+    const type=tileType(i);
+    // Schatten
+    ctx.beginPath();ctx.arc(p.x+3,p.y+4,r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.2)';ctx.fill();
+    // Feld
+    const g=ctx.createRadialGradient(p.x-r*.3,p.y-r*.3,r*.2,p.x,p.y,r);
+    g.addColorStop(0,'#fff');g.addColorStop(.7,'#f0e8d8');g.addColorStop(1,'#e0d0b8');
+    ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.stroke();
+    // Icon/Nummer
+    ctx.font=(TYPE_ICON[type]?'22px':'700 12px')+' "Baloo 2",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    if(TYPE_ICON[type]){ctx.font='22px serif';ctx.fillText(TYPE_ICON[type],p.x,p.y+1);}
+    else{ctx.fillStyle='rgba(80,60,30,.6)';ctx.fillText(i+1,p.x,p.y+1);}
   }
 }
 
-/* --- Chips aktualisieren --- */
-function updateChips(){
-  document.getElementById('chip1').classList.toggle('active', turn===0);
-  document.getElementById('chip2').classList.toggle('active', turn===1);
+/* Figuren */
+function drawPlayers(){
+  players.forEach(p=>{
+    const idx=Math.max(0,Math.min(TILE_COUNT-1,Math.round(p.pos)));
+    const tp=tilePos(idx);
+    const next=tilePos(Math.min(TILE_COUNT-1,idx+1));
+    // Richtung
+    const ang=Math.atan2(next.y-tp.y,next.x-tp.x);
+    const hop=p.moving?Math.sin(p.moving.t*Math.PI)*26:0;
+    // Schatten
+    ctx.beginPath();ctx.ellipse(tp.x,tp.y+30,24,9,0,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.3)';ctx.fill();
+    // Körper
+    ctx.beginPath();ctx.arc(tp.x,tp.y-hop,32,0,Math.PI*2);
+    const g=ctx.createRadialGradient(tp.x-10,tp.y-hop-10,4,tp.x,tp.y-hop,34);
+    g.addColorStop(0,lighten(p.char.color,50));g.addColorStop(1,p.char.color);
+    ctx.fillStyle=g;ctx.fill();
+    ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.25)';ctx.stroke();
+    // Emoji-Gesicht
+    ctx.font='32px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.char.emoji,tp.x,tp.y-hop+1);
+  });
 }
 
-/* --- Zeichnen (2D-Cartoon) --- */
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.save();
-  ctx.translate(W/2 + cam.x*cam.z, H/2 + cam.y*cam.z);
-  ctx.scale(cam.z, cam.z);
-
-  // Wasser-Ring
-  ctx.beginPath(); ctx.arc(0,0,BOARD_R+70,0,Math.PI*2);
-  ctx.fillStyle='#2fa8e0'; ctx.fill();
-  ctx.beginPath(); ctx.arc(0,0,BOARD_R+55,0,Math.PI*2);
-  ctx.fillStyle='#57c4f0'; ctx.fill();
-
-  // Land
-  ctx.beginPath(); ctx.arc(0,0,BOARD_R+8,0,Math.PI*2);
-  ctx.fillStyle='#8ecf6a'; ctx.fill();
-  ctx.lineWidth=8; ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.stroke();
-
-  // Themengebiete (bunte Sektoren)
-  for(let i=0;i<TILE_COUNT;i++){
-    const a1=(i/TILE_COUNT)*Math.PI*2 - Math.PI/2;
-    const a2=((i+1)/TILE_COUNT)*Math.PI*2 - Math.PI/2;
-    const bio=biomeFor(i);
-    ctx.beginPath();
-    ctx.moveTo(0,0);
-    ctx.arc(0,0,BOARD_R-10,a1,a2);
-    ctx.closePath();
-    ctx.fillStyle=bio.color; ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2; ctx.stroke();
-  }
-
-  // Biome-Namen (in der Mitte jedes Sektors)
-  ctx.font='700 15px "Baloo 2",sans-serif'; ctx.fillStyle='rgba(0,0,0,.35)'; ctx.textAlign='center';
-  for(let b=0;b<7;b++){
-    const a=((b*9+4.5)/TILE_COUNT)*Math.PI*2 - Math.PI/2;
-    const r=BOARD_R*0.72;
-    ctx.save(); ctx.translate(Math.cos(a)*r, Math.sin(a)*r); ctx.rotate(a+Math.PI/2);
-    ctx.fillText(BIOMES[b].name,0,0); ctx.restore();
-  }
-
-  // Pfad + Felder
-  for(let i=0;i<TILE_COUNT;i++){
-    const p=tilePos(i);
-    const r=34;
-    // Schatten
-    ctx.beginPath(); ctx.arc(p.x+3,p.y+5,r,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fill();
-    // Feld-Platte (rund, Cartoon)
-    const bio=biomeFor(i);
-    const grad=ctx.createRadialGradient(p.x-r*.3,p.y-r*.3,r*.2,p.x,p.y,r);
-    grad.addColorStop(0,'#ffffff'); grad.addColorStop(.5,bio.dark); grad.addColorStop(1,bio.dark);
-    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=grad; ctx.fill();
-    ctx.lineWidth=5; ctx.strokeStyle='#fff'; ctx.stroke();
-    // Icon je Feld-Typ
-    const type = i%9===0?'⭐': i%9===5?'🍀': i%9===7?'🛒':'';
-    if(type){ ctx.font='24px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(type,p.x,p.y+2); }
-    else { ctx.font='700 14px "Baloo 2",sans-serif'; ctx.fillStyle='rgba(0,0,0,.5)'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(i+1,p.x,p.y+2); }
-  }
-
-  // Figuren (2D-Cartoon: runder Körper + Emoji + Schatten)
-  players.forEach(p=>{
-    const tpos=tilePos(Math.round(p.pos)%TILE_COUNT);
-    const x=tpos.x, y=tpos.y;
-    const hop = p.moving ? Math.sin(p.moving.t*Math.PI)*22 : 0;
-    // Schatten
-    ctx.beginPath(); ctx.ellipse(x,y+28,26,10,0,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fill();
-    // Körper
-    ctx.beginPath(); ctx.arc(x, y-hop, 34, 0, Math.PI*2);
-    ctx.fillStyle=p.char.color; ctx.fill();
-    ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.stroke();
-    // Emoji-Gesicht
-    ctx.font='34px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(p.char.emoji, x, y-hop+2);
-  });
-
+  ctx.translate(W/2+cam.x*cam.z,H/2+cam.y*cam.z);
+  ctx.scale(cam.z,cam.z);
+  // Wasser
+  ctx.fillStyle='rgba(60,160,220,.55)';
+  ctx.fillRect(-1000,-1000,2000,2000);
+  drawPath();
+  ISLANDS.forEach(drawIsland);
+  drawTiles();
+  drawPlayers();
   ctx.restore();
 }
-
-/* --- Main Loop (requestAnimationFrame = flüssig) --- */
 let last=0;
-function loop(t){
-  const dt=Math.min(.05,(t-last)/1000||0.016); last=t;
-  updateMove(dt);
-  draw();
-  requestAnimationFrame(loop);
-}
-resize();
-updateChips();
-setMsg('Tippe den Würfel! 🎲');
-requestAnimationFrame(loop);
+function loop(t){const dt=Math.min(.05,(t-last)/1000||.016);last=t;updateMove(dt);draw();requestAnimationFrame(loop);}
+resize();updateChips();setMsg('Tippe den Würfel! 🎲');requestAnimationFrame(loop);
 </script>
 </body>
 </html>
