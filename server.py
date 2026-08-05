@@ -2064,6 +2064,9 @@ async def handle_connection(reader, writer):
 
     # Pfad ohne Query
     clean_path = path.split("?", 1)[0]
+    # URL-dekodieren (%20 für Leerzeichen in Ordnern wie "1 Tiles")
+    from urllib.parse import unquote
+    clean_path = unquote(clean_path)
 
     # WebSocket-Upgrade?
     if clean_path == "/ws" and headers.get("upgrade", "").lower() == "websocket":

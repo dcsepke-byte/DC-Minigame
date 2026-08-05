@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Party Arena — Dorf-Prototyp</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif; touch-action:none; }
+  body { background:#3a2a1a; display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; z-index:5; }
+  .logo { font-size:22px; font-weight:900; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,.5); letter-spacing:1px; }
+  .logo span { color:#ffe14d; }
+  .round-badge { background:rgba(255,255,255,.9); color:#2b6ea8; font-weight:800; font-size:13px; padding:6px 14px; border-radius:20px; }
+  .board-wrap { flex:1; position:relative; margin:0 8px; overflow:hidden; border-radius:24px; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  canvas#board { width:100%; height:100%; display:block; }
+  footer { display:flex; align-items:center; gap:12px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); z-index:5; }
+  .dice-btn { width:72px; height:72px; border-radius:18px; border:none; font-size:38px; background:linear-gradient(145deg,#fff,#e8e8f0); box-shadow:0 6px 20px rgba(0,0,0,.3); cursor:pointer; flex-shrink:0; display:grid; place-items:center; }
+  .msg { flex:1; font-size:14px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.6); font-weight:700; }
+  .hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px; color:rgba(255,255,255,.95); text-shadow:0 1px 2px rgba(0,0,0,.6); z-index:4; pointer-events:none; }
+  #loading { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:700; background:#3a2a1a; z-index:20; }
+</style>
+</head>
+<body>
+  <header><div class="logo">PARTY<span>ARENA</span></div><div class="round-badge">Dorf</div></header>
+  <div class="board-wrap"><canvas id="board"></canvas><div id="loading">Baue Dorf…</div><div class="hint">🖐 Ziehen zum Verschieben · 🔍 Pinchen zum Zoomen</div></div>
+  <footer>
+    <button class="dice-btn" id="diceBtn">🎲</button>
+    <div class="msg" id="msg">Das Dorf zum Prüfen</div>
+  </footer>
+<script>
+/* =========================================================
+   DORF aus CraftPix Village-Assets
+   Boden: FieldsTiles (32px) als Wüstenboden-Grid
+   Objekte: Häuser, Zelte, Kisten, Fässer, Gras, Deko
+   ========================================================= */
+const TS = 32;               // Tile-Größe
+const GW = 30, GH = 22;      // Dorf-Grid-Größe
+
+// Bild-Cache
+const imgCache = {};
+function load(name, src, cb){
+  const img = new Image();
+  img.onload = () => { imgCache[name] = img; cb(); };
+  img.onerror = () => cb();
+  img.src = src;
+}
+
+const TILE_DIR = '../assets/craftpix/village/';
+const fields = {
+  1: TILE_DIR+'1 Tiles/FieldsTile_01.png',
+  2: TILE_DIR+'1 Tiles/FieldsTile_02.png',
+  3: TILE_DIR+'1 Tiles/FieldsTile_03.png',
+  38: TILE_DIR+'1 Tiles/FieldsTile_38.png',
+};
+const obj = {
+  house1: TILE_DIR+'2 Objects/7 House/1.png',
+  house2: TILE_DIR+'2 Objects/7 House/2.png',
+  house3: TILE_DIR+'2 Objects/7 House/3.png',
+  house4: TILE_DIR+'2 Objects/7 House/4.png',
+  tent1: TILE_DIR+'2 Objects/6 Tent/1.png',
+  tent2: TILE_DIR+'2 Objects/6 Tent/2.png',
+  tent3: TILE_DIR+'2 Objects/6 Tent/3.png',
+  tent4: TILE_DIR+'2 Objects/6 Tent/4.png',
+  grass1: TILE_DIR+'2 Objects/5 Grass/1.png',
+  grass2: TILE_DIR+'2 Objects/5 Grass/2.png',
+  stone1: TILE_DIR+'2 Objects/2 Stone/1.png',
+  stone2: TILE_DIR+'2 Objects/2 Stone/2.png',
+  box1: TILE_DIR+'2 Objects/4 Box/1.png',
+  box2: TILE_DIR+'2 Objects/4 Box/2.png',
+  decor1: TILE_DIR+'2 Objects/3 Decor/1.png',
+  decor2: TILE_DIR+'2 Objects/3 Decor/2.png',
+  decor3: TILE_DIR+'2 Objects/3 Decor/3.png',
+};
+
+// Bodengrid
+let ground = [];
+// Objektliste
+let objects = [];
+
+function buildDorf(){
+  // Boden: Wüsten-Tiles, mit grünen Flecken (FieldsTile_38)
+  ground = [];
+  for(let y=0;y<GH;y++){
+    ground[y]=[];
+    for(let x=0;x<GW;x++){
+      // meist Wüste (1/2/3), vereinzelt Gras
+      ground[y][x] = ((x*7+y*13)%9===0) ? 38 : (1+((x+y)%3));
+    }
+  }
+  // Objekte platzieren (x,y in Grid, mit Offset für zentrierung)
+  objects = [
+    // Zentrum: 4 Häuser
+    {img:'house1', x:9, y:7},
+    {img:'house2', x:15, y:7},
+    {img:'house3', x:9, y:14},
+    {img:'house4', x:15, y:14},
+    // Zelte rundherum
+    {img:'tent1', x:5, y:5},
+    {img:'tent2', x:19, y:5},
+    {img:'tent3', x:5, y:17},
+    {img:'tent4', x:19, y:17},
+    // Kisten + Steine verteilt
+    {img:'box1', x:3, y:9}, {img:'box2', x:21, y:12},
+    {img:'stone1', x:7, y:4}, {img:'stone2', x:17, y:4},
+    // Gras-Flecken
+    {img:'grass1', x:2, y:2}, {img:'grass2', x:22, y:2},
+    {img:'grass1', x:2, y:19}, {img:'grass2', x:22, y:19},
+    // Deko
+    {img:'decor1', x:12, y:6}, {img:'decor2', x:13, y:18},
+    {img:'decor3', x:11, y:4},
+  ];
+}
+
+const canvas = document.getElementById('board'), ctx = canvas.getContext('2d');
+let W=0,H=0,DPR=1;
+let cam = {x:-GW*TS/2, y:-GH*TS/2, z:0.6};
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  const r = canvas.parentElement.getBoundingClientRect();
+  W=r.width; H=r.height;
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+let dragging=false,lx=0,ly=0;
+canvas.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',e=>{if(dragging){cam.x+=(e.clientX-lx)/cam.z;cam.y+=(e.clientY-ly)/cam.z;lx=e.clientX;ly=e.clientY;}});
+canvas.addEventListener('pointerup',()=>dragging=false);
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.z=Math.max(.3,Math.min(3,cam.z*(e.deltaY<0?1.15:.87)));},{passive:false});
+let pinch=0;
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:false});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);cam.z=Math.max(.3,Math.min(3,cam.z*(d/pinch)));pinch=d;e.preventDefault();}},{passive:false});
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(W/2+cam.x*cam.z, H/2+cam.y*cam.z);
+  ctx.scale(cam.z, cam.z);
+  // Hintergrund
+  ctx.fillStyle='#5a4a2a';
+  ctx.fillRect(-TS*2,-TS*2, GW*TS+TS*4, GH*TS+TS*4);
+  // Boden-Tiles
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    const key = ground[y][x];
+    const img = imgCache[key];
+    if(img) ctx.drawImage(img, x*TS, y*TS, TS, TS);
+  }
+  // Objekte (Boden-nahe zuerst, dann große Gebäude)
+  const groundObjs = objects.filter(o=>!['house1','house2','house3','house4'].includes(o.img));
+  const buildings = objects.filter(o=>['house1','house2','house3','house4'].includes(o.img));
+  groundObjs.forEach(o=>{
+    const img=imgCache[o.img];
+    if(img) ctx.drawImage(img, o.x*TS, o.y*TS, img.width, img.height);
+  });
+  buildings.forEach(o=>{
+    const img=imgCache[o.img];
+    if(img) ctx.drawImage(img, o.x*TS, o.y*TS, img.width, img.height);
+  });
+  ctx.restore();
+}
+let last=0;
+function loop(t){requestAnimationFrame(loop);draw();}
+
+// Laden + Start
+resize(); buildDorf();
+const allImgs = {...fields, ...obj};
+const keys = Object.keys(allImgs);
+let loaded=0;
+keys.forEach(k=>{
+  load(k, allImgs[k], ()=>{ if(++loaded===keys.length){ document.getElementById('loading').style.display='none'; requestAnimationFrame(loop); } });
+});
+</script>
+</body>
+</html>
