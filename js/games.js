@@ -3619,6 +3619,12 @@ const Games = (() => {
       rules: 'Decke Kacheln auf und finde <strong>Paare</strong>! Jeder Match gibt Punkte, <strong>Combos</strong> (aufeinanderfolgende Matches) geben mehr! <strong>3 Booster</strong>: Peek (alle kurz sehen), Shuffle (neu mischen), Freeze (Zeit stoppen). Finde alle Paare vor Ablauf der Zeit fuer einen <strong>Zeitbonus</strong>! 60 Sekunden.', play: sessionWrap(gameTileFlip, 'tileflip') },
     { id: 'pipeline', name: 'Rohrleitung', icon: '🚰', desc: 'Drehe die Rohre, damit das Wasser durchfliesst!',
       rules: 'Drehe die <strong>Rohrteile</strong> per Tippen, um eine durchgehende <strong>Verbindung</strong> vom Eingang zum Ausgang zu bauen. Sobald die Leitung komplett ist, fliesst das Wasser und du bekommst Punkte — je schneller, desto mehr! Mit jedem Level wird das Raster <strong>groesser</strong>. 60 Sekunden.', play: sessionWrap(gamePipeLine, 'pipeline') },
+    { id: 'sliding', name: 'Schiebepuzzle', icon: '🧩', desc: 'Schiebe die Kacheln, um das Bild zu ordnen!',
+      rules: 'Schiebe die <strong>Kacheln</strong> in die Luecke, um die Zahlen <strong>1 bis 15</strong> in die richtige Reihenfolge zu bringen. Jeder Zug zaehlt — je weniger Zuege, desto mehr Punkte! Mit jedem Level wird es <strong>schwerer</strong>. 60 Sekunden.', play: sessionWrap(gameSliding, 'sliding') },
+    { id: 'anagram', name: 'Anagramm', icon: '🔤', desc: 'Entwirre die Buchstaben zum richtigen Wort!',
+      rules: 'Die Buchstaben eines Wortes sind <strong>durcheinandergewuerfelt</strong>. Tippe sie in der richtigen Reihenfolge, um das Wort zu bilden. Je schneller, desto mehr Punkte! Mit jedem Level werden die Woerter <strong>laenger</strong>. 60 Sekunden.', play: sessionWrap(gameAnagram, 'anagram') },
+    { id: 'hoops', name: 'Ziel-Wurf', icon: '🏀', desc: 'Wirf den Ball in den Korb — je genauer, desto besser!',
+      rules: 'Ziehe den Ball nach unten und <strong>lass los</strong>, um ihn in den Korb zu werfen. Der Korb <strong>bewegt sich</strong>! Treffer geben Punkte, <strong>Volltreffer</strong> (Mitte) geben Bonus. 30 Sekunden.', play: sessionWrap(gameHoops, 'hoops') },
   ];
 
   /* =========================================================
@@ -4471,6 +4477,321 @@ const Games = (() => {
       const rem = endAt - performance.now();
       bar.style.width = Math.max(0, rem/TIME_MS*100) + '%';
       if (rem <= 0) { FX.burst(window.innerWidth/2, window.innerHeight/2, 40, 12); api.finish(score); return false; }
+    });
+  }
+
+  /* =========================================================
+     SCHIEBEPUZZLE (Sliding) — 15-Puzzle gegen die Zeit
+     ========================================================= */
+  function gameSliding(stage, api) {
+    const TIME_MS = 60000;
+    let score = 0, level = 1, moves = 0, board = [], empty = {x:0,y:0};
+    const endAt = performance.now() + TIME_MS;
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="sl-bar"></div>
+      <div class="pp-hud">
+        <span class="pp-score" id="sl-score">0</span>
+        <span class="pp-info" id="sl-info">Ordne 1-15!</span>
+      </div>
+      <div class="sl-grid" id="sl-grid"></div>
+      <div class="pp-status" id="sl-status">Schiebe die Kacheln</div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#sl-bar');
+    const scoreEl = wrap.querySelector('#sl-score');
+    const infoEl = wrap.querySelector('#sl-info');
+    const statusEl = wrap.querySelector('#sl-status');
+    const gridEl = wrap.querySelector('#sl-grid');
+
+    function newLevel(lvl) {
+      const size = 4; // 4x4 = 15-Puzzle
+      moves = 0;
+      // Ziel: 1..15, 0 = leer
+      board = [];
+      for (let y=0; y<size; y++) { const row=[]; for(let x=0;x<size;x++){ row.push(y*size+x+1); } board.push(row); }
+      board[size-1][size-1] = 0;
+      empty = {x:size-1, y:size-1};
+      // Mischen (gültige Züge)
+      const rnd = Math.random;
+      for (let i=0; i<200 + lvl*50; i++) {
+        const dirs = [];
+        if (empty.x>0) dirs.push([-1,0]);
+        if (empty.x<size-1) dirs.push([1,0]);
+        if (empty.y>0) dirs.push([0,-1]);
+        if (empty.y<size-1) dirs.push([0,1]);
+        const [dx,dy] = dirs[Math.floor(rnd()*dirs.length)];
+        const nx=empty.x+dx, ny=empty.y+dy;
+        board[empty.y][empty.x] = board[ny][nx];
+        board[ny][nx] = 0;
+        empty = {x:nx, y:ny};
+      }
+      render();
+      infoEl.textContent = `Level ${level} · 4×4`;
+    }
+
+    function isSolved() {
+      let n=1;
+      for (let y=0; y<4; y++) for (let x=0; x<4; x++) {
+        if (y===3 && x===3) return board[y][x]===0;
+        if (board[y][x] !== n) return false;
+        n++;
+      }
+      return true;
+    }
+
+    function render() {
+      gridEl.innerHTML = '';
+      gridEl.style.gridTemplateColumns = 'repeat(4, 64px)';
+      for (let y=0; y<4; y++) for (let x=0; x<4; x++) {
+        const v = board[y][x];
+        const cell = el('button', 'sl-cell' + (v===0?' empty':''));
+        cell.textContent = v===0 ? '' : v;
+        if (v!==0) {
+          cell.addEventListener('pointerdown', () => {
+            // Prüfe ob benachbart zur Lücke
+            const dx = Math.abs(x-empty.x), dy = Math.abs(y-empty.y);
+            if (dx+dy !== 1) return;
+            board[empty.y][empty.x] = v;
+            board[y][x] = 0;
+            empty = {x, y};
+            moves++;
+            render();
+            if (isSolved()) {
+              const pts = Math.max(50, 300 - moves*2);
+              score += pts; api.setScore(score);
+              FX.Sound.star(); FX.burst(window.innerWidth/2, window.innerHeight/2, 30, 10);
+              statusEl.textContent = `✅ Gelöst! +${pts}`;
+              api.timeout(() => { level++; newLevel(level); }, 900);
+            } else {
+              statusEl.textContent = `Züge: ${moves}`;
+            }
+          });
+        }
+        gridEl.appendChild(cell);
+      }
+    }
+
+    newLevel(1);
+    api.frameLoop(() => {
+      const rem = endAt - performance.now();
+      bar.style.width = Math.max(0, rem/TIME_MS*100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
+    });
+  }
+
+  /* =========================================================
+     ANAGRAMM — Buchstaben zum Wort ordnen
+     ========================================================= */
+  function gameAnagram(stage, api) {
+    const TIME_MS = 60000;
+    const WORDS = [
+      'HAUS','BAUM','SONNE','WASSER','STERN','BLUME','SPIEL','FREUND',
+      'SCHLOSS','WALD','STADT','BRUECKE','TEMPEL','KRISTALL','MECHANIK',
+      'ZUCKER','WOLKE','EIS','DSCHUNGEL','ZITADELLE','ABENTEUER','SCHATZ',
+      'MAGIE','DRACHE','RITTER','KOENIG','PRINZESSIN','FESTUNG','PORTAL','ENERGIE'
+    ];
+    let score = 0, level = 1, word = '', letters = [], picked = [];
+    const endAt = performance.now() + TIME_MS;
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="an-bar"></div>
+      <div class="pp-hud">
+        <span class="pp-score" id="an-score">0</span>
+        <span class="pp-info" id="an-info">Bilde das Wort!</span>
+      </div>
+      <div class="an-answer" id="an-answer"></div>
+      <div class="an-letters" id="an-letters"></div>
+      <div class="pp-status" id="an-status">Tippe die Buchstaben in der richtigen Reihenfolge</div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#an-bar');
+    const scoreEl = wrap.querySelector('#an-score');
+    const infoEl = wrap.querySelector('#an-info');
+    const statusEl = wrap.querySelector('#an-status');
+    const answerEl = wrap.querySelector('#an-answer');
+    const lettersEl = wrap.querySelector('#an-letters');
+
+    function shuffle(a) { for (let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+    function newWord() {
+      word = WORDS[Math.floor(Math.random()*WORDS.length)];
+      letters = shuffle(word.split(''));
+      picked = [];
+      render();
+      infoEl.textContent = `Level ${level} · ${word.length} Buchstaben`;
+    }
+
+    function render() {
+      // Antwort (gepickte Buchstaben)
+      answerEl.innerHTML = '';
+      picked.forEach((l, i) => {
+        const c = el('span', 'an-ans-letter', l);
+        c.addEventListener('pointerdown', () => {
+          picked.splice(i, 1);
+          render();
+        });
+        answerEl.appendChild(c);
+      });
+      // Leere Plätze
+      for (let i=picked.length; i<word.length; i++) {
+        answerEl.appendChild(el('span', 'an-ans-empty', '_'));
+      }
+      // Verfügbare Buchstaben
+      lettersEl.innerHTML = '';
+      const remaining = letters.filter((l, i) => !picked.includes(l) || picked.indexOf(l) !== letters.indexOf(l) || true);
+      // Einfacher: zeige alle Buchstaben, entferne gepickte
+      const used = {};
+      picked.forEach(l => used[l] = (used[l]||0)+1);
+      const avail = {};
+      letters.forEach(l => avail[l] = (avail[l]||0)+1);
+      letters.forEach((l, i) => {
+        const c = el('button', 'an-letter', l);
+        // Deaktiviere wenn alle Vorkommen gepickt
+        const pickedCount = picked.filter(p=>p===l).length;
+        if (pickedCount >= avail[l]) { c.disabled = true; c.classList.add('used'); }
+        c.addEventListener('pointerdown', () => {
+          picked.push(l);
+          render();
+          check();
+        });
+        lettersEl.appendChild(c);
+      });
+    }
+
+    function check() {
+      if (picked.length !== word.length) return;
+      const attempt = picked.join('');
+      if (attempt === word) {
+        const pts = 50 + word.length*10;
+        score += pts; api.setScore(score);
+        FX.Sound.star(); FX.burst(window.innerWidth/2, window.innerHeight/2, 25, 8);
+        statusEl.textContent = `✅ ${word}! +${pts}`;
+        api.timeout(() => { level++; newWord(); }, 800);
+      } else {
+        FX.Sound.bad(); FX.shake(stage);
+        statusEl.textContent = '❌ Falsch — versuch es neu';
+        picked = [];
+        render();
+      }
+    }
+
+    newWord();
+    api.frameLoop(() => {
+      const rem = endAt - performance.now();
+      bar.style.width = Math.max(0, rem/TIME_MS*100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
+    });
+  }
+
+  /* =========================================================
+     ZIEL-WURF (Hoops) — Ball in den bewegten Korb werfen
+     ========================================================= */
+  function gameHoops(stage, api) {
+    const TIME_MS = 30000;
+    let score = 0, throwing = false, ballX = 0, ballY = 0, ballVX = 0, ballVY = 0;
+    let hoopX = 0, hoopDir = 1, hoopY = 0;
+    let lastTime = performance.now();
+    const endAt = performance.now() + TIME_MS;
+
+    const wrap = el('div', 'stage-center');
+    wrap.innerHTML = `
+      <div class="generic-timer-bar" id="hp-bar"></div>
+      <div class="pp-hud">
+        <span class="pp-score" id="hp-score">0</span>
+        <span class="pp-info" id="hp-info">Wirf in den Korb!</span>
+      </div>
+      <div class="hp-arena" id="hp-arena">
+        <canvas class="hp-canvas" id="hp-canvas"></canvas>
+      </div>
+      <div class="pp-status" id="hp-status">Ziehe den Ball nach unten und lass los</div>`;
+    stage.appendChild(wrap);
+    const bar = wrap.querySelector('#hp-bar');
+    const scoreEl = wrap.querySelector('#hp-score');
+    const infoEl = wrap.querySelector('#hp-info');
+    const statusEl = wrap.querySelector('#hp-status');
+    const arenaEl = wrap.querySelector('#hp-arena');
+    const canvas = wrap.querySelector('#hp-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      const r = arenaEl.getBoundingClientRect();
+      canvas.width = r.width; canvas.height = r.height;
+      // Ball startet unten Mitte
+      ballX = r.width/2; ballY = r.height - 30;
+      hoopY = 60;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Drag zum Zielen
+    let dragStart = null;
+    canvas.addEventListener('pointerdown', e => {
+      if (throwing) return;
+      dragStart = {x: e.offsetX, y: e.offsetY};
+    });
+    canvas.addEventListener('pointerup', e => {
+      if (!dragStart || throwing) return;
+      const dx = e.offsetX - dragStart.x;
+      const dy = e.offsetY - dragStart.y;
+      // Wurfkraft umgekehrt (nach unten ziehen = nach oben werfen)
+      ballVX = -dx * 0.15;
+      ballVY = -dy * 0.15;
+      throwing = true;
+      dragStart = null;
+    });
+
+    function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // Korb (bewegt sich horizontal)
+      ctx.fillStyle = '#ff6a00';
+      ctx.fillRect(hoopX-25, hoopY, 50, 8);
+      ctx.fillStyle = '#ffd34e';
+      ctx.fillRect(hoopX-25, hoopY-4, 50, 4);
+      // Ball
+      ctx.beginPath();
+      ctx.arc(ballX, ballY, 12, 0, Math.PI*2);
+      ctx.fillStyle = '#ff4d6d';
+      ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth=2; ctx.stroke();
+    }
+
+    function update(dt) {
+      // Korb bewegen
+      hoopX += hoopDir * 120 * dt;
+      if (hoopX < 30) { hoopX = 30; hoopDir = 1; }
+      if (hoopX > canvas.width-30) { hoopX = canvas.width-30; hoopDir = -1; }
+      // Ball
+      if (throwing) {
+        ballX += ballVX * dt;
+        ballY += ballVY * dt;
+        ballVY += 500 * dt; // Schwerkraft
+        // Treffer-Check
+        if (ballY > hoopY-10 && ballY < hoopY+10 && Math.abs(ballX-hoopX) < 30) {
+          const center = Math.abs(ballX-hoopX);
+          const pts = center < 8 ? 50 : 25;
+          score += pts; api.setScore(score);
+          FX.Sound.good(); FX.toast(stage, `+${pts}`, 'var(--good)');
+          throwing = false;
+          ballX = canvas.width/2; ballY = canvas.height-30; ballVX=0; ballVY=0;
+        }
+        // Boden / verfehlt
+        if (ballY > canvas.height-12) {
+          throwing = false;
+          ballX = canvas.width/2; ballY = canvas.height-30; ballVX=0; ballVY=0;
+        }
+      }
+    }
+
+    api.frameLoop(() => {
+      const now = performance.now();
+      const dt = Math.min(0.05, (now-lastTime)/1000);
+      lastTime = now;
+      update(dt);
+      draw();
+      const rem = endAt - now;
+      bar.style.width = Math.max(0, rem/TIME_MS*100) + '%';
+      if (rem <= 0) { api.finish(score); return false; }
     });
   }
 
