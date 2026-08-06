@@ -209,7 +209,7 @@
     } catch (_) {}
     if (!fig && (window.ARENIANS || []).length) fig = ARENIANS[0];
     if (fig) {
-      avatar.textContent = fig.emoji || '🧱';
+      avatar.innerHTML = `<img src="assets/characters/${fig.id}.png" alt="${escapeHtml(fig.name)}" class="char-sprite char-sprite-lg">`;
       nameEl.textContent = fig.name || 'Brix';
       homeEl.textContent = '🏝️ ' + (fig.home || 'Aethonia');
       const wrap = document.getElementById('menu-figure-preview');
@@ -230,7 +230,7 @@
       if (a.emoji === selectedEmoji) card.classList.add('selected');
       card.style.setProperty('--char-color', a.color);
       card.innerHTML = `
-        <div class="menu-char-avatar">${a.emoji}</div>
+        <div class="menu-char-avatar"><img src="assets/characters/${a.id}.png" alt="${escapeHtml(a.name)}" class="char-sprite"></div>
         <div class="menu-char-name">${escapeHtml(a.name)}</div>
         <div class="menu-char-home">${escapeHtml(a.home)}</div>
       `;

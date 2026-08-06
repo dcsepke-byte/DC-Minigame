@@ -5593,3 +5593,17 @@ body.player-app .screen[data-screen="menu"] .tagline {
 .menu-btn-shop { background: linear-gradient(135deg, #ffd54f, #ff8f00); }
 .menu-btn-settings { background: linear-gradient(135deg, #2bffb9, #00a86b); }
 .menu-btn-info { background: linear-gradient(135deg, #5a8dee, #3a6ad0); }
+
+/* Pixel-Art Charakter-Sprites */
+.char-sprite {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: inline-block;
+}
+.char-sprite-lg {
+  width: 48px;
+  height: 48px;
+}
+.menu-char-avatar { line-height: 1; }
