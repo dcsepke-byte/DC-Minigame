@@ -404,6 +404,10 @@ body.player-app .screen[data-screen="menu"] {
   background: linear-gradient(135deg, var(--good), var(--good-dark));
   box-shadow: 0 6px 28px rgba(43, 255, 185, 0.3);
 }
+.menu-btn-info {
+  background: linear-gradient(135deg, #5a8dee, #3a6ad0);
+  box-shadow: 0 6px 28px rgba(90, 141, 238, 0.35);
+}
 
 /* Zurueck-Button im Join-Screen */
 .back-btn {
@@ -5272,3 +5276,45 @@ body.player-app .onboarding-text { font-size: 0.9em; min-height: 2em; }
   position: relative;
 }
 .hp-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* ============================================================
+   INFO-SCREEN (So funktioniert's)
+   ============================================================ */
+.info-card {
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px;
+}
+.info-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.info-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.info-section .card-title {
+  margin-bottom: 8px;
+}
+.info-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--txt, #fff);
+  margin: 0;
+}
+.info-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--txt, #fff);
+}
+.info-list li {
+  margin-bottom: 4px;
+}
+.info-list strong {
+  color: var(--gold, #ffe14d);
+}

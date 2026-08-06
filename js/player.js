@@ -679,6 +679,16 @@
     openSettings();
     FX.Sound.tap();
   });
+  const btnMenuInfo = $('#btn-menu-info');
+  if (btnMenuInfo) btnMenuInfo.addEventListener('click', () => {
+    showScreen('info');
+    FX.Sound.tap();
+  });
+  const btnBackFromInfo = $('#btn-back-from-info');
+  if (btnBackFromInfo) btnBackFromInfo.addEventListener('click', () => {
+    showScreen('menu');
+    FX.Sound.tap();
+  });
   const btnBackToMenu = $('#btn-back-to-menu');
   if (btnBackToMenu) btnBackToMenu.addEventListener('click', () => {
     showScreen('menu');
