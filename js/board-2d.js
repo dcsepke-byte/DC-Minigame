@@ -1,7 +1,7 @@
 /* ============================================================
-   PARTY ARENA — 2D Canvas Board (Aethonia-Weltkarte)
-   Kompletter Neuaufbau: schöne Inselwelt mit 8 Biomen,
-   160 Feldern, Verzweigungen, Deko. Haupt-Renderer.
+   PARTY ARENA — 2D Canvas Board (Aethonia-Stadt)
+   Felder liegen auf den Strassen der Pico-8-Stadt (Serpentinen-Pfad).
+   Hauptpfad: 160 Felder auf den Strassen. Side-Paths: kurze Abstecher.
    ============================================================ */
 (() => {
   'use strict';
@@ -15,21 +15,12 @@
     active: false,
     turnPlayerId: null,
     _w: 0, _h: 0, _dpr: 1,
+    bgImg: null,   // Stadtkarte
+    mainPath: [],  // 160 Pixel-Koordinaten (in Tile-Einheiten)
+    sidePaths: [], // 8 x [10 Punkte]
   };
 
-  /* ============================================================
-     AETHONIA-BIOME (Konzept-Farben)
-     ============================================================ */
-  const BIOMES = [
-    { id: 'sonnenstrand', name: 'Sonnenstrand', color: '#ffd54f', land: '#f9a825', water: '#0288d1', deco: '🌴' },
-    { id: 'zuckerwald',    name: 'Zuckerwald',    color: '#f48fb1', land: '#e91e63', water: '#f8bbd0', deco: '🍭' },
-    { id: 'wolkenwerk',    name: 'Wolkenwerk',    color: '#b3e5fc', land: '#29b6f6', water: '#e1f5fe', deco: '☁️' },
-    { id: 'frostgipfel',   name: 'Frostgipfel',   color: '#b3e5fc', land: '#5c6bc0', water: '#e3f2fd', deco: '❄️' },
-    { id: 'dschungel',     name: 'Dschungel',     color: '#81c784', land: '#2e7d32', water: '#a5d6a7', deco: '🌿' },
-    { id: 'mechanik',      name: 'Mechanik-Stadt', color: '#b0bec5', land: '#546e7a', water: '#cfd8dc', deco: '⚙️' },
-    { id: 'sonnenstrand2', name: 'Sonnenstrand',  color: '#ffd54f', land: '#f9a825', water: '#0288d1', deco: '🏖️' },
-    { id: 'zitadelle',     name: 'Sternenzitadelle', color: '#ffd700', land: '#ff8f00', water: '#fff59d', deco: '⭐' },
-  ];
+  const TILE = 8;
 
   /* ============================================================
      FELD-TYPEN (Symbole + Farben)
@@ -46,53 +37,55 @@
   };
 
   /* ============================================================
-     POSITION: 160 Felder als Kleeblatt durch 8 Biome
-     (gleiche Topologie wie Server, aber schöner gerendert)
+     POSITION: 160 Hauptfelder auf dem Strassen-Serpentinen-Pfad.
+     Felder 0..159 -> mainPath[0..159].
+     Side-Paths 160..239 -> sidePaths[bi][j], bi = (idx-160)//10.
+     Skalierung: Karte wird auf state._bgScale skaliert, Pfad-Punkte
+     (in Tile*8-Pixel) muessen mit derselben Skala + Zentrum verschoben werden.
      ============================================================ */
+  function toScreen(p) {
+    const s = state._bgScale || 1;
+    const w = state._w, h = state._h;
+    return { x: p.x * s + (w - (state.bgImg ? state.bgImg.width : 0) * s) / 2,
+             y: p.y * s + (h - (state.bgImg ? state.bgImg.height : 0) * s) / 2 };
+  }
+
   function tilePosition(index, total, cx, cy, scale) {
+    const mp = state.mainPath;
+    if (mp && mp.length >= 160) {
+      if (index < 160) {
+        return toScreen(mp[index]);
+      }
+      const bi = Math.floor((index - 160) / 10);
+      const j = (index - 160) % 10;
+      const sp = state.sidePaths[bi];
+      if (sp && sp[j]) {
+        return toScreen(sp[j]);
+      }
+    }
+    // Fallback: Kreis (falls Pfad noch nicht geladen)
     const mainLen = 160;
     if (index < mainLen) {
       const segLen = mainLen / 8;
       const segment = Math.floor(index / segLen);
       const segT = (index % segLen) / segLen;
       const segAngle = (segment + 0.5) / 8 * Math.PI * 2 - Math.PI / 2;
-      const bulge = Math.sin(segT * Math.PI);
-      const r = 8.0 + 7.5 * bulge;
-      const angleSpread = (Math.PI * 2 / 8) * 0.95;
-      const angle = segAngle + (segT - 0.5) * angleSpread;
-      const wobble = Math.sin(index * 0.4) * 0.12;
-      return {
-        x: cx + Math.cos(angle) * (r + wobble) * scale,
-        y: cy + Math.sin(angle) * (r + wobble) * 0.92 * scale,
-      };
+      const r = 8.0;
+      const angle = segAngle + (segT - 0.5) * (Math.PI * 2 / 8) * 0.95;
+      return { x: cx + Math.cos(angle) * r * scale, y: cy + Math.sin(angle) * r * scale };
     }
-    // Side-Path (Verzweigung)
-    const bi = Math.floor((index - mainLen) / 10);
-    const j = (index - mainLen) % 10;
-    const bstart = [10, 30, 50, 70, 90, 110, 130, 150][bi] || 10;
-    const rejoin = [30, 50, 70, 90, 110, 130, 150, 10][bi] || 30;
-    const p0 = tilePosition(bstart, total, cx, cy, scale);
-    const p1 = tilePosition(rejoin, total, cx, cy, scale);
-    const t = j / 9;
-    const midX = (p0.x + p1.x) / 2, midY = (p0.y + p1.y) / 2;
-    const outLen = Math.hypot(midX - cx, midY - cy) || 1;
-    const outDirX = (midX - cx) / outLen, outDirY = (midY - cy) / outLen;
-    const bulge = 6.0 * scale;
-    const mx = midX + outDirX * bulge, my = midY + outDirY * bulge;
-    const omt = 1 - t;
-    return {
-      x: omt * omt * p0.x + 2 * omt * t * mx + t * t * p1.x,
-      y: omt * omt * p0.y + 2 * omt * t * my + t * t * p1.y,
-    };
+    return { x: cx, y: cy };
   }
 
-  function biomeForIndex(index) {
-    if (index >= 160) {
-      const bi = Math.floor((index - 160) / 10);
-      return BIOMES[bi] || BIOMES[0];
-    }
-    const seg = Math.floor(index / 20);
-    return BIOMES[seg] || BIOMES[0];
+  /* ============================================================
+     PFAD-LADEN: BOARD_PATH aus board-path-data.js in Pixel umrechnen
+     ============================================================ */
+  function loadPath() {
+    const bp = window.BOARD_PATH;
+    if (!bp || !bp.main) return;
+    // Main-Pfad (Tile -> Pixel, zentriert auf Karte)
+    state.mainPath = bp.main.map(([tx, ty]) => ({ x: tx * TILE, y: ty * TILE }));
+    state.sidePaths = (bp.side || []).map(sp => sp.map(([tx, ty]) => ({ x: tx * TILE, y: ty * TILE })));
   }
 
   /* ============================================================
@@ -105,6 +98,13 @@
     document.body.prepend(canvas);
     state.canvas = canvas;
     state.ctx = canvas.getContext('2d');
+
+    // Stadtkarte laden
+    const img = new Image();
+    img.onload = () => { state.bgImg = img; render(); };
+    img.src = 'assets/kenney-pico8-city/aethonia_city_4x.png';
+
+    loadPath();
     resize();
     window.addEventListener('resize', resize);
     state.active = true;
@@ -134,7 +134,7 @@
   }
 
   /* ============================================================
-     RENDER — die Aethonia-Weltkarte
+     RENDER
      ============================================================ */
   function render() {
     const ctx = state.ctx;
@@ -144,60 +144,25 @@
     ctx.clearRect(0, 0, w, h);
 
     const cx = w / 2, cy = h / 2;
-    // Hintergrund: Ozean (tiefes Wasser) statt dunklem Himmel
-    const ocean = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
-    ocean.addColorStop(0, '#0d3b66');
-    ocean.addColorStop(1, '#062a4a');
-    ctx.fillStyle = ocean;
-    ctx.fillRect(0, 0, w, h);
+    const scale = Math.min(w, h) / 140;   // Karte ~880px breit skalieren
 
-    const scale = Math.min(w, h) / 40;
+    // --- 1. Stadtkarte als Hintergrund ---
+    if (state.bgImg) {
+      const bw = state.bgImg.width, bh = state.bgImg.height;
+      const s = Math.min((w * 0.98) / bw, (h * 0.9) / bh);
+      const iw = bw * s, ih = bh * s;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(state.bgImg, cx - iw / 2, cy - ih / 2, iw, ih);
+      // Pfad-Punkte: Skalierung fuer tilePosition
+      state._bgScale = s;
+    }
+
     const tiles = state.tiles;
     const total = tiles.length || 24;
 
-    // --- 1. Biome als grosse Sektoren (Kuchenstuecke) — klare Themengebiete ---
-    // Jeder Sektor deckt einen 45°-Bereich des Feld-Rings ab (Mario-Party-Stil).
-    const ringR = 17 * scale;   // aeusserer Rand des Feld-Rings
-    for (let seg = 0; seg < 8; seg++) {
-      const biome = BIOMES[seg];
-      const startAngle = (seg / 8) * Math.PI * 2 - Math.PI / 2;
-      const endAngle = ((seg + 1) / 8) * Math.PI * 2 - Math.PI / 2;
-
-      // Sektor-Flaeche (Landmasse) — opak, kräftige Farbe
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, ringR * 1.2, startAngle, endAngle);
-      ctx.closePath();
-      ctx.fillStyle = biome.land;
-      ctx.fill();
-
-      // Sektor-Rand (Wasser/Trennung)
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, ringR * 1.2, startAngle, endAngle);
-      ctx.closePath();
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Biom-Label am Sektor-Rand
-      const midAngle = (startAngle + endAngle) / 2;
-      const lx = cx + Math.cos(midAngle) * ringR * 1.35;
-      const ly = cy + Math.sin(midAngle) * ringR * 1.35;
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(biome.name, lx, ly);
-
-      // Deko-Emoji
-      ctx.font = '20px sans-serif';
-      ctx.fillText(biome.deco, lx, ly + 18);
-    }
-
-    // --- 2. Pfad-Verbindungen (Wege zwischen Feldern) ---
-    ctx.strokeStyle = 'rgba(212,165,116,0.35)';
-    ctx.lineWidth = 4;
+    // --- 2. Pfad-Verbindungen (Strassen als Linien zwischen Feldern) ---
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     for (let i = 0; i < total; i++) {
       const p1 = tilePosition(i, total, cx, cy, scale);
@@ -216,28 +181,24 @@
       const ownerId = state.owners[String(idx)];
       const owner = state.players.find(p => p.id === ownerId);
       const style = TILE_STYLE[tile.type] || TILE_STYLE.property;
-      const biome = biomeForIndex(idx);
 
-      // Feld-Körper (rund, mit Biom-Farbe als Ring)
       ctx.fillStyle = style.color;
       ctx.strokeStyle = owner ? owner.color : 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = owner ? 2.5 : 1.5;
+      ctx.lineWidth = owner ? 2 : 1;
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 13, 0, Math.PI * 2);
+      ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Feld-Icon
       ctx.fillStyle = '#fff';
-      ctx.font = '12px sans-serif';
+      ctx.font = '7px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(style.icon, pos.x, pos.y);
 
-      // Feld-Nummer (klein)
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '7px sans-serif';
-      ctx.fillText(String(idx), pos.x, pos.y + 16);
+      ctx.font = '5px sans-serif';
+      ctx.fillText(String(idx), pos.x, pos.y + 10);
     });
 
     // --- 4. Spieler-Chips ---
@@ -259,14 +220,14 @@
       if (isTurn) {
         ctx.fillStyle = 'rgba(255,213,79,0.35)';
         ctx.beginPath();
-        ctx.arc(px, py, 13, 0, Math.PI * 2);
+        ctx.arc(px, py, 9, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.fillStyle = p.color || '#7b2ff7';
       ctx.strokeStyle = isTurn ? '#ffd54f' : 'rgba(255,255,255,0.5)';
-      ctx.lineWidth = isTurn ? 2.5 : 1.5;
+      ctx.lineWidth = isTurn ? 2 : 1;
       ctx.beginPath();
-      ctx.arc(px, py, 10, 0, Math.PI * 2);
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
@@ -275,10 +236,10 @@
         ? (parts[0][0] + parts[1][0]).toUpperCase()
         : String(p.name || '?').trim().slice(0, 2).toUpperCase();
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 8px sans-serif';
+      ctx.font = 'bold 5px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(initials, px, py + 1);
+      ctx.fillText(initials, px, py);
     });
   }
 
