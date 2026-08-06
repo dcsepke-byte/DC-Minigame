@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Party Arena — Generierte Welt</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0a0e1a; color:#fff; font-family:-apple-system, system-ui, sans-serif;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:16px;
+  }
+  h1 { font-size:20px; margin:8px 0 4px; letter-spacing:1px; }
+  .sub { color:#8a93b0; font-size:12px; margin-bottom:12px; }
+  canvas { width:100%; max-width:520px; border-radius:12px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
+  .controls { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; justify-content:center; }
+  button {
+    background:linear-gradient(135deg,#5a8dee,#3a6ad0); color:#fff; border:none;
+    padding:10px 18px; border-radius:10px; font-size:14px; cursor:pointer; font-weight:600;
+  }
+  button:active { transform:scale(.96); }
+  .seed { display:flex; align-items:center; gap:6px; }
+  .seed input {
+    background:#1a2035; border:1px solid #2a3350; color:#fff; border-radius:8px;
+    padding:8px; width:90px; font-size:14px; text-align:center;
+  }
+  .legend { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; justify-content:center; font-size:11px; color:#c6cbe0; }
+  .legend span { display:flex; align-items:center; gap:4px; }
+  .sw { width:12px; height:12px; border-radius:3px; display:inline-block; }
+</style>
+</head>
+<body>
+  <h1>🌍 Generierte Welt</h1>
+  <p class="sub">Deterministische Insel-Weltkarte (fBm-Noise + Biome)</p>
+  <canvas id="map" width="520" height="520"></canvas>
+  <div class="controls">
+    <div class="seed">
+      <label>Seed</label>
+      <input id="seed" type="number" value="42">
+    </div>
+    <button id="btn-gen">🎲 Neu generieren</button>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:#1a4d8f"></i> Ozean</span>
+    <span><i class="sw" style="background:#e8d5a3"></i> Sonnenstrand</span>
+    <span><i class="sw" style="background:#ff8ac2"></i> Zuckerwald</span>
+    <span><i class="sw" style="background:#a8d8ff"></i> Wolkenwerk</span>
+    <span><i class="sw" style="background:#b3d9ff"></i> Frostgipfel</span>
+    <span><i class="sw" style="background:#2e8b57"></i> Dschungel</span>
+    <span><i class="sw" style="background:#9aa5b1"></i> Mechanik-Stadt</span>
+    <span><i class="sw" style="background:#ffd700"></i> Sternenzitadelle</span>
+  </div>
+<script>
+// ============================================================
+// Deterministischer Noise (value noise + fBm) — kein externes Lib
+// ============================================================
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Value-Noise: deterministisch, 2D, gibt 0..1 zurück
+function makeNoise(seed) {
+  const rng = mulberry32(seed);
+  const perm = new Uint8Array(512);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+  function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function grad(hash, x, y) {
+    const h = hash & 7;
+    const u = h < 4 ? x : y;
+    const v = h < 4 ? y : x;
+    return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+  }
+  return function(x, y) {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    const xf = x - Math.floor(x), yf = y - Math.floor(y);
+    const u = fade(xf), v = fade(yf);
+    const aa = perm[perm[X] + Y], ab = perm[perm[X] + Y + 1];
+    const ba = perm[perm[X + 1] + Y], bb = perm[perm[X + 1] + Y + 1];
+    const x1 = lerp(grad(aa, xf, yf), grad(ba, xf - 1, yf), u);
+    const x2 = lerp(grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1), u);
+    return (lerp(x1, x2, v) + 1) / 2;  // 0..1
+  };
+}
+
+// fBm: summiere Oktaven
+function fbm(noise, x, y, octaves, lacunarity, gain) {
+  let total = 0, amp = 1, freq = 1, norm = 0;
+  for (let i = 0; i < octaves; i++) {
+    total += amp * noise(x * freq, y * freq);
+    norm += amp;
+    amp *= gain;
+    freq *= lacunarity;
+  }
+  return total / norm;
+}
+
+// ============================================================
+// Biome-Lookup (elevation + moisture, getrennte Seeds)
+// Aethonia-Konzept-Biome (aus party-arena-game-design)
+// ============================================================
+function biome(e, m) {
+  if (e < 0.22) return 'ocean';        // tiefes Wasser
+  if (e < 0.30) return 'beach';        // Sonnenstrand (Küste)
+  if (e > 0.70) return m > 0.5 ? 'ice' : 'sky';   // Frostgipfel / Wolkenwerk
+  if (e > 0.55) return m > 0.6 ? 'jungle' : 'tech'; // Dschungel / Mechanik-Stadt
+  if (m < 0.30) return 'candy';        // Zuckerwald (trocken-süß)
+  if (m < 0.50) return 'beach';        // Sonnenstrand (flach)
+  if (m < 0.72) return 'jungle';       // Dschungel
+  return 'finale';                     // Sternenzitadelle (feucht, hoch)
+}
+
+// Aethonia-Konzept-Farben (aus Konzept-Tabelle)
+const BIOME_COLORS = {
+  ocean:   '#1a4d8f',  // tiefes Wasser
+  beach:   '#e8d5a3',  // Sonnenstrand: Sandgelb
+  candy:   '#ff8ac2',  // Zuckerwald: Rosa
+  sky:     '#a8d8ff',  // Wolkenwerk: Hellblau
+  ice:     '#b3d9ff',  // Frostgipfel: Eisblau
+  jungle:  '#2e8b57',  // Dschungel: Grün
+  tech:    '#9aa5b1',  // Mechanik-Stadt: Silber
+  finale:  '#ffd700',  // Sternenzitadelle: Gold
+};
+
+// ============================================================
+// Generierung
+// ============================================================
+function generate(seed) {
+  const W = 520, H = 520;
+  const canvas = document.getElementById('map');
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(W, H);
+
+  // Getrennte Seeds für elevation + moisture (vermeidet korrelierte Bänder)
+  const elevNoise = makeNoise(seed * 2 + 1);
+  const moistNoise = makeNoise(seed * 2 + 2);
+  const detailNoise = makeNoise(seed * 2 + 3);
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      // Normalisierte Koordinaten
+      const nx = x / W, ny = y / H;
+      // fBm für Elevation (niedrige Frequenz = große Landformen)
+      let e = fbm(elevNoise, nx * 3, ny * 3, 5, 2.0, 0.5);
+      // Insel-Shaping: Radial-Falloff (0 im Zentrum, ~1 an den Rändern)
+      const dx = nx * 2 - 1, dy = ny * 2 - 1;
+      const d = 1 - (1 - dx * dx) * (1 - dy * dy);
+      e = e * (1 - 0.45) + (1 - d) * 0.45;
+      // Redistribution: flache Täler, scharfe Gipfel
+      e = Math.pow(e, 1.2);
+      // Detail für Küstenlinie
+      const det = fbm(detailNoise, nx * 8, ny * 8, 3, 2.0, 0.5);
+      e = e * 0.85 + det * 0.15;
+      // Kontrast-Streckung: fBm liegt nur ~0.17-0.75, strecke auf vollen 0..1
+      // (deterministisch, fester Faktor) damit alle Biome vorkommen
+      e = Math.max(0, Math.min(1, (e - 0.5) * 1.4 + 0.5));
+      // Moisture (getrennt, für Biome-Differenzierung)
+      const m = fbm(moistNoise, nx * 3 + 100, ny * 3 + 100, 4, 2.0, 0.5);
+
+      const b = biome(e, m);
+      const c = BIOME_COLORS[b];
+      const idx = (y * W + x) * 4;
+      img.data[idx] = parseInt(c.slice(1,3),16);
+      img.data[idx+1] = parseInt(c.slice(3,5),16);
+      img.data[idx+2] = parseInt(c.slice(5,7),16);
+      img.data[idx+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ============================================================
+// Init
+// ============================================================
+const seedInput = document.getElementById('seed');
+document.getElementById('btn-gen').addEventListener('click', () => {
+  const s = parseInt(seedInput.value) || 42;
+  generate(s);
+});
+generate(parseInt(seedInput.value) || 42);
+</script>
+</body>
+</html>
