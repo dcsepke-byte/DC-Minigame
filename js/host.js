@@ -561,6 +561,16 @@
       actions.push({ label: 'Nicht kaufen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) });
       showHostBoardPrompt(state.boardLog, actions);
       showTurnNotice('Item-Shop: Wähle ein Item oder gehe.', actions);
+    } else if (state.hostPendingKind === 'gamePick') {
+      // Minispiel-Auswahl: aktiver Spieler (Host) wählt aus 3 Spielen
+      const options = (m && m.options) || [];
+      const actions = options.map(o => ({
+        label: o.label || '🎮 Minispiel',
+        kind: 'primary',
+        action: () => Net.send({ type: 'board:decision', action: o.action }),
+      }));
+      showHostBoardPrompt(m.prompt || 'Wähle das Minispiel.', actions);
+      showTurnNotice(m.prompt || 'Wähle das Minispiel!', actions);
     } else {
       const actions = [
         { label: '🪙 Zahlen (2)', kind: 'primary', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },

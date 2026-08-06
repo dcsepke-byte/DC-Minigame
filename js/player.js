@@ -924,6 +924,20 @@
       }
       showBoardPrompt(m.message || 'Zahlen, duellieren oder Item benutzen?', actions);
       showTurnNotice('Du bist dran: Zahlen, duellieren oder Item benutzen?', noticeActions);
+    } else if (m.kind === 'gamePick') {
+      // Minispiel-Auswahl: aktiver Spieler wählt aus 3 Spielen
+      const options = (m && m.options) || [];
+      const actions = options.map(o => ({
+        label: o.label || '🎮 Minispiel',
+        action: () => Net.send({ type: 'board:decision', action: o.action }),
+      }));
+      const noticeActions = options.map(o => ({
+        label: o.label || '🎮 Minispiel',
+        kind: 'primary',
+        action: () => Net.send({ type: 'board:decision', action: o.action }),
+      }));
+      showBoardPrompt(m.prompt || 'Wähle das Minispiel.', actions);
+      showTurnNotice(m.prompt || 'Wähle das Minispiel!', noticeActions);
     }
   });
 

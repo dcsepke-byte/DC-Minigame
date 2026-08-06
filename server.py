@@ -1407,6 +1407,22 @@ class Room:
         tile_idx = str(pending.get("tile"))
         player = self.players[pid]
 
+        if kind == "gamePick":
+            # Aktiver Spieler wählt eines der angebotenen Minispiele.
+            options = pending.get("games") or []
+            chosen = next((g for g in options if g.get("id") == action), None)
+            self.cancel_board_start_handle()
+            self.board["startHandle"] = None
+            self.board["pending"] = None
+            if chosen:
+                self.board_story(f"🎮 {player['name']} wählt {chosen.get('icon','🎮')} {chosen.get('name')}!")
+            else:
+                chosen = random.choice(options) if options else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+                self.board_story(f"🎮 Zufällig gewählt: {chosen.get('icon','🎮')} {chosen.get('name')}!")
+            # Runde mit dem gewählten Spiel starten — trigger/resume aus pending merken
+            self.begin_global_game_round(chosen, trigger=pending.get("trigger", "lap"), resume=pending.get("resume", "begin_turn"))
+            return
+
         if kind == "buy":
             # Feldkauf kostet Münzen (nicht Sterne) — typische Mario-Party-Wirtschaft.
             field_price = 3
@@ -1539,8 +1555,6 @@ class Room:
         self.cancel_board_flow_handle()
         intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
         game_pool = (self.settings or {}).get("games") or []
-        base_game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
-        game = self.prepare_game_instance(base_game)
         participants = self.connected_players()
         if not participants:
             if resume == "end_turn":
@@ -1548,6 +1562,50 @@ class Room:
             else:
                 self.begin_board_turn()
             return
+        # Minispiel-Auswahl-Strategie: aktiver Spieler wählt aus 3 zufälligen Spielen.
+        if game_pool and len(game_pool) > 1:
+            pool = list(game_pool)
+            random.shuffle(pool)
+            options = [self.prepare_game_instance(g) for g in pool[:3]]
+            picker_pid = self.board.get("turnPlayerId") or participants[0]
+            picker = self.players.get(picker_pid, {})
+            picker_name = picker.get("name", "Spieler")
+            self.board["pending"] = {"kind": "gamePick", "player": picker_pid, "games": options, "trigger": trigger, "resume": resume}
+            self.board_story(f"🎮 {picker_name} wählt das Minispiel!")
+            self.send_board_update()
+            # Auswahl-UI an den pickenden Spieler
+            msg = {"type": "board:decision", "kind": "gamePick",
+                   "title": "Minispiel wählen",
+                   "prompt": f"Wähle das Minispiel, {picker_name}.",
+                   "options": [{"label": f"{g.get('icon','🎮')} {g.get('name')}", "action": g.get("id")} for g in options]}
+            pc = picker.get("client")
+            if pc:
+                pc.send(msg)
+            elif picker_pid == self.host_pid and self.host and self.host_participates:
+                self.host.send(msg)
+            else:
+                self.board_story(f"{picker_name} hat keine Auswahl — zufällig.")
+                self.board["pending"] = None
+                self.begin_global_game_round(random.choice(options), trigger, resume)
+                return
+            self.cancel_board_start_handle()
+            self.board["startHandle"] = loop.call_later(10.0, self.auto_pick_game, trigger, resume)
+            return
+        base_game = random.choice(game_pool) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+        game = self.prepare_game_instance(base_game)
+        self.begin_global_game_round(game, trigger, resume)
+
+    def auto_pick_game(self, trigger, resume):
+        self.board["pending"] = None
+        game_pool = (self.settings or {}).get("games") or []
+        game = self.prepare_game_instance(random.choice(game_pool)) if game_pool else {"id": "reaction", "name": "Reaktion", "icon": "⚡", "desc": "", "rules": ""}
+        self.begin_global_game_round(game, trigger, resume)
+
+    def begin_global_game_round(self, game, trigger="lap", resume="begin_turn"):
+        self.cancel_board_flow_handle()
+        intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
+        participants = self.connected_players()
+        self.board["pending"] = None
         self.board["phase"] = "globalIntro"
         self.board["global"] = {
             "id": uuid.uuid4().hex[:8],
