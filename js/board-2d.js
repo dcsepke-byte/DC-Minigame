@@ -1,6 +1,7 @@
 /* ============================================================
-   PARTY ARENA — 2D Canvas Board Fallback
-   Fuer Low-End-Geraete ohne WebGL/Three.js
+   PARTY ARENA — 2D Canvas Board (Aethonia-Weltkarte)
+   Kompletter Neuaufbau: schöne Inselwelt mit 8 Biomen,
+   160 Feldern, Verzweigungen, Deko. Haupt-Renderer.
    ============================================================ */
 (() => {
   'use strict';
@@ -13,13 +14,44 @@
     ctx: null,
     active: false,
     turnPlayerId: null,
+    _w: 0, _h: 0, _dpr: 1,
   };
 
-  /* Gleiche Mathe wie scene3d.js mainPathPosition, aber fuer 2D-Canvas */
-  function tilePosition2D(index, total, cx, cy, scale) {
+  /* ============================================================
+     AETHONIA-BIOME (Konzept-Farben)
+     ============================================================ */
+  const BIOMES = [
+    { id: 'sonnenstrand', name: 'Sonnenstrand', color: '#ffd54f', land: '#f5c542', water: '#4fc3f7', deco: '🌴' },
+    { id: 'zuckerwald',    name: 'Zuckerwald',    color: '#f48fb1', land: '#f06292', water: '#f8bbd0', deco: '🍭' },
+    { id: 'wolkenwerk',    name: 'Wolkenwerk',    color: '#b3e5fc', land: '#81d4fa', water: '#e1f5fe', deco: '☁️' },
+    { id: 'frostgipfel',   name: 'Frostgipfel',   color: '#b3e5fc', land: '#90caf9', water: '#e3f2fd', deco: '❄️' },
+    { id: 'dschungel',     name: 'Dschungel',     color: '#81c784', land: '#66bb6a', water: '#a5d6a7', deco: '🌿' },
+    { id: 'mechanik',      name: 'Mechanik-Stadt', color: '#b0bec5', land: '#90a4ae', water: '#cfd8dc', deco: '⚙️' },
+    { id: 'sonnenstrand2', name: 'Sonnenstrand',  color: '#ffd54f', land: '#f5c542', water: '#4fc3f7', deco: '🏖️' },
+    { id: 'zitadelle',     name: 'Sternenzitadelle', color: '#ffd700', land: '#ffc107', water: '#fff59d', deco: '⭐' },
+  ];
+
+  /* ============================================================
+     FELD-TYPEN (Symbole + Farben)
+     ============================================================ */
+  const TILE_STYLE = {
+    start:    { icon: '🏁', color: '#ffd54f' },
+    property: { icon: '🎮', color: '#90caf9' },
+    event:    { icon: '🎲', color: '#ff8a65' },
+    starshop: { icon: '⭐', color: '#fff176' },
+    itemshop: { icon: '🎁', color: '#81c784' },
+    lucky:    { icon: '🍀', color: '#ba68c8' },
+    bonus:    { icon: '🪙', color: '#4dd0e1' },
+    junction: { icon: '🧭', color: '#ce93d8' },
+  };
+
+  /* ============================================================
+     POSITION: 160 Felder als Kleeblatt durch 8 Biome
+     (gleiche Topologie wie Server, aber schöner gerendert)
+     ============================================================ */
+  function tilePosition(index, total, cx, cy, scale) {
     const mainLen = 160;
-    if (index < 160) {
-      const t = index / mainLen;
+    if (index < mainLen) {
       const segLen = mainLen / 8;
       const segment = Math.floor(index / segLen);
       const segT = (index % segLen) / segLen;
@@ -28,28 +60,25 @@
       const r = 8.0 + 7.5 * bulge;
       const angleSpread = (Math.PI * 2 / 8) * 0.95;
       const angle = segAngle + (segT - 0.5) * angleSpread;
-      const wobble = Math.sin(t * Math.PI * 16) * 0.12;
+      const wobble = Math.sin(index * 0.4) * 0.12;
       return {
         x: cx + Math.cos(angle) * (r + wobble) * scale,
         y: cy + Math.sin(angle) * (r + wobble) * 0.92 * scale,
       };
     }
-    /* Side-Path: vereinfachte quadratische Bezier */
-    const bi = Math.floor((index - 160) / 10);
-    const j = (index - 160) % 10;
+    // Side-Path (Verzweigung)
+    const bi = Math.floor((index - mainLen) / 10);
+    const j = (index - mainLen) % 10;
     const bstart = [10, 30, 50, 70, 90, 110, 130, 150][bi] || 10;
     const rejoin = [30, 50, 70, 90, 110, 130, 150, 10][bi] || 30;
-    const p0 = tilePosition2D(bstart, total, cx, cy, scale);
-    const p1 = tilePosition2D(rejoin, total, cx, cy, scale);
+    const p0 = tilePosition(bstart, total, cx, cy, scale);
+    const p1 = tilePosition(rejoin, total, cx, cy, scale);
     const t = j / 9;
-    const midX = (p0.x + p1.x) / 2;
-    const midY = (p0.y + p1.y) / 2;
+    const midX = (p0.x + p1.x) / 2, midY = (p0.y + p1.y) / 2;
     const outLen = Math.hypot(midX - cx, midY - cy) || 1;
-    const outDirX = (midX - cx) / outLen;
-    const outDirY = (midY - cy) / outLen;
+    const outDirX = (midX - cx) / outLen, outDirY = (midY - cy) / outLen;
     const bulge = 6.0 * scale;
-    const mx = midX + outDirX * bulge;
-    const my = midY + outDirY * bulge;
+    const mx = midX + outDirX * bulge, my = midY + outDirY * bulge;
     const omt = 1 - t;
     return {
       x: omt * omt * p0.x + 2 * omt * t * mx + t * t * p1.x,
@@ -57,40 +86,18 @@
     };
   }
 
-  const BIOME_COLORS = {
-    village: '#7cb342', desert: '#ffd54f', forest: '#2e7d32',
-    mountain: '#90a4ae', swamp: '#6a8e23', ice: '#b3e5fc',
-    volcano: '#ff6f00', clouds: '#e1bee7',
-  };
-  const BIOME_NAMES = ['village', 'desert', 'forest', 'mountain', 'swamp', 'ice', 'volcano', 'clouds'];
-
-  function tileColor2D(tile, owner) {
-    if (owner && owner.color) return owner.color;
-    if (!tile) return '#90caf9';
-    if (tile.type === 'start') return '#ffd54f';
-    if (tile.type === 'event') return '#ff8a65';
-    if (tile.type === 'starshop') return '#fff176';
-    if (tile.type === 'itemshop') return '#81c784';
-    if (tile.type === 'lucky') return '#ba68c8';
-    if (tile.type === 'bonus') return '#4dd0e1';
-    if (tile.type === 'property') return '#90caf9';
-    if (tile.type === 'junction') return '#ce93d8';
-    return '#90caf9';
+  function biomeForIndex(index) {
+    if (index >= 160) {
+      const bi = Math.floor((index - 160) / 10);
+      return BIOMES[bi] || BIOMES[0];
+    }
+    const seg = Math.floor(index / 20);
+    return BIOMES[seg] || BIOMES[0];
   }
 
-  function tileLabel2D(tile) {
-    if (!tile) return '?';
-    if (tile.type === 'start') return 'S';
-    if (tile.type === 'event') return '!';
-    if (tile.type === 'starshop') return '\u2605';
-    if (tile.type === 'itemshop') return '\u2666';
-    if (tile.type === 'lucky') return '?';
-    if (tile.type === 'bonus') return '+';
-    if (tile.type === 'property') return '\u25A0';
-    if (tile.type === 'junction') return '\u21C4';
-    return '\u25CF';
-  }
-
+  /* ============================================================
+     INIT
+     ============================================================ */
   function init() {
     const canvas = document.createElement('canvas');
     canvas.id = 'board-2d-canvas';
@@ -107,8 +114,11 @@
     const c = state.canvas;
     if (!c) return;
     const dpr = window.devicePixelRatio || 1;
-    c.width = window.innerWidth * dpr;
-    c.height = window.innerHeight * dpr;
+    state._dpr = dpr;
+    state._w = window.innerWidth;
+    state._h = window.innerHeight;
+    c.width = state._w * dpr;
+    c.height = state._h * dpr;
     state.ctx.setTransform(1, 0, 0, 1, 0, 0);
     state.ctx.scale(dpr, dpr);
     render();
@@ -123,139 +133,145 @@
     render();
   }
 
-  function drawRoundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y, x + w, y + r, r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x, y + h, x, y + h - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
-    ctx.closePath();
-  }
-
+  /* ============================================================
+     RENDER — die Aethonia-Weltkarte
+     ============================================================ */
   function render() {
     const ctx = state.ctx;
     const c = state.canvas;
     if (!ctx || !c || !state.active) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = c.width / dpr;
-    const h = c.height / dpr;
-
+    const w = state._w, h = state._h;
     ctx.clearRect(0, 0, w, h);
 
-    /* Dunkler Hintergrund */
-    ctx.fillStyle = '#080c1f';
+    // Hintergrund: dunkler Himmel
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#0a0e1f');
+    sky.addColorStop(1, '#1a2340');
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w, h);
 
-    const cx = w / 2;
-    const cy = h / 2;
-    const scale = Math.min(w, h) / 28;
+    const cx = w / 2, cy = h / 2;
+    const scale = Math.min(w, h) / 26;
     const tiles = state.tiles;
     const total = tiles.length || 24;
 
-    /* Biom-Hintergruende */
+    // --- 1. Biome als Insel-Regionen (farbige Landmassen) ---
     for (let seg = 0; seg < 8; seg++) {
+      const biome = BIOMES[seg];
       const segAngle = (seg + 0.5) / 8 * Math.PI * 2 - Math.PI / 2;
-      const biome = BIOME_NAMES[seg];
-      const color = BIOME_COLORS[biome] || '#7cb342';
       const bx = cx + Math.cos(segAngle) * 10 * scale;
       const by = cy + Math.sin(segAngle) * 10 * scale * 0.92;
-      const grad = ctx.createRadialGradient(bx, by, 0, bx, by, 4.5 * scale);
-      grad.addColorStop(0, color + '33');
-      grad.addColorStop(1, color + '05');
-      ctx.fillStyle = grad;
+      const r = 5.2 * scale;
+
+      // Landmasse (weiche, unregelmäßige Insel)
       ctx.beginPath();
-      ctx.arc(bx, by, 4.5 * scale, 0, Math.PI * 2);
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.15) {
+        const wob = 1 + Math.sin(a * 5 + seg * 2) * 0.12 + Math.sin(a * 9 + seg) * 0.06;
+        const px = bx + Math.cos(a) * r * wob;
+        const py = by + Math.sin(a) * r * wob * 0.85;
+        if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = biome.land + 'cc';
       ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Wasser-Ring um die Insel
+      ctx.beginPath();
+      ctx.arc(bx, by, r * 1.15, 0, Math.PI * 2);
+      ctx.strokeStyle = biome.water + '55';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Biom-Label
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(biome.name, bx, by - r * 1.35);
+
+      // Deko-Emoji
+      ctx.font = '16px sans-serif';
+      ctx.fillText(biome.deco, bx, by + r * 1.1);
     }
 
-    /* Pfad-Verbindungen */
-    ctx.strokeStyle = 'rgba(212,165,116,0.18)';
-    ctx.lineWidth = 1.5;
+    // --- 2. Pfad-Verbindungen (Wege zwischen Feldern) ---
+    ctx.strokeStyle = 'rgba(212,165,116,0.35)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
     for (let i = 0; i < total; i++) {
-      const p1 = tilePosition2D(i, total, cx, cy, scale);
+      const p1 = tilePosition(i, total, cx, cy, scale);
       const nextI = (i + 1) % total;
-      const p2 = tilePosition2D(nextI, total, cx, cy, scale);
+      const p2 = tilePosition(nextI, total, cx, cy, scale);
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
     }
 
-    /* Tiles */
+    // --- 3. Tiles (Felder) ---
     tiles.forEach((tile, i) => {
-      const pos = tilePosition2D(i, total, cx, cy, scale);
+      const pos = tilePosition(i, total, cx, cy, scale);
       const idx = tile.idx == null ? i : tile.idx;
       const ownerId = state.owners[String(idx)];
       const owner = state.players.find(p => p.id === ownerId);
-      const color = tileColor2D(tile, owner);
+      const style = TILE_STYLE[tile.type] || TILE_STYLE.property;
+      const biome = biomeForIndex(idx);
 
-      /* Tile-Koerper */
-      ctx.fillStyle = color;
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 1;
-      drawRoundRect(ctx, pos.x - 13, pos.y - 9, 26, 18, 5);
+      // Feld-Körper (rund, mit Biom-Farbe als Ring)
+      ctx.fillStyle = style.color;
+      ctx.strokeStyle = owner ? owner.color : 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = owner ? 2.5 : 1.5;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 13, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      /* Tile-Label */
-      ctx.fillStyle = '#ffffffcc';
-      ctx.font = 'bold 9px sans-serif';
+      // Feld-Icon
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(tileLabel2D(tile), pos.x, pos.y);
+      ctx.fillText(style.icon, pos.x, pos.y);
 
-      /* Tile-Nummer */
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      // Feld-Nummer (klein)
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.font = '7px sans-serif';
-      ctx.fillText(String(idx), pos.x, pos.y + 12);
+      ctx.fillText(String(idx), pos.x, pos.y + 16);
     });
 
-    /* Spieler-Chips */
+    // --- 4. Spieler-Chips ---
     const posCount = {};
+    state.players.forEach(p => { posCount[p.position || 0] = (posCount[p.position || 0] || 0) + 1; });
+    const offsets = {};
     state.players.forEach(p => {
       const pos = p.position || 0;
-      posCount[pos] = (posCount[pos] || 0) + 1;
-    });
-
-    const offsets = {}; /* position -> next offset index */
-    state.players.forEach(p => {
-      const pos = p.position || 0;
-      const tilePos = tilePosition2D(pos, total, cx, cy, scale);
+      const tilePos = tilePosition(pos, total, cx, cy, scale);
       const count = posCount[pos] || 1;
       const idx = offsets[pos] || 0;
       offsets[pos] = idx + 1;
-
-      /* Verteile Spieler um das Tile */
       const angleOffset = count > 1 ? (idx / count) * Math.PI * 2 - Math.PI / 2 : 0;
-      const dist = count > 1 ? 16 : 0;
+      const dist = count > 1 ? 18 : 0;
       const px = tilePos.x + Math.cos(angleOffset) * dist;
-      const py = tilePos.y - 22 + Math.sin(angleOffset) * dist;
-
+      const py = tilePos.y - 24 + Math.sin(angleOffset) * dist;
       const isTurn = state.turnPlayerId === p.id;
 
-      /* Glow bei aktivem Spieler */
       if (isTurn) {
-        ctx.fillStyle = 'rgba(255,213,79,0.3)';
+        ctx.fillStyle = 'rgba(255,213,79,0.35)';
         ctx.beginPath();
-        ctx.arc(px, py, 12, 0, Math.PI * 2);
+        ctx.arc(px, py, 13, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      /* Chip */
       ctx.fillStyle = p.color || '#7b2ff7';
-      ctx.strokeStyle = isTurn ? '#ffd54f' : 'rgba(255,255,255,0.4)';
+      ctx.strokeStyle = isTurn ? '#ffd54f' : 'rgba(255,255,255,0.5)';
       ctx.lineWidth = isTurn ? 2.5 : 1.5;
       ctx.beginPath();
-      ctx.arc(px, py, 9, 0, Math.PI * 2);
+      ctx.arc(px, py, 10, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      /* Initialen */
       const parts = String(p.name || '?').trim().split(/\s+/);
       const initials = parts.length >= 2
         ? (parts[0][0] + parts[1][0]).toUpperCase()
@@ -268,18 +284,9 @@
     });
   }
 
-  function show() {
-    state.active = true;
-    if (state.canvas) state.canvas.style.display = 'block';
-    render();
-  }
+  function show() { state.active = true; if (state.canvas) state.canvas.style.display = 'block'; render(); }
+  function hide() { state.active = false; if (state.canvas) state.canvas.style.display = 'none'; }
 
-  function hide() {
-    state.active = false;
-    if (state.canvas) state.canvas.style.display = 'none';
-  }
-
-  /* Auto-Init */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });
   } else {

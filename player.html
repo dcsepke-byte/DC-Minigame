@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=20" />
+  <link rel="stylesheet" href="css/styles.css?v=21" />
   <link rel="manifest" href="manifest.webmanifest?v=9" />
   <link rel="icon" href="assets/icon.svg?v=9" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="assets/icon.svg?v=9" />
@@ -203,6 +203,7 @@
       <!-- Fortschritts-Chip + Menü oben-rechts -->
       <div class="hud-top-right">
         <span class="hud-chip" id="board-lap">Runde 0 / 0</span>
+        <button class="hud-icon-btn" id="board-backpack" aria-label="Rucksack öffnen" title="Rucksack">🎒</button>
         <button class="hud-icon-btn" id="board-cam-follow" aria-label="Figur folgen (Doppel-Tap)" title="Figur folgen">🎯</button>
         <button class="hud-icon-btn" id="board-menu" aria-label="Menü">☰</button>
       </div>
@@ -344,6 +345,32 @@
     </div>
   </div>
 
+  <!-- ============ RUcksack / INVENTAR ============ -->
+  <div class="shop-overlay" id="backpack-overlay" hidden>
+    <div class="shop-modal backpack-modal">
+      <div class="shop-header">
+        <h2 class="shop-title">🎒 Rucksack</h2>
+        <div class="shop-stars" id="backpack-coins">🪙 0</div>
+        <button class="shop-close" id="backpack-close" aria-label="Schließen">✕</button>
+      </div>
+      <div class="backpack-grid" id="backpack-grid"></div>
+      <p class="shop-hint" id="backpack-hint">Deine gesammelten Gegenstände.</p>
+    </div>
+  </div>
+
+  <!-- ============ SHOP-SCHAUFENSTER (Board-Item-Shop) ============ -->
+  <div class="shop-overlay" id="board-shop-overlay" hidden>
+    <div class="shop-modal board-shop-modal">
+      <div class="shop-header">
+        <h2 class="shop-title">🏪 Item-Shop</h2>
+        <div class="shop-stars" id="board-shop-coins">🪙 0</div>
+        <button class="shop-close" id="board-shop-close" aria-label="Schließen">✕</button>
+      </div>
+      <div class="board-shop-window" id="board-shop-window"></div>
+      <p class="shop-hint" id="board-shop-hint">Wähle ein Item aus dem Schaufenster.</p>
+    </div>
+  </div>
+
   <!-- ============ SETTINGS MODAL ============ -->
   <div class="shop-overlay" id="settings-overlay" hidden>
     <div class="shop-modal settings-modal">
@@ -425,7 +452,7 @@
   <script src="js/cinematic-camera-logic-browser.js?v=1"></script>
   <script src="js/pawn-model-logic-browser.js?v=1"></script>
   <script src="js/biome-decor-logic-browser.js?v=3"></script>
-  <script src="js/board-2d.js?v=1"></script>
+  <script src="js/board-2d.js?v=2"></script>
   <script type="module" src="js/scene3d.js?v=34"></script>
   <script src="js/loading-screen-logic-browser.js?v=1"></script>
   <script src="js/loading-screen-ui.js?v=1"></script>
@@ -452,6 +479,6 @@
   <script src="js/pwa.js?v=13"></script>
   <script src="js/branchchoice.js?v=13"></script>
   <script src="js/shared.js?v=2"></script>
-  <script src="js/player.js?v=23"></script>
+  <script src="js/player.js?v=24"></script>
 </body>
 </html>

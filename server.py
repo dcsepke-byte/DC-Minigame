@@ -632,7 +632,9 @@ class Room:
         BRANCH_REJOIN_OFFSET = 10  # Side-Path mündet 10 Felder später (im gleichen Biom)
 
         # Biome für Side-Path-Theming (passend zum Hauptpfad-Biom des Branch-Starts)
-        biomes = ["dorf", "wueste", "wald", "berg", "sumpf", "eis", "vulkan", "wolken"]
+        # Aethonia-Konzept-Biome (aus party-arena-game-design)
+        biomes = ["sonnenstrand", "zuckerwald", "wolkenwerk", "frostgipfel",
+                  "dschungel", "mechanik", "sonnenstrand", "zitadelle"]
 
         # Slot-Sets für Spezialfelder auf dem Hauptpfad
         event_slots     = {8, 17, 28, 37, 48, 57, 68, 77, 88, 97, 108, 117, 128, 137, 148, 157}
@@ -2196,6 +2198,9 @@ def handle_message(client, msg):
     elif t == "board:bet" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
         room.board_bet(pid, msg.get("target"), msg.get("amount", 0))
+    elif t == "board:useItem" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
+        room.use_board_item(pid, msg.get("item"))
     elif t == "player:score" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
         if is_board_mode(room.mode):

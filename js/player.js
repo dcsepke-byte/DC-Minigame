@@ -781,8 +781,9 @@
     board.itemPacks = m.itemPacks || {};
     board.players = m.players || [];
     board.history = [];
-    if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
-    else if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
+    /* NEU: Board2D ist der Haupt-Renderer (Aethonia-Weltkarte). Party3D nur Fallback. */
+    if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
+    else if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
     /* Hintergrundmusik starten (procedural, kein Asset) */
     if (window.FX && FX.startMusic) FX.startMusic();
     updateMyBoardStats();
@@ -807,6 +808,9 @@
     board.pendingPlayerId = m.pendingPlayerId || null;
     board.lapsDone = m.lapsDone || 0;
     board.lapsTotal = m.lapsTotal || 0;
+    /* NEU: Board2D Haupt-Renderer */
+    if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
+    else if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     board.log = m.log || '';
     board.history = Array.isArray(m.history) ? m.history.slice(-20) : board.history;
     renderBoardFromDiff();
@@ -853,8 +857,9 @@
   });
 
   function renderBoardFromDiff() {
-    if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
-    else if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
+    /* NEU: Board2D Haupt-Renderer */
+    if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
+    else if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();
@@ -903,21 +908,15 @@
         { label: 'Weiterziehen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
       ]);
     } else if (m.kind === 'itemBuy') {
-      // Item-Shop: jedes angebotene Item als Button
+      // Item-Shop: Schaufenster-Overlay mit Items visuell anzeigen
       const offers = (m && m.offers) || [];
-      const actions = offers.map(it => ({
-        label: `${it.icon} ${it.label} (${it.price}🪙)`,
-        action: () => Net.send({ type: 'board:decision', action: it.id }),
-      }));
-      actions.push({ label: 'Nicht kaufen', action: () => Net.send({ type: 'board:decision', action: 'skip' }) });
-      const noticeActions = offers.map(it => ({
-        label: `${it.icon} ${it.label} (${it.price}🪙)`,
-        kind: 'primary',
-        action: () => Net.send({ type: 'board:decision', action: it.id }),
-      }));
-      noticeActions.push({ label: 'Nicht kaufen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) });
-      showBoardPrompt(m.message || 'Item-Shop: Wähle ein Item.', actions);
-      showTurnNotice('Item-Shop: Wähle ein Item oder gehe.', noticeActions);
+      openBoardShop(offers, m.coins != null ? m.coins : (me.coins || 0));
+      showBoardPrompt(m.message || 'Item-Shop: Wähle ein Item.', [
+        { label: 'Nicht kaufen', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
+      ]);
+      showTurnNotice('Item-Shop: Wähle ein Item aus dem Schaufenster.', [
+        { label: 'Nicht kaufen', kind: 'ghost', action: () => Net.send({ type: 'board:decision', action: 'skip' }) },
+      ]);
     } else if (m.kind === 'rentOrDuel') {
       const actions = [
         { label: '🪙 Zahlen (2)', action: () => Net.send({ type: 'board:decision', action: 'rent' }) },
@@ -1529,6 +1528,77 @@
     updateJoinStarCount();
   }
 
+  /* ============================================================
+     BOARD-ITEM-SHOP (Schaufenster) + RUcksack/Inventar
+     ============================================================ */
+  function openBoardShop(offers, coins) {
+    const overlay = $('#board-shop-overlay');
+    if (!overlay) return;
+    const coinsEl = $('#board-shop-coins');
+    if (coinsEl) coinsEl.textContent = '🪙 ' + (coins || 0);
+    const windowEl = $('#board-shop-window');
+    if (windowEl) {
+      windowEl.innerHTML = '';
+      (offers || []).forEach(it => {
+        const card = el('div', 'board-shop-item');
+        card.innerHTML = `
+          <div class="board-shop-item-icon">${it.icon || '🎁'}</div>
+          <div class="board-shop-item-name">${escapeHtml(it.label || 'Item')}</div>
+          <div class="board-shop-item-desc">${escapeHtml(it.desc || '')}</div>
+          <div class="board-shop-item-price">${it.price || 0} 🪙</div>
+        `;
+        card.addEventListener('click', () => {
+          Net.send({ type: 'board:decision', action: it.id });
+          closeBoardShop();
+        });
+        windowEl.appendChild(card);
+      });
+    }
+    overlay.hidden = false;
+    FX.Sound.tap();
+  }
+
+  function closeBoardShop() {
+    const overlay = $('#board-shop-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+
+  function openBackpack() {
+    const overlay = $('#backpack-overlay');
+    if (!overlay) return;
+    const coinsEl = $('#backpack-coins');
+    if (coinsEl) coinsEl.textContent = '🪙 ' + (me.coins || 0);
+    const grid = $('#backpack-grid');
+    if (grid) {
+      grid.innerHTML = '';
+      const myItems = (board.itemPacks && board.itemPacks[me.id]) || [];
+      if (!myItems.length) {
+        grid.innerHTML = '<div class="backpack-empty">Dein Rucksack ist leer. Sammle Items im Item-Shop!</div>';
+      } else {
+        myItems.forEach(item => {
+          const card = el('div', 'backpack-item');
+          card.innerHTML = `
+            <div class="backpack-item-icon">${item.icon || '🎒'}</div>
+            <div class="backpack-item-name">${escapeHtml(item.label || 'Item')}</div>
+            <div class="backpack-item-desc">${escapeHtml(item.desc || '')}</div>
+          `;
+          card.addEventListener('click', () => {
+            Net.send({ type: 'board:useItem', item: item.id });
+            closeBackpack();
+          });
+          grid.appendChild(card);
+        });
+      }
+    }
+    overlay.hidden = false;
+    FX.Sound.tap();
+  }
+
+  function closeBackpack() {
+    const overlay = $('#backpack-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+
   function renderShop() {
     const SVL = window.ShopViewLogic;
     if (!SVL || !MPL) return;
@@ -1684,6 +1754,17 @@
     if (btnClose) btnClose.addEventListener('click', closeShop);
     const overlay = $('#shop-overlay');
     if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeShop(); });
+    /* Rucksack + Board-Shop Overlays */
+    const bpBtn = $('#board-backpack');
+    if (bpBtn) bpBtn.addEventListener('click', openBackpack);
+    const bpClose = $('#backpack-close');
+    if (bpClose) bpClose.addEventListener('click', closeBackpack);
+    const bpOverlay = $('#backpack-overlay');
+    if (bpOverlay) bpOverlay.addEventListener('click', (e) => { if (e.target === bpOverlay) closeBackpack(); });
+    const bsClose = $('#board-shop-close');
+    if (bsClose) bsClose.addEventListener('click', closeBoardShop);
+    const bsOverlay = $('#board-shop-overlay');
+    if (bsOverlay) bsOverlay.addEventListener('click', (e) => { if (e.target === bsOverlay) closeBoardShop(); });
     document.querySelectorAll('.shop-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
@@ -1736,15 +1817,15 @@
   }
 
   function renderBoardGrid() {
-    /* 2D grid removed — 3D board is the only Spielfeld now */
-    if (window.Party3D && board && board.tiles && board.tiles.length) {
-      Party3D.setBoardState({
+    /* NEU: Board2D ist das Spielfeld (Aethonia-Weltkarte). Party3D nur Fallback. */
+    if (window.Board2D && board && board.tiles && board.tiles.length) {
+      Board2D.setBoardState({
         tiles: board.tiles,
         players: board.players || [],
         owners: board.owners || {},
       });
-    } else if (window.Board2D && board && board.tiles && board.tiles.length) {
-      Board2D.setBoardState({
+    } else if (window.Party3D && board && board.tiles && board.tiles.length) {
+      Party3D.setBoardState({
         tiles: board.tiles,
         players: board.players || [],
         owners: board.owners || {},

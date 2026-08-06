@@ -5318,3 +5318,59 @@ body.player-app .onboarding-text { font-size: 0.9em; min-height: 2em; }
 .info-list strong {
   color: var(--gold, #ffe14d);
 }
+
+/* ============================================================
+   RUcksack / Inventar + Board-Shop-Schaufenster
+   ============================================================ */
+.backpack-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.backpack-item {
+  background: linear-gradient(135deg, #2a3350, #1a2035);
+  border: 1px solid #3a4a6a;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s, border-color .15s;
+}
+.backpack-item:active { transform: scale(.95); border-color: var(--gold, #ffe14d); }
+.backpack-item-icon { font-size: 28px; margin-bottom: 6px; }
+.backpack-item-name { font-weight: 700; font-size: 13px; color: #fff; }
+.backpack-item-desc { font-size: 11px; color: #8a93b0; margin-top: 4px; }
+.backpack-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #8a93b0;
+  padding: 30px 10px;
+  font-size: 14px;
+}
+
+/* Board-Shop-Schaufenster */
+.board-shop-window {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.board-shop-item {
+  background: linear-gradient(135deg, #2a3350, #1a2035);
+  border: 1px solid #3a4a6a;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s, border-color .15s;
+}
+.board-shop-item:active { transform: scale(.95); border-color: var(--gold, #ffe14d); }
+.board-shop-item-icon { font-size: 30px; margin-bottom: 6px; }
+.board-shop-item-name { font-weight: 700; font-size: 13px; color: #fff; }
+.board-shop-item-desc { font-size: 10px; color: #8a93b0; margin-top: 4px; min-height: 24px; }
+.board-shop-item-price { font-weight: 700; font-size: 13px; color: var(--gold, #ffe14d); margin-top: 6px; }

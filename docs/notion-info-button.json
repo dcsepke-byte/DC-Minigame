@@ -1,0 +1,5 @@
+{
+  "parent": {"page_id": "3a637b21-9b91-81ad-81e0-e164d4b3ef05"},
+  "properties": {"title": [{"text": {"content": "Info-Button im Hauptmenue (Anleitung)"}}]},
+  "markdown": "# Info-Button im Hauptmenue\n\n**Projekt:** Party Arena\n**Stand:** 2026-08-05\n\n## Feature\nBlauer Button \"So funktioniert's\" im Hauptmenue oeffnet einen Info-Screen mit kompletter Anleitung.\n\n## Inhalt\n- **Prinzip:** Mario-Party-artiges Partyspiel, bis 7 Spieler, Sterne gewinnen\n- **Spielablauf:** Beitreten - Wuerfeln - Feldaktionen - Minispiel - Gewinner\n- **Sterne & Muenzen:** Hauptwaehrung, Wetten auf Minispiele\n- **Felder:** Start, Ereignis, Stern-Shop, Item-Shop, Eigentum\n- **Bonus-Sterne:** am Ende fuer meiste Minigame-Siege + meiste Muenzen\n- **Handy-Verbindung:** WLAN-Code, keine Installation\n\n## Dateien\n- player.html (Info-Screen + Button)\n- js/player.js (Event-Handler, showScreen)\n- css/styles.css (menu-btn-info, info-card)\n\n## Test\n- Button im DOM, Info-Screen oeffnet, Zurueck funktioniert, 0 Fehler\n- Live auf party-arena.onrender.com"
+}
