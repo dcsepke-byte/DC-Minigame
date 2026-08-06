@@ -91,9 +91,13 @@ for y in range(H):
 
 # Wasser: Seen in den Haeuser-Bloecken (NACH der Gebaeude-Konvertierung,
 # damit sie nicht wieder ueberschrieben werden). Schneiden die Strassen NICHT.
-block_seeds = [(3,3), (6,2), (2,5)]  # (Blockzeile, Blockspalte) in 12er-Einheiten
+# Seeds muessen gueltig sein: by*12+8 < H und bx*12+8 < W (nicht out-of-bounds!)
+block_seeds = [(3,3), (2,5), (4,3)]  # (Blockzeile, Blockspalte) in 12er-Einheiten
 for (by, bx) in block_seeds:
     y0, x0 = by*12, bx*12
+    if y0+8 >= H or x0+8 >= W:  # Sicherheitscheck: Seed ausserhalb ueberspringen
+        print(f"  (WARN) Seed ({by},{bx}) ausserhalb des Gitters, uebersprungen")
+        continue
     for dy in range(3, 9):
         for dx in range(3, 9):
             yy, xx = y0+dy, x0+dx
@@ -101,9 +105,12 @@ for (by, bx) in block_seeds:
                 grid[yy][xx] = 'water'
 
 # Park: Grasflaeche in einem Block (NACH der Konvertierung: building -> grass)
-for y in range(H//2-4, H//2+4):
-    for x in range(W//2-4, W//2+4):
-        if grid[y][x] == 'building':
+# In einem echten Block zentriert (nicht auf den zentralen Strassen!)
+# Block (1,1): y=13-23, x=13-23 -> Park zentriert dort (kein Schnitt mit Strassen y=32/x=52)
+py0, px0 = 1*12, 1*12
+for y in range(py0+3, py0+9):
+    for x in range(px0+3, px0+9):
+        if 0<=y<H and 0<=x<W and grid[y][x]=='building':
             grid[y][x] = 'grass'
 
 # Orange Deko auf Strassen (Plaetze, Markierungen)
