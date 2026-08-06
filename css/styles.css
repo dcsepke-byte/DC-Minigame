@@ -5441,7 +5441,7 @@ body.player-app .onboarding-text { font-size: 0.9em; min-height: 2em; }
    PIXEL-ART HAUPTMENUE (Aethonia)
    ============================================================ */
 body.player-app .screen[data-screen="menu"] {
-  background: url('../assets/kenney-tiny-town/world_base.png') center/cover no-repeat;
+  background: url('../assets/kenney-tiny-town/aethonia_world.png') center/cover no-repeat;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   justify-content: flex-start;
