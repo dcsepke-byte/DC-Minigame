@@ -21,14 +21,14 @@
      AETHONIA-BIOME (Konzept-Farben)
      ============================================================ */
   const BIOMES = [
-    { id: 'sonnenstrand', name: 'Sonnenstrand', color: '#ffd54f', land: '#f5c542', water: '#4fc3f7', deco: '🌴' },
-    { id: 'zuckerwald',    name: 'Zuckerwald',    color: '#f48fb1', land: '#f06292', water: '#f8bbd0', deco: '🍭' },
-    { id: 'wolkenwerk',    name: 'Wolkenwerk',    color: '#b3e5fc', land: '#81d4fa', water: '#e1f5fe', deco: '☁️' },
-    { id: 'frostgipfel',   name: 'Frostgipfel',   color: '#b3e5fc', land: '#90caf9', water: '#e3f2fd', deco: '❄️' },
-    { id: 'dschungel',     name: 'Dschungel',     color: '#81c784', land: '#66bb6a', water: '#a5d6a7', deco: '🌿' },
-    { id: 'mechanik',      name: 'Mechanik-Stadt', color: '#b0bec5', land: '#90a4ae', water: '#cfd8dc', deco: '⚙️' },
-    { id: 'sonnenstrand2', name: 'Sonnenstrand',  color: '#ffd54f', land: '#f5c542', water: '#4fc3f7', deco: '🏖️' },
-    { id: 'zitadelle',     name: 'Sternenzitadelle', color: '#ffd700', land: '#ffc107', water: '#fff59d', deco: '⭐' },
+    { id: 'sonnenstrand', name: 'Sonnenstrand', color: '#ffd54f', land: '#f9a825', water: '#0288d1', deco: '🌴' },
+    { id: 'zuckerwald',    name: 'Zuckerwald',    color: '#f48fb1', land: '#e91e63', water: '#f8bbd0', deco: '🍭' },
+    { id: 'wolkenwerk',    name: 'Wolkenwerk',    color: '#b3e5fc', land: '#29b6f6', water: '#e1f5fe', deco: '☁️' },
+    { id: 'frostgipfel',   name: 'Frostgipfel',   color: '#b3e5fc', land: '#5c6bc0', water: '#e3f2fd', deco: '❄️' },
+    { id: 'dschungel',     name: 'Dschungel',     color: '#81c784', land: '#2e7d32', water: '#a5d6a7', deco: '🌿' },
+    { id: 'mechanik',      name: 'Mechanik-Stadt', color: '#b0bec5', land: '#546e7a', water: '#cfd8dc', deco: '⚙️' },
+    { id: 'sonnenstrand2', name: 'Sonnenstrand',  color: '#ffd54f', land: '#f9a825', water: '#0288d1', deco: '🏖️' },
+    { id: 'zitadelle',     name: 'Sternenzitadelle', color: '#ffd700', land: '#ff8f00', water: '#fff59d', deco: '⭐' },
   ];
 
   /* ============================================================
@@ -143,58 +143,56 @@
     const w = state._w, h = state._h;
     ctx.clearRect(0, 0, w, h);
 
-    // Hintergrund: dunkler Himmel
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#0a0e1f');
-    sky.addColorStop(1, '#1a2340');
-    ctx.fillStyle = sky;
+    const cx = w / 2, cy = h / 2;
+    // Hintergrund: Ozean (tiefes Wasser) statt dunklem Himmel
+    const ocean = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
+    ocean.addColorStop(0, '#0d3b66');
+    ocean.addColorStop(1, '#062a4a');
+    ctx.fillStyle = ocean;
     ctx.fillRect(0, 0, w, h);
 
-    const cx = w / 2, cy = h / 2;
-    const scale = Math.min(w, h) / 26;
+    const scale = Math.min(w, h) / 40;
     const tiles = state.tiles;
     const total = tiles.length || 24;
 
-    // --- 1. Biome als Insel-Regionen (farbige Landmassen) ---
+    // --- 1. Biome als grosse Sektoren (Kuchenstuecke) — klare Themengebiete ---
+    // Jeder Sektor deckt einen 45°-Bereich des Feld-Rings ab (Mario-Party-Stil).
+    const ringR = 17 * scale;   // aeusserer Rand des Feld-Rings
     for (let seg = 0; seg < 8; seg++) {
       const biome = BIOMES[seg];
-      const segAngle = (seg + 0.5) / 8 * Math.PI * 2 - Math.PI / 2;
-      const bx = cx + Math.cos(segAngle) * 10 * scale;
-      const by = cy + Math.sin(segAngle) * 10 * scale * 0.92;
-      const r = 5.2 * scale;
+      const startAngle = (seg / 8) * Math.PI * 2 - Math.PI / 2;
+      const endAngle = ((seg + 1) / 8) * Math.PI * 2 - Math.PI / 2;
 
-      // Landmasse (weiche, unregelmäßige Insel)
+      // Sektor-Flaeche (Landmasse) — opak, kräftige Farbe
       ctx.beginPath();
-      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.15) {
-        const wob = 1 + Math.sin(a * 5 + seg * 2) * 0.12 + Math.sin(a * 9 + seg) * 0.06;
-        const px = bx + Math.cos(a) * r * wob;
-        const py = by + Math.sin(a) * r * wob * 0.85;
-        if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-      }
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, ringR * 1.2, startAngle, endAngle);
       ctx.closePath();
-      ctx.fillStyle = biome.land + 'cc';
+      ctx.fillStyle = biome.land;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
 
-      // Wasser-Ring um die Insel
+      // Sektor-Rand (Wasser/Trennung)
       ctx.beginPath();
-      ctx.arc(bx, by, r * 1.15, 0, Math.PI * 2);
-      ctx.strokeStyle = biome.water + '55';
-      ctx.lineWidth = 3;
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, ringR * 1.2, startAngle, endAngle);
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Biom-Label
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = 'bold 10px sans-serif';
+      // Biom-Label am Sektor-Rand
+      const midAngle = (startAngle + endAngle) / 2;
+      const lx = cx + Math.cos(midAngle) * ringR * 1.35;
+      const ly = cy + Math.sin(midAngle) * ringR * 1.35;
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(biome.name, bx, by - r * 1.35);
+      ctx.fillText(biome.name, lx, ly);
 
       // Deko-Emoji
-      ctx.font = '16px sans-serif';
-      ctx.fillText(biome.deco, bx, by + r * 1.1);
+      ctx.font = '20px sans-serif';
+      ctx.fillText(biome.deco, lx, ly + 18);
     }
 
     // --- 2. Pfad-Verbindungen (Wege zwischen Feldern) ---
