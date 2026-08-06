@@ -5374,3 +5374,65 @@ body.player-app .onboarding-text { font-size: 0.9em; min-height: 2em; }
 .board-shop-item-name { font-weight: 700; font-size: 13px; color: #fff; }
 .board-shop-item-desc { font-size: 10px; color: #8a93b0; margin-top: 4px; min-height: 24px; }
 .board-shop-item-price { font-weight: 700; font-size: 13px; color: var(--gold, #ffe14d); margin-top: 6px; }
+
+/* ============================================================
+   NEUES HAUPTMENUE (Aethonia)
+   ============================================================ */
+.menu-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.menu-characters {
+  width: 100%;
+  max-width: 420px;
+  margin: 14px auto 6px;
+  padding: 0 12px;
+}
+.menu-characters-title {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold, #ffe14d);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.menu-characters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.menu-char-card {
+  background: linear-gradient(135deg, #2a3350, #1a2035);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 8px 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.menu-char-card:active { transform: scale(.94); }
+.menu-char-card.selected {
+  border-color: var(--char-color, #888);
+  box-shadow: 0 0 14px var(--char-color, #888);
+}
+.menu-char-avatar {
+  font-size: 26px;
+  line-height: 1.2;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+.menu-char-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 4px;
+}
+.menu-char-home {
+  font-size: 8px;
+  color: #8a93b0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

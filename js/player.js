@@ -215,6 +215,35 @@
       const wrap = document.getElementById('menu-figure-preview');
       if (wrap) wrap.style.setProperty('--menu-char-color', fig.color || '#888888');
     }
+    renderMenuCharacters();
+  }
+
+  /* Charakter-Übersicht im Hauptmenü: 8 Arenians als wählbare Karten */
+  function renderMenuCharacters() {
+    const grid = $('#menu-characters-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    let selectedEmoji = null;
+    try { selectedEmoji = localStorage.getItem('pa_figure') || (me && me.figure); } catch (_) {}
+    ARENIANS.forEach(a => {
+      const card = el('div', 'menu-char-card');
+      if (a.emoji === selectedEmoji) card.classList.add('selected');
+      card.style.setProperty('--char-color', a.color);
+      card.innerHTML = `
+        <div class="menu-char-avatar">${a.emoji}</div>
+        <div class="menu-char-name">${escapeHtml(a.name)}</div>
+        <div class="menu-char-home">${escapeHtml(a.home)}</div>
+      `;
+      card.addEventListener('click', () => {
+        me.figure = a.emoji;
+        me.characterId = a.id;
+        try { localStorage.setItem('pa_figure', a.emoji); } catch (_) {}
+        try { localStorage.setItem('pa_character_id', a.id); } catch (_) {}
+        updateMenuFigurePreview();
+        FX.Sound.tap();
+      });
+      grid.appendChild(card);
+    });
   }
 
   function updateUiSizeButton() {

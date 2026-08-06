@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=21" />
+  <link rel="stylesheet" href="css/styles.css?v=22" />
   <link rel="manifest" href="manifest.webmanifest?v=9" />
   <link rel="icon" href="assets/icon.svg?v=9" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="assets/icon.svg?v=9" />
@@ -66,28 +66,37 @@
 
     <!-- ============ HAUPTMENUE ============ -->
     <section class="screen active" data-screen="menu">
-      <div class="logo-wrap">
-        <h1 class="logo"><span class="logo-word">PARTY</span><span class="logo-word accent">ARENA</span></h1>
-        <p class="tagline">Mit dem Handy mitspielen</p>
-      </div>
-      <div class="menu-stats" id="menu-stats">
-        <div class="menu-stat">
-          <span class="menu-stat-icon">🎖️</span>
-          <span class="menu-stat-value" id="menu-level">Level 0</span>
+      <div class="menu-hero">
+        <div class="logo-wrap">
+          <h1 class="logo"><span class="logo-word">PARTY</span><span class="logo-word accent">ARENA</span></h1>
+          <p class="tagline">Willkommen in Aethonia</p>
         </div>
-        <div class="menu-stat">
-          <span class="menu-stat-icon">⭐</span>
-          <span class="menu-stat-value" id="menu-stars">0 Sterne</span>
+        <div class="menu-stats" id="menu-stats">
+          <div class="menu-stat">
+            <span class="menu-stat-icon">🎖️</span>
+            <span class="menu-stat-value" id="menu-level">Level 0</span>
+          </div>
+          <div class="menu-stat">
+            <span class="menu-stat-icon">⭐</span>
+            <span class="menu-stat-value" id="menu-stars">0 Sterne</span>
+          </div>
+          <div class="menu-stat">
+            <span class="menu-stat-icon">✨</span>
+            <span class="menu-stat-value" id="menu-xp">0 XP</span>
+          </div>
         </div>
-        <div class="menu-stat">
-          <span class="menu-stat-icon">✨</span>
-          <span class="menu-stat-value" id="menu-xp">0 XP</span>
+        <div class="menu-xp-bar">
+          <div class="menu-xp-fill" id="menu-xp-fill" style="width:0%"></div>
+          <span class="menu-xp-text" id="menu-xp-text">0 / 0 XP</span>
         </div>
       </div>
-      <div class="menu-xp-bar">
-        <div class="menu-xp-fill" id="menu-xp-fill" style="width:0%"></div>
-        <span class="menu-xp-text" id="menu-xp-text">0 / 0 XP</span>
+
+      <!-- Charakter-Übersicht (8 Arenians) -->
+      <div class="menu-characters" id="menu-characters" aria-label="Charaktere">
+        <div class="menu-characters-title">Wähle deinen Champion</div>
+        <div class="menu-characters-grid" id="menu-characters-grid"></div>
       </div>
+
       <div class="menu-figure-preview" id="menu-figure-preview" aria-label="Deine Figur">
         <div class="menu-figure-avatar" id="menu-figure-avatar">🧱</div>
         <div class="menu-figure-info">
@@ -479,6 +488,6 @@
   <script src="js/pwa.js?v=13"></script>
   <script src="js/branchchoice.js?v=13"></script>
   <script src="js/shared.js?v=2"></script>
-  <script src="js/player.js?v=24"></script>
+  <script src="js/player.js?v=25"></script>
 </body>
 </html>
