@@ -587,6 +587,18 @@
     renderBoardGrid();
   });
 
+  Net.on('board:bet', m => {
+    if (!state.hostParticipates) return;
+    const players = (m && m.players) || [];
+    const actions = players.map(p => ({
+      label: `🎯 ${p.name}`,
+      kind: 'primary',
+      action: () => Net.send({ type: 'board:bet', target: p.id, amount: 2 }),
+    }));
+    showHostBoardPrompt('Setze 2 Münzen auf den mutmaßlichen Sieger!', actions);
+    showTurnNotice('Wetten! Wer gewinnt das Minispiel?', actions);
+  });
+
   Net.on('board:duelResult', () => {
     stopHostPlay();
     hideTurnNotice();

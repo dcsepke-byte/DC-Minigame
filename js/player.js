@@ -941,6 +941,17 @@
     }
   });
 
+  Net.on('board:bet', m => {
+    // Wett-Phase: setze 1-3 Münzen auf den mutmaßlichen Sieger
+    const players = (m && m.players) || [];
+    const actions = players.map(p => ({
+      label: `🎯 ${p.name}`,
+      action: () => Net.send({ type: 'board:bet', target: p.id, amount: 2 }),
+    }));
+    showBoardPrompt('Setze 2 Münzen auf den mutmaßlichen Sieger!', actions);
+    showTurnNotice('Wetten! Wer gewinnt das Minispiel?', actions);
+  });
+
   Net.on('board:chaos', m => {
     setBoardStatus(m.text || 'Chaos ausgelöst!');
     FX.Sound.whoosh();

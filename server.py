@@ -84,6 +84,10 @@ BOARD_EVENT_EFFECTS = [
     {"id": "freeze_leader", "title": "Eis-Zeit", "desc": "Leader verliert 2 Sterne", "rarity": "Episch", "weight": 2},
     {"id": "shuffle_items", "title": "Item-Chaos", "desc": "Alle Items werden neu verteilt", "rarity": "Selten", "weight": 3},
     {"id": "reverse_positions", "title": "Umkehrung", "desc": "Erster und Letzter tauschen Position", "rarity": "Episch", "weight": 2},
+    {"id": "coin_bonus", "title": "Muenzsegen", "desc": "Alle erhalten +3 Muenzen", "rarity": "Gewoehnlich", "weight": 12},
+    {"id": "coin_penalty", "title": "Muenzregen", "desc": "Ausloeser verliert 3 Muenzen", "rarity": "Gewoehnlich", "weight": 10},
+    {"id": "coin_transfer", "title": "Abzocke", "desc": "Ausloeser nimmt 2 Muenzen vom Leader", "rarity": "Selten", "weight": 6},
+    {"id": "coin_bonus_lowest", "title": "Solidaritaetsfond", "desc": "Aermster erhaelt +5 Muenzen", "rarity": "Selten", "weight": 7},
 ]
 
 BOARD_TEMPO_PRESETS = {
@@ -413,6 +417,7 @@ class Room:
                 "id": pid, "name": p["name"], "color": p["color"],
                 "stars": p["stars"], "coins": p.get("coins", 0),
                 "totalPoints": p["totalPoints"],
+                "minigameWins": p.get("minigameWins", 0),
                 "figure": p.get("figure", "🙂"),
                 "characterId": p.get("characterId", ""),
                 "position": p.get("position", 0),
@@ -532,6 +537,7 @@ class Room:
         self.players[new_pid] = {
             "name": name, "color": color, "stars": 0, "coins": 0, "totalPoints": 0,
             "position": 0, "figure": figure, "characterId": character_id,
+            "minigameWins": 0,
             "reconnectToken": uuid.uuid4().hex,
             "client": client, "connected": True,
         }
@@ -1213,6 +1219,29 @@ class Room:
             for pid2 in connected:
                 self.players[pid2]["stars"] = min(10, self.players[pid2].get("stars", 0) * 2)
             txt = "💥 Sternen-Explosion! Alle Sterne verdoppeln sich!"
+        elif effect["id"] == "coin_bonus":
+            for pid2 in connected:
+                self.players[pid2]["coins"] = self.players[pid2].get("coins", 0) + 3
+            txt = "🪙 Muenzsegen: Alle Spieler erhalten +3 Muenzen."
+        elif effect["id"] == "coin_penalty":
+            trigger["coins"] = max(0, trigger.get("coins", 0) - 3)
+            txt = f"🪙 Muenzregen: {trigger['name']} verliert 3 Muenzen."
+        elif effect["id"] == "coin_transfer" and len(connected) >= 2:
+            leader = max((self.players[pid].get("coins", 0), pid) for pid in connected)[1]
+            if leader != trigger_pid:
+                take = min(2, self.players[leader].get("coins", 0))
+                if take > 0:
+                    self.players[leader]["coins"] = max(0, self.players[leader].get("coins", 0) - take)
+                    trigger["coins"] = trigger.get("coins", 0) + take
+                    txt = f"🪙 Abzocke: {trigger['name']} nimmt {take} Muenze(n) von {self.players[leader]['name']}."
+                else:
+                    txt = f"🪙 Abzocke: {self.players[leader]['name']} hat keine Muenzen."
+            else:
+                txt = f"🪙 Abzocke: {trigger['name']} ist selbst der Reichste."
+        elif effect["id"] == "coin_bonus_lowest":
+            low = min((self.players[pid].get("coins", 0), pid) for pid in connected)[1]
+            self.players[low]["coins"] = self.players[low].get("coins", 0) + 5
+            txt = f"🪙 Solidaritaetsfond: {self.players[low]['name']} (aermster) erhaelt +5 Muenzen."
         elif effect["id"] == "freeze_leader":
             leader = max((self.players[pid].get("stars", 0), pid) for pid in connected)[1]
             lost = min(2, self.players[leader].get("stars", 0))
@@ -1394,6 +1423,39 @@ class Room:
                 "ownerName": owner_p["name"],
                 "message": f"Feld von {owner_p['name']}: 1 Stern zahlen oder zum Duell herausfordern?",
             })
+        self.send_board_update()
+
+    def board_bet(self, pid, target, amount):
+        """Spieler setzt Münzen auf den mutmaßlichen Minispiel-Sieger."""
+        if self.state != "board" or not self.board:
+            return
+        g = self.board.get("global")
+        if not g or g.get("betsLocked"):
+            return
+        amount = max(0, int(amount))
+        if amount <= 0 or amount > 3:
+            return
+        participants = g.get("participants", [])
+        if target not in participants or pid not in participants:
+            return
+        p = self.players.get(pid)
+        if not p:
+            return
+        # Einsatz abziehen (nur bei erster Wette des Spielers)
+        if pid not in g.get("bets", {}):
+            if p.get("coins", 0) < amount:
+                self.board_story(f"💸 {p['name']} hat zu wenige Münzen für die Wette.")
+                return
+            p["coins"] = p.get("coins", 0) - amount
+        else:
+            # Ändern: alte Wette zurück, neue abziehen
+            old = g["bets"][pid].get("amount", 0)
+            if p.get("coins", 0) + old < amount:
+                self.board_story(f"💸 {p['name']} hat zu wenige Münzen für die Wette.")
+                return
+            p["coins"] = p.get("coins", 0) + old - amount
+        g.setdefault("bets", {})[pid] = {"on": target, "amount": amount}
+        self.board_story(f"🎲 {p['name']} setzt {amount} Münze(n) auf {self.players.get(target, {}).get('name', '?')}.")
         self.send_board_update()
 
     def board_decision(self, pid, action):
@@ -1615,16 +1677,33 @@ class Room:
             "participants": participants,
             "scores": {},
             "finished": set(),
+            "bets": {},          # pid -> {"on": pid, "amount": n}
+            "betsLocked": False,
         }
-        if trigger == "chaos":
-            self.board["lastLog"] = f"Ereignis-Runde startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
-        else:
-            self.board["lastLog"] = f"Runden-Minispiel startet: {game.get('icon', '🎮')} {game.get('name', 'Mini-Spiel')}"
-        self.broadcast({"type": "board:announce", "text": self.board["lastLog"]})
-        self.board_story(self.board["lastLog"])
-        self.broadcast({"type": "roundIntro", "round": self.board["lapsDone"], "total": self.board["lapsTotal"], "game": game})
+        # Wett-Phase: jeder Teilnehmer kann 1-3 Münzen auf einen Spieler setzen.
+        self.board_story(f"🎲 Wetten! Setze Münzen auf den mutmaßlichen Sieger.")
         self.send_board_update()
+        for pid in list(participants):
+            c = self.players.get(pid, {}).get("client")
+            if c:
+                c.send({"type": "board:bet", "players": [{"id": p, "name": self.players.get(p, {}).get("name", "?")} for p in participants]})
+            elif pid == self.host_pid and self.host and self.host_participates:
+                self.host.send({"type": "board:bet", "players": [{"id": p, "name": self.players.get(p, {}).get("name", "?")} for p in participants]})
+        # Starte Minispiel nach Wett-Fenster (6s) — vorher roundIntro an alle
         self.cancel_board_start_handle()
+        self.board["startHandle"] = loop.call_later(6.0, self.begin_global_board_start_with_intro, game)
+
+    def begin_global_board_start_with_intro(self, game):
+        """Nach Wett-Fenster: roundIntro an alle, dann Spiel starten."""
+        if self.state != "board" or not self.board:
+            return
+        # roundIntro an alle Teilnehmer
+        self.broadcast({"type": "roundIntro", "round": self.board.get("lapsDone", 0), "total": self.board.get("lapsTotal", 0), "game": game})
+        # Lock Wetten — keine Änderungen mehr
+        if self.board.get("global"):
+            self.board["global"]["betsLocked"] = True
+        self.cancel_board_start_handle()
+        intro_delay = float(self.board.get("introDelay", ROUND_INTRO_DELAY))
         self.board["startHandle"] = loop.call_later(intro_delay, self.begin_global_board_start)
 
     def begin_global_board_start(self):
@@ -1728,11 +1807,25 @@ class Room:
             for r in ranking:
                 if r["score"] == top and top > 0:
                     self.players[r["id"]]["stars"] += 1
+                    self.players[r["id"]]["minigameWins"] = self.players[r["id"]].get("minigameWins", 0) + 1
             winner_names = [r["name"] for r in ranking if r["score"] == top and top > 0]
             if winner_names:
                 self.board_story(f"🎉 Runden-Minispiel beendet: {', '.join(winner_names)} gewinnt/gewinnen +1 Stern.")
             else:
                 self.board_story("🎉 Runden-Minispiel beendet: Keine Sterne vergeben.")
+        # Wetten auszahlen: Wer auf einen Gewinner (Top-Score>0) gesetzt hat, erhält 2x Einsatz.
+        if ranking:
+            top = ranking[0]["score"]
+            winner_ids = {r["id"] for r in ranking if r["score"] == top and top > 0}
+            bets = g.get("bets", {})
+            for pid, bet in bets.items():
+                if bet.get("on") in winner_ids:
+                    amount = max(0, int(bet.get("amount", 0)))
+                    if amount > 0:
+                        p = self.players.get(pid)
+                        if p:
+                            p["coins"] = p.get("coins", 0) + amount * 2
+                            self.board_story(f"🎯 {p['name']} gewinnt Wette (+{amount*2} Münzen)!")
         self.broadcast({"type": "board:globalResult", "ranking": ranking})
         self.board["global"] = None
         self.board["phase"] = "turn"
@@ -1926,6 +2019,26 @@ class Room:
 
     def show_final(self):
         self.state = "final"
+        # --- Bonus-Sterne (Mario-Party-Prinzip "Semi-opake Wertung") ---
+        # 1) Meiste Minigame-Siege: +1 Stern
+        if self.board:
+            wins = [(pid, self.players.get(pid, {}).get("minigameWins", 0)) for pid in self.order]
+            wins = [(p, w) for p, w in wins if w > 0]
+            if wins:
+                maxw = max(w for _, w in wins)
+                for pid, w in wins:
+                    if w == maxw:
+                        self.players[pid]["stars"] += 1
+                        self.board_story(f"⭐ Bonus: {self.players[pid]['name']} erhält +1 Stern (meiste Minigame-Siege: {w}).")
+            # 2) Meiste Münzen: +1 Stern
+            coins = [(pid, self.players.get(pid, {}).get("coins", 0)) for pid in self.order]
+            coins = [(p, c) for p, c in coins if c > 0]
+            if coins:
+                maxc = max(c for _, c in coins)
+                for pid, c in coins:
+                    if c == maxc:
+                        self.players[pid]["stars"] += 1
+                        self.board_story(f"⭐ Bonus: {self.players[pid]['name']} erhält +1 Stern (meiste Münzen: {c}).")
         ranking = sorted(
             self.public_players(),
             key=lambda p: (p["stars"], p["totalPoints"]),
@@ -2080,6 +2193,9 @@ def handle_message(client, msg):
     elif t == "board:decision" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
         room.board_decision(pid, msg.get("action"))
+    elif t == "board:bet" and client.role in ("player", "host"):
+        pid = client.pid if client.role == "player" else room.host_pid
+        room.board_bet(pid, msg.get("target"), msg.get("amount", 0))
     elif t == "player:score" and client.role in ("player", "host"):
         pid = client.pid if client.role == "player" else room.host_pid
         if is_board_mode(room.mode):
