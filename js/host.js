@@ -345,7 +345,7 @@
     state.itemPacks = m.itemPacks || {};
     state.boardTiles = m.tiles || [];
     state.boardHistory = [];
-    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: {} });
+    if (window.Board2D) Board2D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: {} });
     /* Hintergrundmusik starten (procedural, kein Asset) */
     if (window.FX && FX.startMusic) FX.startMusic();
     renderBoardGrid();
@@ -372,7 +372,7 @@
     state.boardPhase = m.phase || 'turn';
     state.turnPlayerId = m.turnPlayerId || null;
     state.pendingPlayerId = m.pendingPlayerId || null;
-    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners, turnPlayerId: state.turnPlayerId });
+    if (window.Board2D) Board2D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners, turnPlayerId: state.turnPlayerId });
     if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
     state.lapsDone = m.lapsDone || 0;
     state.lapsTotal = m.lapsTotal || 0;
@@ -419,7 +419,7 @@
     if (diff.log != null) state.boardLog = diff.log;
     if (diff.lastLuckyPlayer !== undefined) state.lastLuckyPlayer = diff.lastLuckyPlayer;
     if (diff.itemPacks) state.itemPacks = Object.assign({}, state.itemPacks, diff.itemPacks);
-    if (window.Party3D) Party3D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners, turnPlayerId: state.turnPlayerId });
+    if (window.Board2D) Board2D.setBoardState({ tiles: state.boardTiles, players: state.players, owners: state.boardOwners, turnPlayerId: state.turnPlayerId });
     if (state.boardPhase !== 'decision' || state.pendingPlayerId !== HOST_PID) state.hostPendingKind = '';
     renderBoardFromState();
   });
@@ -1099,13 +1099,7 @@
 
   /* ---------- Helfer (aus shared.js) ---------- */
   function renderBoardGrid() {
-    if (window.Party3D && state.boardTiles && state.boardTiles.length) {
-      Party3D.setBoardState({
-        tiles: state.boardTiles,
-        players: state.players,
-        owners: state.boardOwners,
-      });
-    } else if (window.Board2D && state.boardTiles && state.boardTiles.length) {
+    if (window.Board2D && state.boardTiles && state.boardTiles.length) {
       Board2D.setBoardState({
         tiles: state.boardTiles,
         players: state.players,

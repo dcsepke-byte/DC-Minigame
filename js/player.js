@@ -810,9 +810,8 @@
     board.itemPacks = m.itemPacks || {};
     board.players = m.players || [];
     board.history = [];
-    /* NEU: Board2D ist der Haupt-Renderer (Aethonia-Weltkarte). Party3D nur Fallback. */
+    /* Board2D ist der einzige Renderer (Aethonia-Weltkarte). */
     if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
-    else if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: {} });
     /* Hintergrundmusik starten (procedural, kein Asset) */
     if (window.FX && FX.startMusic) FX.startMusic();
     updateMyBoardStats();
@@ -837,9 +836,8 @@
     board.pendingPlayerId = m.pendingPlayerId || null;
     board.lapsDone = m.lapsDone || 0;
     board.lapsTotal = m.lapsTotal || 0;
-    /* NEU: Board2D Haupt-Renderer */
+    /* Board2D einziger Renderer */
     if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
-    else if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     board.log = m.log || '';
     board.history = Array.isArray(m.history) ? m.history.slice(-20) : board.history;
     renderBoardFromDiff();
@@ -886,9 +884,8 @@
   });
 
   function renderBoardFromDiff() {
-    /* NEU: Board2D Haupt-Renderer */
+    /* Board2D einziger Renderer */
     if (window.Board2D) Board2D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
-    else if (window.Party3D) Party3D.setBoardState({ tiles: board.tiles, players: board.players, owners: board.owners, turnPlayerId: board.turnPlayerId || null });
     updateMyBoardStats();
     renderBoardRanking();
     renderProfileCard();
@@ -1846,15 +1843,9 @@
   }
 
   function renderBoardGrid() {
-    /* NEU: Board2D ist das Spielfeld (Aethonia-Weltkarte). Party3D nur Fallback. */
+    /* Board2D ist das Spielfeld (Aethonia-Weltkarte). */
     if (window.Board2D && board && board.tiles && board.tiles.length) {
       Board2D.setBoardState({
-        tiles: board.tiles,
-        players: board.players || [],
-        owners: board.owners || {},
-      });
-    } else if (window.Party3D && board && board.tiles && board.tiles.length) {
-      Party3D.setBoardState({
         tiles: board.tiles,
         players: board.players || [],
         owners: board.owners || {},
