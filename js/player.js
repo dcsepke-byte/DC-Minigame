@@ -1000,12 +1000,9 @@
       Party3D.finishDiceRollCinematic();
     }
     /* Etappe 2: Path-basiert — Server sendet path-Array. */
-    if (window.Party3D && Party3D.animatePawnMove) {
-      if (Array.isArray(m.path) && m.path.length) {
-        Party3D.animatePawnMove(m.playerId, m.path);
-      } else if (Number.isFinite(m.from) && Number.isFinite(m.to)) {
-        const total = (board.tiles && board.tiles.length) || 40;
-        Party3D.animatePawnMove(m.playerId, m.from, m.to, total);
+    if (window.Board2D && Board2D.animatePawnMove) {
+      if (Number.isFinite(m.from) && Number.isFinite(m.to)) {
+        Board2D.animatePawnMove(m.playerId, m.from, m.to);
       }
     }
     if (!Array.isArray(m.path) && Number.isFinite(m.from) && Number.isFinite(m.to)) {

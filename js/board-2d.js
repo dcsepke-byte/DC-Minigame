@@ -86,6 +86,83 @@
     // Main-Pfad (Tile -> Pixel, zentriert auf Karte)
     state.mainPath = bp.main.map(([tx, ty]) => ({ x: tx * TILE, y: ty * TILE }));
     state.sidePaths = (bp.side || []).map(sp => sp.map(([tx, ty]) => ({ x: tx * TILE, y: ty * TILE })));
+    // Vollstaendiger Strassen-Pfad (alle Zellen) fuer Bewegungs-Animation
+    state.fullPath = (bp.path || []).map(([tx, ty]) => ({ x: tx * TILE, y: ty * TILE }));
+  }
+
+  /* ============================================================
+     BEWEGUNG: Pfad-Zellen zwischen zwei Feld-Indizes entlang der Strasse.
+     from/to sind Feld-Indizes (0..159 Hauptpfad, 160..239 Side-Path).
+     Liefert Array von Pixel-Punkten (inkl. Start, exkl. Ziel).
+     ============================================================ */
+  function pathIndexForField(fieldIdx) {
+    const n = state.fullPath.length;
+    if (n < 160) return 0;
+    // Hauptpfad-Felder liegen gleichmaessig auf dem fullPath
+    if (fieldIdx < 160) {
+      return Math.round(fieldIdx * n / 160);
+    }
+    // Side-Path: naechster Hauptpfad-Punkt (Branch-Start)
+    const bi = Math.floor((fieldIdx - 160) / 10);
+    const branchMainIdx = [10, 30, 50, 70, 90, 110, 130, 150][bi] || 10;
+    return Math.round(branchMainIdx * n / 160);
+  }
+
+  function getPathBetween(from, to) {
+    const n = state.fullPath.length;
+    if (!n) return [];
+    const i0 = pathIndexForField(from);
+    const i1 = pathIndexForField(to);
+    const pts = [];
+    // Vorwaerts entlang des Pfads (Modulo, da Schleife)
+    let i = i0;
+    while (i !== i1) {
+      pts.push(state.fullPath[i]);
+      i = (i + 1) % n;
+    }
+    return pts;
+  }
+
+  /* ============================================================
+     ANIMATION: Figur entlang der Strasse bewegen.
+     ============================================================ */
+  let anim = null;
+  function animatePawnMove(playerId, from, to) {
+    const pts = getPathBetween(from, to);
+    if (!pts.length) return;
+    if (anim) cancelAnimationFrame(anim.raf);
+    const start = performance.now();
+    const dur = Math.max(400, pts.length * 60);  // ~60ms pro Strassen-Zelle
+    const startPos = pts[0];
+    const endPos = state.mainPath[to] || pts[pts.length-1];
+    anim = { playerId, pts, start, dur, startPos, endPos, raf: 0 };
+    function frame(now) {
+      const t = Math.min(1, (now - anim.start) / anim.dur);
+      // Interpoliere entlang der Pfad-Punkte
+      const idx = t * (anim.pts.length - 1);
+      const i0 = Math.floor(idx);
+      const i1 = Math.min(anim.pts.length - 1, i0 + 1);
+      const frac = idx - i0;
+      const p0 = anim.pts[i0];
+      const p1 = anim.pts[i1];
+      const px = p0.x + (p1.x - p0.x) * frac;
+      const py = p0.y + (p1.y - p0.y) * frac;
+      // Setze Spieler-Position (fuer Render)
+      const player = state.players.find(p => p.id === playerId);
+      if (player) {
+        player._animPos = { x: px, y: py };
+        player._animating = true;
+      }
+      render();
+      if (t < 1) {
+        anim.raf = requestAnimationFrame(frame);
+      } else {
+        if (player) { player._animating = false; player._animPos = null; }
+        anim = null;
+        render();
+      }
+    }
+    anim.raf = requestAnimationFrame(frame);
   }
 
   /* ============================================================
@@ -207,7 +284,13 @@
     const offsets = {};
     state.players.forEach(p => {
       const pos = p.position || 0;
-      const tilePos = tilePosition(pos, total, cx, cy, scale);
+      // Animierte Position (entlang der Strasse) bevorzugen
+      let tilePos;
+      if (p._animating && p._animPos) {
+        tilePos = p._animPos;
+      } else {
+        tilePos = tilePosition(pos, total, cx, cy, scale);
+      }
       const count = posCount[pos] || 1;
       const idx = offsets[pos] || 0;
       offsets[pos] = idx + 1;
@@ -252,5 +335,5 @@
     init();
   }
 
-  window.Board2D = { setBoardState, show, hide, get active() { return state.active; } };
+  window.Board2D = { setBoardState, show, hide, animatePawnMove, get active() { return state.active; } };
 })();
